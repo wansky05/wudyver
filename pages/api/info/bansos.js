@@ -389,70 +389,120 @@ class BansosCrawler {
 
         console.log(`[INFO] CSRF Token: ${csrfToken.substring(0, 10)}..., Captcha Text: ${captchaText}`);
 
-        const lowerProv = prov.toLowerCase();
-        const lowerKab = kab.toLowerCase();
-        const lowerKec = kec.toLowerCase();
-        const lowerDesa = desa.toLowerCase();
+        const lowerProv = (prov || '').toLowerCase().trim();
+        const lowerKab = (kab || '').toLowerCase().trim();
+        const lowerKec = (kec || '').toLowerCase().trim();
+        const lowerDesa = (desa || '').toLowerCase().trim();
 
-        // --- Province Search ---
+        // --- Province Handling ---
         const provinces = await this.getProvinces(csrfToken);
+        if (!lowerProv) {
+          return {
+            status: false,
+            message: "Input Provinsi belum diisi. Silakan pilih dari daftar berikut:",
+            available_data: provinces.map(p => ({ code: p.code, name: p.name })),
+            level: 'province'
+          };
+        }
         const targetProvince = this.findLocationByName(provinces, lowerProv);
         if (!targetProvince) {
           console.error(`[ERR] Province '${prov}' not found or no close match.`);
           return {
             status: false,
             message: `Provinsi '${prov}' tidak ditemukan. Silakan pilih dari daftar berikut:`,
-            available_data: provinces.map(p => ({ code: p.code, name: p.name })), // Menggunakan available_data
-            level: 'province' // Menambahkan level untuk identifikasi
+            available_data: provinces.map(p => ({ code: p.code, name: p.name })),
+            level: 'province'
           };
         }
         console.log(`[SUCCESS] Found Province: ${targetProvince.name} (Code: ${targetProvince.code})`);
 
-        // --- Regency Search ---
+        // --- Regency Handling ---
         const regencies = await this.getRegencies(csrfToken, targetProvince.code);
         const normalizedRegencies = regencies.map(r => ({
           code: r.KODE_KABUPATEN,
           name: r.NAMA_KABUPATEN
         }));
+        if (!lowerKab) {
+          return {
+            status: false,
+            message: `Input Kabupaten/Kota belum diisi untuk provinsi ${targetProvince.name}. Silakan pilih dari daftar berikut:`,
+            available_data: normalizedRegencies.map(r => ({ code: r.code, name: r.name })),
+            level: 'regency',
+            parent_location: { province: targetProvince.name }
+          };
+        }
         const targetRegency = this.findLocationByName(normalizedRegencies, lowerKab);
         if (!targetRegency) {
           console.error(`[ERR] Regency '${kab}' not found or no close match in '${targetProvince.name}'.`);
           return {
             status: false,
             message: `Kabupaten/Kota '${kab}' tidak ditemukan di ${targetProvince.name}. Silakan pilih dari daftar berikut:`,
-            available_data: normalizedRegencies.map(r => ({ code: r.code, name: r.name })), // Menggunakan available_data
-            level: 'regency' // Menambahkan level untuk identifikasi
+            available_data: normalizedRegencies.map(r => ({ code: r.code, name: r.name })),
+            level: 'regency',
+            parent_location: { province: targetProvince.name }
           };
         }
         console.log(`[SUCCESS] Found Regency: ${targetRegency.name} (Code: ${targetRegency.code})`);
 
-        // --- District Search ---
+        // --- District Handling ---
         const districts = await this.getDistricts(csrfToken, targetProvince.code, targetRegency.code);
+        if (!lowerKec) {
+          return {
+            status: false,
+            message: `Input Kecamatan belum diisi untuk kabupaten ${targetRegency.name}. Silakan pilih dari daftar berikut:`,
+            available_data: districts.map(d => ({ code: d.code, name: d.name })),
+            level: 'district',
+            parent_location: { province: targetProvince.name, regency: targetRegency.name }
+          };
+        }
         const targetDistrict = this.findLocationByName(districts, lowerKec);
         if (!targetDistrict) {
           console.error(`[ERR] District '${kec}' not found or no close match in '${targetRegency.name}'.`);
           return {
             status: false,
             message: `Kecamatan '${kec}' tidak ditemukan di ${targetRegency.name}. Silakan pilih dari daftar berikut:`,
-            available_data: districts.map(d => ({ code: d.code, name: d.name })), // Menggunakan available_data
-            level: 'district' // Menambahkan level untuk identifikasi
+            available_data: districts.map(d => ({ code: d.code, name: d.name })),
+            level: 'district',
+            parent_location: { province: targetProvince.name, regency: targetRegency.name }
           };
         }
         console.log(`[SUCCESS] Found District: ${targetDistrict.name} (Code: ${targetDistrict.code})`);
 
-        // --- Village Search ---
+        // --- Village Handling ---
         const villages = await this.getVillages(csrfToken, targetProvince.code, targetRegency.code, targetDistrict.code);
+        if (!lowerDesa) {
+          return {
+            status: false,
+            message: `Input Desa/Kelurahan belum diisi untuk kecamatan ${targetDistrict.name}. Silakan pilih dari daftar berikut:`,
+            available_data: villages.map(v => ({ code: v.code, name: v.name })),
+            level: 'village',
+            parent_location: { province: targetProvince.name, regency: targetRegency.name, district: targetDistrict.name }
+          };
+        }
         const targetVillage = this.findLocationByName(villages, lowerDesa);
         if (!targetVillage) {
           console.error(`[ERR] Village '${desa}' not found or no close match in '${targetDistrict.name}'.`);
           return {
             status: false,
             message: `Desa/Kelurahan '${desa}' tidak ditemukan di ${targetDistrict.name}. Silakan pilih dari daftar berikut:`,
-            available_data: villages.map(v => ({ code: v.code, name: v.name })), // Menggunakan available_data
-            level: 'village' // Menambahkan level untuk identifikasi
+            available_data: villages.map(v => ({ code: v.code, name: v.name })),
+            level: 'village',
+            parent_location: { province: targetProvince.name, regency: targetRegency.name, district: targetDistrict.name }
           };
         }
         console.log(`[SUCCESS] Found Village: ${targetVillage.name} (Code: ${targetVillage.code})`);
+
+        // --- Nama Handling (Optional, if you want to suggest names based on partial input later) ---
+        // Saat ini, jika nama kosong, kita tetap melanjutkan pencarian bansos.
+        // Jika Anda ingin menuntut input nama, Anda bisa menambahkan validasi di sini:
+        if (!nama || nama.trim() === "") {
+             return {
+                 status: false,
+                 message: "Input nama penerima belum diisi.",
+                 level: 'name_required' // Level khusus untuk nama
+             };
+        }
+
 
         // --- Bansos Search ---
         const searchResult = await this.searchBansos({
@@ -533,12 +583,10 @@ export default async function handler(req, res) {
   try {
     const crawler = new BansosCrawler();
     const response = await crawler.search(params);
-    // Next.js secara otomatis akan mengirim objek JavaScript sebagai JSON
     return res.status(200).json(response);
   } catch (error) {
-    // Tangani error yang tidak terduga pada tingkat handler
     res.status(500).json({
-      status: false, // Menambahkan status false untuk konsistensi
+      status: false,
       message: error.message || "Terjadi kesalahan server internal.",
       data: [],
       matched: null
