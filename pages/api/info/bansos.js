@@ -10,6 +10,7 @@ import {
 import {
   wrapper
 } from "axios-cookiejar-support";
+
 class BansosCrawler {
   constructor() {
     this.jar = new CookieJar();
@@ -32,6 +33,7 @@ class BansosCrawler {
       validateStatus: () => true
     }));
   }
+
   toSnakeCase(obj) {
     if (Array.isArray(obj)) {
       return obj.map(item => this.toSnakeCase(item));
@@ -47,6 +49,7 @@ class BansosCrawler {
     }
     return obj;
   }
+
   async getCsrfAndCaptcha() {
     console.log("[PROSES] Getting CSRF token and CAPTCHA details...");
     const htmlResponse = await this.axiosInstance.get("/");
@@ -55,8 +58,10 @@ class BansosCrawler {
     const captchaSrc = $("#captchaCode").attr("src");
     let captchaImageUrl = captchaSrc ? new URL(captchaSrc, this.axiosInstance.defaults.baseURL).href : "";
     let captchaText = "";
+
     console.log(`[CSRF] Token found: ${csrfToken ? "Yes" : "No"}`);
     console.log(`[CAPTCHA] Image URL from web: ${captchaImageUrl}`);
+
     if (captchaImageUrl) {
       try {
         console.log("[PROSES] Downloading CAPTCHA image...");
@@ -64,6 +69,7 @@ class BansosCrawler {
           responseType: "arraybuffer"
         });
         const captchaBuffer = Buffer.from(captchaResponse.data);
+
         console.log("[PROSES] Uploading CAPTCHA image to Catbox...");
         const formData = new FormData();
         formData.append("file", captchaBuffer, {
@@ -73,6 +79,7 @@ class BansosCrawler {
         formData.append("filename", "");
         formData.append("expire_value", "24");
         formData.append("expire_unit", "");
+
         const uploadResponse = await axios.post("https://nauval.cloud/upload", formData, {
           headers: {
             ...formData.getHeaders(),
@@ -82,9 +89,11 @@ class BansosCrawler {
           maxBodyLength: Infinity
         });
         console.log("[API_RESP] Catbox Upload:", JSON.stringify(uploadResponse.data).substring(0, 100) + "...");
+
         if (uploadResponse.data?.file_url) {
           const captchaImageUrlFromUpload = uploadResponse.data.file_url;
           console.log(`[CAPTCHA] Image uploaded to: ${captchaImageUrlFromUpload}`);
+
           console.log("[PROSES] Sending CAPTCHA image to OCR API...");
           const ocrApiUrl = `https://api.nekorinn.my.id/tools/ocr?imageUrl=${encodeURIComponent(captchaImageUrlFromUpload)}`;
           const ocrResponse = await axios.get(ocrApiUrl, {
@@ -93,6 +102,7 @@ class BansosCrawler {
             }
           });
           console.log("[API_RESP] OCR Captcha:", JSON.stringify(ocrResponse.data).substring(0, 100) + "...");
+
           if (ocrResponse.data?.result) {
             captchaText = ocrResponse.data.result.replace(/\s+/g, "").toLowerCase();
             console.log(`[CAPTCHA] Text from OCR (lowercase): '${captchaText}'`);
@@ -108,12 +118,14 @@ class BansosCrawler {
     } else {
       console.warn("[WARN] CAPTCHA image URL not found.");
     }
+
     return {
       csrfToken: csrfToken,
       captchaSrc: captchaImageUrl,
       captchaText: captchaText
     };
   }
+
   async getProvinces(csrfToken) {
     console.log("[PROSES] Fetching provinces...");
     const headers = {
@@ -143,6 +155,7 @@ class BansosCrawler {
     console.log("[API_RESP] /provinsi:", JSON.stringify(response.data).substring(0, 100) + "...");
     return provinces;
   }
+
   async getRegencies(csrfToken, kdprop) {
     console.log(`[PROSES] Fetching regencies for province ${kdprop}...`);
     const headers = {
@@ -195,6 +208,7 @@ class BansosCrawler {
     console.log("[API_RESP] /kabupaten:", JSON.stringify(response.data).substring(0, 100) + "...");
     return regenciesData;
   }
+
   async getDistricts(csrfToken, kdprop, kdkab) {
     console.log(`[PROSES] Fetching districts for regency ${kdkab}...`);
     const headers = {
@@ -225,6 +239,7 @@ class BansosCrawler {
     console.log("[API_RESP] /kecamatan:", JSON.stringify(response.data).substring(0, 100) + "...");
     return districts;
   }
+
   async getVillages(csrfToken, kdprop, kdkab, kdkec) {
     console.log(`[PROSES] Fetching villages for district ${kdkec}...`);
     const headers = {
@@ -255,6 +270,7 @@ class BansosCrawler {
     console.log("[API_RESP] /desa:", JSON.stringify(response.data).substring(0, 100) + "...");
     return villages;
   }
+
   async searchBansos({
     csrfToken,
     name,
@@ -275,6 +291,7 @@ class BansosCrawler {
       wilayah_input: villageCode,
       captcha: captcha
     }).toString();
+
     const searchResponse = await this.axiosInstance.post("/cekbansos_v2", requestBody, {
       headers: headers
     });
@@ -282,15 +299,19 @@ class BansosCrawler {
     console.log("[API_RESP] /cekbansos_v2:", JSON.stringify(searchResponse.data).substring(0, 100) + "...");
     return searchResponse.data;
   }
+
   findMatch(apiData, targetName, targetRegion) {
     if (!apiData?.length) return null;
+
     const cleanTargetName = targetName.toLowerCase().replace(/[^a-z0-9]/g, "");
     const normalizedTargetProvince = targetRegion.province.name.toLowerCase();
     const normalizedTargetRegency = targetRegion.regency.name.toLowerCase();
     const normalizedTargetDistrict = targetRegion.district.name.toLowerCase();
     const normalizedTargetVillage = targetRegion.village.name.toLowerCase();
+
     let bestMatch = null;
     let highestScore = -1;
+
     for (const item of apiData) {
       const itemConverted = this.toSnakeCase(item);
       const itemName = itemConverted.nama_penerima ? itemConverted.nama_penerima.toLowerCase().replace(/[^a-z0-9]/g, "") : "";
@@ -298,21 +319,26 @@ class BansosCrawler {
       const itemRegency = itemConverted.kabupaten ? itemConverted.kabupaten.toLowerCase() : "";
       const itemDistrict = itemConverted.kecamatan ? itemConverted.kecamatan.toLowerCase() : "";
       const itemVillage = itemConverted.kelurahan ? itemConverted.kelurahan.toLowerCase() : "";
+
       let currentScore = 0;
+
       if (itemName === cleanTargetName) {
         currentScore += 100;
       } else if (itemName.includes(cleanTargetName) || cleanTargetName.includes(itemName)) {
         currentScore += 50;
       }
+
       if (itemProvince.includes(normalizedTargetProvince)) currentScore += 20;
       if (itemRegency.includes(normalizedTargetRegency)) currentScore += 15;
       if (itemDistrict.includes(normalizedTargetDistrict)) currentScore += 10;
       if (itemVillage.includes(normalizedTargetVillage)) currentScore += 5;
+
       if (currentScore > highestScore) {
         highestScore = currentScore;
         bestMatch = itemConverted;
       }
     }
+
     if (bestMatch && highestScore >= 100) {
       console.log(`[PROSES] Best matching bansos data found (score: ${highestScore}).`);
       return bestMatch;
@@ -321,14 +347,19 @@ class BansosCrawler {
       return null;
     }
   }
+
   findLocationByName(locations, targetName) {
     if (!locations?.length || !targetName) return null;
+
     const cleanTarget = targetName.toLowerCase().trim();
+
     let match = locations.find(item => item.name.toLowerCase().trim() === cleanTarget);
     if (match) return match;
+
     match = locations.find(item => item.name.toLowerCase().includes(cleanTarget) || cleanTarget.includes(item.name.toLowerCase()));
     return match;
   }
+
   async search({
     prov,
     kab,
@@ -338,6 +369,7 @@ class BansosCrawler {
   }) {
     console.log(`\n--- Starting Search ---`);
     console.log(`[INPUT] Province: ${prov}, Regency: ${kab}, District: ${kec}, Village: ${desa}, Name: ${nama}`);
+
     const MAX_ATTEMPTS = 3;
     for (let attempt = 1; attempt <= MAX_ATTEMPTS; attempt++) {
       try {
@@ -346,28 +378,37 @@ class BansosCrawler {
           csrfToken,
           captchaText
         } = await this.getCsrfAndCaptcha();
+
         if (!csrfToken) {
           throw new Error("[ERR] CSRF token not found. Cannot proceed.");
         }
         if (!captchaText) {
           console.warn("[WARN] No CAPTCHA text from API. Search likely to FAIL. Retrying...");
-          continue;
+          continue; // Retry if CAPTCHA text is missing
         }
+
         console.log(`[INFO] CSRF Token: ${csrfToken.substring(0, 10)}..., Captcha Text: ${captchaText}`);
+
         const lowerProv = prov.toLowerCase();
         const lowerKab = kab.toLowerCase();
         const lowerKec = kec.toLowerCase();
         const lowerDesa = desa.toLowerCase();
+
+        // --- Province Search ---
         const provinces = await this.getProvinces(csrfToken);
         const targetProvince = this.findLocationByName(provinces, lowerProv);
         if (!targetProvince) {
           console.error(`[ERR] Province '${prov}' not found or no close match.`);
           return {
             status: false,
-            message: `Province '${prov}' not found. Available: ${provinces.map(p => p.name).join(", ")}`
+            message: `Provinsi '${prov}' tidak ditemukan. Silakan pilih dari daftar berikut:`,
+            available_data: provinces.map(p => ({ code: p.code, name: p.name })), // Menggunakan available_data
+            level: 'province' // Menambahkan level untuk identifikasi
           };
         }
         console.log(`[SUCCESS] Found Province: ${targetProvince.name} (Code: ${targetProvince.code})`);
+
+        // --- Regency Search ---
         const regencies = await this.getRegencies(csrfToken, targetProvince.code);
         const normalizedRegencies = regencies.map(r => ({
           code: r.KODE_KABUPATEN,
@@ -378,50 +419,65 @@ class BansosCrawler {
           console.error(`[ERR] Regency '${kab}' not found or no close match in '${targetProvince.name}'.`);
           return {
             status: false,
-            message: `Regency '${kab}' not found in ${targetProvince.name}. Available: ${normalizedRegencies.map(r => r.name).join(", ")}`
+            message: `Kabupaten/Kota '${kab}' tidak ditemukan di ${targetProvince.name}. Silakan pilih dari daftar berikut:`,
+            available_data: normalizedRegencies.map(r => ({ code: r.code, name: r.name })), // Menggunakan available_data
+            level: 'regency' // Menambahkan level untuk identifikasi
           };
         }
         console.log(`[SUCCESS] Found Regency: ${targetRegency.name} (Code: ${targetRegency.code})`);
+
+        // --- District Search ---
         const districts = await this.getDistricts(csrfToken, targetProvince.code, targetRegency.code);
         const targetDistrict = this.findLocationByName(districts, lowerKec);
         if (!targetDistrict) {
           console.error(`[ERR] District '${kec}' not found or no close match in '${targetRegency.name}'.`);
           return {
             status: false,
-            message: `District '${kec}' not found in ${targetRegency.name}. Available: ${districts.map(d => d.name).join(", ")}`
+            message: `Kecamatan '${kec}' tidak ditemukan di ${targetRegency.name}. Silakan pilih dari daftar berikut:`,
+            available_data: districts.map(d => ({ code: d.code, name: d.name })), // Menggunakan available_data
+            level: 'district' // Menambahkan level untuk identifikasi
           };
         }
         console.log(`[SUCCESS] Found District: ${targetDistrict.name} (Code: ${targetDistrict.code})`);
+
+        // --- Village Search ---
         const villages = await this.getVillages(csrfToken, targetProvince.code, targetRegency.code, targetDistrict.code);
         const targetVillage = this.findLocationByName(villages, lowerDesa);
         if (!targetVillage) {
           console.error(`[ERR] Village '${desa}' not found or no close match in '${targetDistrict.name}'.`);
           return {
             status: false,
-            message: `Village '${desa}' not found in ${targetDistrict.name}. Available: ${villages.map(v => v.name).join(", ")}`
+            message: `Desa/Kelurahan '${desa}' tidak ditemukan di ${targetDistrict.name}. Silakan pilih dari daftar berikut:`,
+            available_data: villages.map(v => ({ code: v.code, name: v.name })), // Menggunakan available_data
+            level: 'village' // Menambahkan level untuk identifikasi
           };
         }
         console.log(`[SUCCESS] Found Village: ${targetVillage.name} (Code: ${targetVillage.code})`);
+
+        // --- Bansos Search ---
         const searchResult = await this.searchBansos({
           csrfToken: csrfToken,
           name: nama,
           villageCode: targetVillage.code,
           captcha: captchaText
         });
+
         const convertedFullResult = this.toSnakeCase(searchResult);
+
         if (convertedFullResult.status === false) {
           console.warn(`[API REJECTION] Message from Kemensos API: ${convertedFullResult.message}`);
           if (convertedFullResult.message && convertedFullResult.message.includes("Captcha")) {
             console.warn(`[ATTEMPT ${attempt}] Captcha error detected by API, retrying...`);
-            continue;
+            continue; // Retry on CAPTCHA error from Kemensos API
           }
           return {
             status: false,
-            message: convertedFullResult.message || "An error occurred during search (API responded with false status).",
+            message: convertedFullResult.message || "Terjadi kesalahan saat mencari (API merespons dengan status false).",
             data: convertedFullResult.data || [],
             matched: null
           };
         }
+
         let matchedBansosData = null;
         if (convertedFullResult.data?.length) {
           console.log("[PROSES] Searching for best matching bansos data by name and region...");
@@ -442,9 +498,10 @@ class BansosCrawler {
         } else {
           console.log("[INFO] API response contained no bansos data for the given criteria.");
         }
+
         return {
           status: true,
-          message: searchResult.message || "Search completed.",
+          message: searchResult.message || "Pencarian selesai.",
           data: convertedFullResult.data || [],
           matched: matchedBansosData,
           found_location: {
@@ -454,30 +511,37 @@ class BansosCrawler {
             village: targetVillage
           }
         };
+
       } catch (error) {
         console.error(`[ATTEMPT ${attempt}] An unexpected error occurred: ${error.message}`);
         if (attempt === MAX_ATTEMPTS) {
           return {
             status: false,
-            message: `Search failed after ${MAX_ATTEMPTS} attempts due to an unexpected error: ${error.message}`,
+            message: `Pencarian gagal setelah ${MAX_ATTEMPTS} percobaan karena kesalahan tak terduga: ${error.message}`,
             data: [],
             matched: null
           };
         }
-        await new Promise(resolve => setTimeout(resolve, 2e3));
+        await new Promise(resolve => setTimeout(resolve, 2000)); // Tunggu 2 detik sebelum mencoba lagi
       }
     }
   }
 }
+
 export default async function handler(req, res) {
   const params = req.method === "GET" ? req.query : req.body;
   try {
     const crawler = new BansosCrawler();
     const response = await crawler.search(params);
+    // Next.js secara otomatis akan mengirim objek JavaScript sebagai JSON
     return res.status(200).json(response);
   } catch (error) {
+    // Tangani error yang tidak terduga pada tingkat handler
     res.status(500).json({
-      error: error.message || "Internal Server Error"
+      status: false, // Menambahkan status false untuk konsistensi
+      message: error.message || "Terjadi kesalahan server internal.",
+      data: [],
+      matched: null
     });
   }
 }
