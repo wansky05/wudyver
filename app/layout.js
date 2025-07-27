@@ -1,8 +1,10 @@
+import Script from 'next/script';
 import { Inter } from "next/font/google";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import Providers from "./providers";
 import apiConfig from "@/configs/apiConfig";
+import Head from "./head";
 
 const inter = Inter({ subsets: ["latin"] });
 
@@ -13,6 +15,7 @@ const appleTouchIcon = "/images/favicon/favicon.png";
 const socialShareImage = "/images/favicon/favicon.png";
 
 export const metadata = {
+  metadataBase: new URL(domain),
   title: {
     default: "DashCode API Dashboard",
     template: "%s | DashCode API Dashboard",
@@ -120,7 +123,15 @@ export default async function RootLayout({ children }) {
 
   return (
     <html lang="id">
+    <Head>
+      </Head>
       <body className={`${inter.className} font-inter custom-tippy dashcode-app`}>
+        <Script
+          async
+          src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=ca-pub-1389266588531643"
+          crossOrigin="anonymous"
+          strategy="afterInteractive"
+        />
         <Providers session={session}>
           {children}
         </Providers>
