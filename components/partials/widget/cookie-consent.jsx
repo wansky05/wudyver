@@ -5,8 +5,11 @@ import { ToastContainer, toast } from "react-toastify";
 import { Icon } from "@iconify/react";
 import { useSession } from "next-auth/react";
 import { useRouter } from "next/navigation";
+import Cookies from "js-cookie";
 import Card from "@/components/ui/Card";
 import Button from "@/components/ui/Button";
+
+const COOKIE_NAME = "wudysoft_cookie_consent";
 
 const CustomCookieConsent = () => {
   const [visible, setVisible] = useState(false);
@@ -25,11 +28,18 @@ const CustomCookieConsent = () => {
     }
 
     if (status === "unauthenticated") {
-      setTimeout(() => setVisible(true), 1000);
+      const consentGiven = Cookies.get(COOKIE_NAME);
+
+      if (consentGiven === "accepted") {
+        setVisible(false);
+      } else {
+        setTimeout(() => setVisible(true), 1000);
+      }
     }
   }, [status]);
 
   const acceptCookie = () => {
+    Cookies.set(COOKIE_NAME, "accepted", { expires: 365 });
     toast.success("Anda menyetujui penggunaan cookie. Selamat datang!");
     setVisible(false);
     router.push("/");
@@ -73,12 +83,12 @@ const CustomCookieConsent = () => {
         <Card
           bodyClass="relative p-5 sm:p-6 md:p-7 flex flex-col h-full overflow-hidden"
           className="w-full max-w-sm sm:max-w-md md:max-w-lg
-                     min-h-fit max-h-[90vh] overflow-y-auto
-                     border border-teal-400/40 dark:border-teal-500/60
-                     rounded-2xl shadow-2xl shadow-teal-500/10
-                     bg-white/80 dark:bg-slate-800/80 backdrop-blur-lg
-                     transition-all duration-500 ease-out
-                     hover:shadow-3xl hover:shadow-teal-500/20"
+                      min-h-fit max-h-[90vh] overflow-y-auto
+                      border border-teal-400/40 dark:border-teal-500/60
+                      rounded-2xl shadow-2xl shadow-teal-500/10
+                      bg-white/80 dark:bg-slate-800/80 backdrop-blur-lg
+                      transition-all duration-500 ease-out
+                      hover:shadow-3xl hover:shadow-teal-500/20"
         >
           <div className="flex items-center justify-between mb-5">
             <div className="flex items-center space-x-3">
@@ -109,7 +119,7 @@ const CustomCookieConsent = () => {
           <div className="space-y-4 mb-6 flex-grow">
             <div
               className="bg-gradient-to-r from-teal-50 to-cyan-50 dark:from-teal-900/20 dark:to-cyan-900/20
-                         rounded-xl p-4 border border-teal-200/50 dark:border-teal-700/50"
+                          rounded-xl p-4 border border-teal-200/50 dark:border-teal-700/50"
             >
               <div className="flex items-start space-x-3">
                 <Icon

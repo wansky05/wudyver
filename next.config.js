@@ -30,6 +30,7 @@ const nextConfig = withPWA({
   experimental: {
     appDir: true,
     swcMinify: true,
+    nextScriptWorkers: true,
     serverActions: {
       bodySizeLimit: "5gb"
     },
