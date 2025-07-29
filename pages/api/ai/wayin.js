@@ -21,6 +21,43 @@ class WayinAPI {
         "user-agent": "Mozilla/5.0 (Linux; Android 10; K) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/135.0.0.0 Mobile Safari/537.36"
       }
     });
+    this.encKey = CryptoJS.enc.Utf8.parse(apiConfig.PASSWORD.padEnd(32, "x"));
+    this.encIV = CryptoJS.enc.Utf8.parse(apiConfig.PASSWORD.padEnd(16, "x"));
+  }
+  enc(data) {
+    try {
+      const textToEncrypt = JSON.stringify(data);
+      const encrypted = CryptoJS.AES.encrypt(textToEncrypt, this.encKey, {
+        iv: this.encIV,
+        mode: CryptoJS.mode.CBC,
+        padding: CryptoJS.pad.Pkcs7
+      });
+      return encrypted.ciphertext.toString(CryptoJS.enc.Hex);
+    } catch (e) {
+      console.error("Error during encryption:", e.message);
+      throw e;
+    }
+  }
+  dec(encryptedHex) {
+    try {
+      const ciphertext = CryptoJS.enc.Hex.parse(encryptedHex);
+      const cipherParams = CryptoJS.lib.CipherParams.create({
+        ciphertext: ciphertext
+      });
+      const decrypted = CryptoJS.AES.decrypt(cipherParams, this.encKey, {
+        iv: this.encIV,
+        mode: CryptoJS.mode.CBC,
+        padding: CryptoJS.pad.Pkcs7
+      });
+      const json = decrypted.toString(CryptoJS.enc.Utf8);
+      if (!json) {
+        throw new Error("Decryption returned empty or invalid data.");
+      }
+      return JSON.parse(json);
+    } catch (e) {
+      console.error("Error during decryption:", e.message);
+      throw e;
+    }
   }
   b64(input, urlSafe = false) {
     try {
@@ -214,10 +251,10 @@ class WayinAPI {
       throw e;
     }
   }
-  async generate({
+  async create({
     url
   }) {
-    let username, email, rawPassword, accessToken, taskId;
+    let username, email, rawPassword, accessToken, wayinTaskId;
     try {
       username = this.genRandUser();
       rawPassword = this.genRandPass();
@@ -229,31 +266,94 @@ class WayinAPI {
       accessToken = signupRes.data.bearer.access_token;
       const videoMetaRes = await this.getVidMeta(url, accessToken);
       const startTaskRes = await this.startTask(videoMetaRes.data, accessToken);
-      taskId = startTaskRes.data.id;
-      const pollTaskRes = await this.pollTask(taskId, accessToken);
-      const resultListRes = await this.getResultList(taskId, accessToken);
-      console.log("Process: All steps completed successfully!");
+      wayinTaskId = startTaskRes.data.id;
+      const task_id = this.enc({
+        wayinTaskId: wayinTaskId,
+        accessToken: accessToken,
+        username: username,
+        email: email,
+        rawPassword: rawPassword
+      });
+      console.log("Process: Task initiated successfully!");
       return {
-        result: pollTaskRes.data,
-        list: resultListRes.data
+        task_id: task_id,
+        message: "Wayin video processing task initiated successfully. Use the status endpoint to check its progress."
       };
     } catch (error) {
       console.error("Process: An error occurred during the automated process:", error.message);
       throw error;
     }
   }
+  async status({
+    task_id
+  }) {
+    try {
+      if (!task_id) {
+        throw new Error("task_id is required to check status.");
+      }
+      const decryptedData = this.dec(task_id);
+      const {
+        wayinTaskId,
+        accessToken
+      } = decryptedData;
+      if (!wayinTaskId || !accessToken) {
+        throw new Error("Invalid task_id: Missing required data after decryption.");
+      }
+      console.log(`API Step: Polling task status (Wayin ID: ${wayinTaskId})...`);
+      const pollTaskRes = await this.pollTask(wayinTaskId, accessToken);
+      if (pollTaskRes.data.status === "DONE") {
+        const resultListRes = await this.getResultList(wayinTaskId, accessToken);
+        return {
+          status: "success",
+          result: pollTaskRes.data,
+          list: resultListRes.data
+        };
+      } else {
+        return {
+          status: pollTaskRes.data.status,
+          message: `Task is currently: ${pollTaskRes.data.status}.`
+        };
+      }
+    } catch (error) {
+      console.error("Error in WayinAPI status check:", error);
+      throw new Error(`Failed to check Wayin task status: ${error.message}`);
+    }
+  }
 }
 export default async function handler(req, res) {
-  const params = req.method === "GET" ? req.query : req.body;
-  if (!params.url) {
+  const {
+    action,
+    ...params
+  } = req.method === "GET" ? req.query : req.body;
+  if (!action) {
     return res.status(400).json({
-      error: "Url are required"
+      error: "Action (create or status) is required."
     });
   }
+  const wayinApi = new WayinAPI();
   try {
-    const wayin = new WayinAPI();
-    const response = await wayin.generate(params);
-    return res.status(200).json(response);
+    switch (action) {
+      case "create":
+        if (!params.url) {
+          return res.status(400).json({
+            error: "URL is required for 'create' action."
+          });
+        }
+        const createResponse = await wayinApi.create(params);
+        return res.status(200).json(createResponse);
+      case "status":
+        if (!params.task_id) {
+          return res.status(400).json({
+            error: "task_id is required for 'status' action."
+          });
+        }
+        const statusResponse = await wayinApi.status(params);
+        return res.status(200).json(statusResponse);
+      default:
+        return res.status(400).json({
+          error: "Invalid action. Supported actions are 'create' and 'status'."
+        });
+    }
   } catch (error) {
     res.status(500).json({
       error: error.message || "Internal Server Error"

@@ -1,5 +1,6 @@
 import axios from "axios";
 import crypto from "crypto";
+import FormData from "form-data";
 class OverchatAPI {
   constructor() {
     this.getRandomValues = crypto.getRandomValues.bind(crypto);
@@ -81,6 +82,41 @@ class OverchatAPI {
       throw error;
     }
   }
+  async downloadImage(imageUrl) {
+    try {
+      const response = await axios.get(imageUrl, {
+        responseType: "arraybuffer"
+      });
+      const contentType = response.headers["content-type"] || "application/octet-stream";
+      const filename = imageUrl.substring(imageUrl.lastIndexOf("/") + 1);
+      return {
+        buffer: Buffer.from(response.data),
+        filename: filename,
+        contentType: contentType
+      };
+    } catch (error) {
+      throw new Error(`Failed to download image from URL: ${imageUrl}, Error: ${error.message}`);
+    }
+  }
+  async uploadImage(fileBuffer, filename, contentType = "image/png") {
+    try {
+      const formData = new FormData();
+      formData.append("file", fileBuffer, {
+        filename: filename,
+        contentType: contentType
+      });
+      const response = await axios.post(`${this.baseURL}/chat/upload`, formData, {
+        headers: {
+          ...this.headers,
+          "content-type": `multipart/form-data; boundary=${formData._boundary}`
+        }
+      });
+      return response.data;
+    } catch (error) {
+      console.error("Error uploading image:", error.response ? error.response.data : error.message);
+      throw error;
+    }
+  }
   async chat({
     chatId,
     prompt,
@@ -93,6 +129,9 @@ class OverchatAPI {
     stream = false,
     temperature = .5,
     top_p = .95,
+    imageUrl,
+    imageUrls = [],
+    endpointType = "thread",
     ...rest
   }) {
     try {
@@ -100,11 +139,35 @@ class OverchatAPI {
         await this.getId();
       }
       let currentChatId = chatId;
-      if (!currentChatId) {
+      if (!currentChatId && endpointType === "thread") {
         currentChatId = await this.createId();
       }
+      const allImageUrls = [];
+      if (typeof imageUrl === "string" && imageUrl) {
+        allImageUrls.push(imageUrl);
+      }
+      if (Array.isArray(imageUrls) && imageUrls.length > 0) {
+        allImageUrls.push(...imageUrls);
+      }
+      let uploadedFilesInfo = [];
+      let messageLinks = [];
+      if (allImageUrls.length > 0) {
+        if (endpointType === "completions") {
+          console.warn("Peringatan: Mengunggah gambar tidak didukung untuk endpoint 'completions'. Gambar akan diabaikan.");
+        } else {
+          for (const url of allImageUrls) {
+            const downloadedFile = await this.downloadImage(url);
+            const uploadResult = await this.uploadImage(downloadedFile.buffer, downloadedFile.filename, downloadedFile.contentType);
+            uploadedFilesInfo.push({
+              path: downloadedFile.filename,
+              link: uploadResult.link,
+              croppedImageLink: uploadResult.croppedImageLink
+            });
+            messageLinks.push(uploadResult.link);
+          }
+        }
+      }
       const requestData = {
-        chatId: currentChatId,
         model: model,
         personaId: personaId,
         frequency_penalty: frequency_penalty,
@@ -115,22 +178,63 @@ class OverchatAPI {
         top_p: top_p,
         ...rest
       };
+      let requestEndpoint = "";
+      if (endpointType === "thread") {
+        requestEndpoint = `${this.baseURL}/chat/thread`;
+        requestData.chatId = currentChatId;
+        if (messageLinks.length > 0) {
+          requestData.links = messageLinks;
+        }
+      } else if (endpointType === "completions") {
+        requestEndpoint = `${this.baseURL}/chat/completions`;
+      } else {
+        throw new Error("Invalid endpointType. Must be 'thread' or 'completions'.");
+      }
       if (prompt) {
         requestData.messages = [{
           id: crypto.randomUUID(),
           role: "user",
-          content: prompt
+          content: prompt,
+          ...endpointType === "thread" && uploadedFilesInfo.length > 0 && {
+            metadata: {
+              files: uploadedFilesInfo
+            }
+          }
         }];
       } else if (messages) {
         requestData.messages = messages.map(msg => ({
           id: msg.id || crypto.randomUUID(),
           role: msg.role,
-          content: msg.content
+          content: msg.content,
+          ...msg.metadata && {
+            metadata: msg.metadata
+          }
         }));
+        if (endpointType === "thread" && uploadedFilesInfo.length > 0) {
+          const lastUserMessageIndex = requestData.messages.findLastIndex(msg => msg.role === "user");
+          if (lastUserMessageIndex !== -1) {
+            if (!requestData.messages[lastUserMessageIndex].metadata) {
+              requestData.messages[lastUserMessageIndex].metadata = {};
+            }
+            if (!requestData.messages[lastUserMessageIndex].metadata.files) {
+              requestData.messages[lastUserMessageIndex].metadata.files = [];
+            }
+            requestData.messages[lastUserMessageIndex].metadata.files.push(...uploadedFilesInfo);
+          } else {
+            requestData.messages.push({
+              id: crypto.randomUUID(),
+              role: "user",
+              content: "",
+              metadata: {
+                files: uploadedFilesInfo
+              }
+            });
+          }
+        }
       } else {
-        throw new Error("Anda harus menyediakan prompt atau array messages.");
+        throw new Error("Anda harus menyediakan prompt, array messages, atau imageUrl(s).");
       }
-      const response = await axios.post(`${this.baseURL}/chat/completions`, requestData, {
+      const response = await axios.post(requestEndpoint, requestData, {
         headers: {
           ...this.headers,
           "content-type": "application/json"
@@ -138,6 +242,7 @@ class OverchatAPI {
       });
       return this.processChatResponse(response.data);
     } catch (error) {
+      console.error("Error in chat:", error.response ? error.response.data : error.message);
       throw error;
     }
   }
@@ -171,7 +276,7 @@ export default async function handler(req, res) {
   const params = req.method === "GET" ? req.query : req.body;
   if (!params.prompt) {
     return res.status(400).json({
-      error: "Prompt are required"
+      error: "Prompt are required."
     });
   }
   try {
@@ -179,6 +284,7 @@ export default async function handler(req, res) {
     const result = await overchat.chat(params);
     return res.status(200).json(result);
   } catch (error) {
+    console.error("API Handler Error:", error);
     res.status(500).json({
       error: error.message || "Internal Server Error"
     });

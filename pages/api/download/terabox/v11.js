@@ -1,16 +1,16 @@
 import axios from "axios";
 class TeraboxDownloader {
   constructor() {
-    this.baseURL = "https://testterabox.vercel.app/api";
+    this.baseURL = "https://terabox-downloader.pro/api/terabox-download";
     this.headers = {
       accept: "*/*",
       "accept-language": "id-ID,id;q=0.9",
       "cache-control": "no-cache",
       "content-type": "application/json",
-      origin: "https://teraboxdownloader.online",
+      origin: "https://terabox-downloader.pro",
       pragma: "no-cache",
       priority: "u=1, i",
-      referer: "https://teraboxdownloader.online/",
+      referer: "https://terabox-downloader.pro/",
       "sec-ch-ua": '"Lemur";v="135", "", "", "Microsoft Edge Simulate";v="135"',
       "sec-ch-ua-mobile": "?1",
       "sec-ch-ua-platform": '"Android"',
