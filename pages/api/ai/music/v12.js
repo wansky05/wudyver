@@ -103,6 +103,7 @@ class Sonu {
     title = "Lagu AI Generasi Baru",
     mood = "futuristic",
     genre = "electronic",
+    gender = "female",
     lyrics = "Kode berirama, data menari. Suara sintetik, membelah sunyi. Masa depan musik, kini terukir. Dengan AI, melodi takkan berakhir."
   }) {
     await this._ensureRegistered();

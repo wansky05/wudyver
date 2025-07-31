@@ -267,12 +267,12 @@ class AudioXClient {
           endpoint = `${this.audioxAPI}/${action}`;
           data = {
             userId: this.userId,
-            prompt: rest.prompt,
+            prompt: rest.prompt || "Wind howling through trees, creating a haunting atmosphere",
             negativePrompt: rest.negativePrompt || "",
-            duration: rest.duration,
-            voice: rest.voice,
-            responseFormat: rest.responseFormat,
-            speed: rest.speed,
+            duration: rest.duration || "15",
+            voice: rest.voice || "jm_kumo",
+            responseFormat: rest.responseFormat || "mp3",
+            speed: rest.speed || "1.3",
             ...rest
           };
           headers = {
