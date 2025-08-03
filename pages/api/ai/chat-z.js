@@ -36,6 +36,34 @@ class ChatZAI {
       length: 4
     }, () => Math.floor(Math.random() * 256)).join(".");
   }
+  parseArray(dataArray) {
+    const result = {};
+    dataArray.forEach(item => {
+      const phase = item.data?.phase || "unknown";
+      if (!result[phase]) {
+        result[phase] = {
+          content: ""
+        };
+      }
+      if (item.data) {
+        for (const prop in item.data) {
+          if (Object.prototype.hasOwnProperty.call(item.data, prop)) {
+            if (prop === "delta_content" || prop === "edit_content") {
+              result[phase].content += item.data[prop];
+            } else if (typeof item.data[prop] === "object" && !Array.isArray(item.data[prop]) && prop !== "choices") {
+              result[phase][prop] = {
+                ...result[phase][prop],
+                ...item.data[prop]
+              };
+            } else {
+              result[phase][prop] = item.data[prop];
+            }
+          }
+        }
+      }
+    });
+    return result;
+  }
   parseData(rawData) {
     const lines = rawData.split("\n");
     const parsedData = lines.filter(line => line.startsWith("data:")).map(line => {
@@ -48,7 +76,7 @@ class ChatZAI {
         return null;
       }
     }).filter(data => data !== null);
-    return parsedData;
+    return this.parseArray(parsedData);
   }
   guestCredentials() {
     const timestamp = Date.now();
