@@ -518,7 +518,7 @@ export default async function handler(req, res) {
   } = req.method === "GET" ? req.query : req.body;
   if (!action) {
     return res.status(400).json({
-      error: "Action (create, img2img, or status) is required."
+      error: "Action (txt2img, img2img, or status) is required."
     });
   }
   const funfun = new FunFunArt();
@@ -527,15 +527,15 @@ export default async function handler(req, res) {
     await funfun.authenticate();
     console.log("[API Route] FunFunArt instance authenticated.");
     switch (action) {
-      case "create":
+      case "txt2img":
         if (!params.prompt) {
           return res.status(400).json({
-            error: "Prompt is required for 'create' action (text-to-image generation)."
+            error: "Prompt is required for 'txt2img' action (text-to-image generation)."
           });
         }
         console.log(`[API Route] Calling txt2img with prompt: "${params.prompt.substring(0, 50)}..."`);
-        const createResponse = await funfun.txt2img(params);
-        return res.status(200).json(createResponse);
+        const txt2imgResponse = await funfun.txt2img(params);
+        return res.status(200).json(txt2imgResponse);
       case "img2img":
         if (!params.imageUrl || !params.prompt) {
           return res.status(400).json({
@@ -556,7 +556,7 @@ export default async function handler(req, res) {
         return res.status(200).json(statusResponse);
       default:
         return res.status(400).json({
-          error: "Invalid action. Supported actions are 'create', 'img2img', and 'status'."
+          error: "Invalid action. Supported actions are 'txt2img', 'img2img', and 'status'."
         });
     }
   } catch (error) {
