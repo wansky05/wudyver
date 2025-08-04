@@ -1,7 +1,6 @@
 import axios from "axios";
 import CryptoJS from "crypto-js";
 import apiConfig from "@/configs/apiConfig";
-const API_PASSWORD = apiConfig.PASSWORD;
 class Chat4oClient {
   constructor(options = {}) {
     this.mailApiUrl = `https://${apiConfig.DOMAIN_URL}/api/mails/v9`;
@@ -20,8 +19,8 @@ class Chat4oClient {
     this.currentModel = null;
     this.spoofedIp = this.genRandIP();
     console.log(`LOG: Init Chat4oClient with spoofed IP: ${this.spoofedIp}`);
-    this.key = CryptoJS.enc.Utf8.parse(API_PASSWORD.padEnd(32, "x"));
-    this.iv = CryptoJS.enc.Utf8.parse(API_PASSWORD.padEnd(16, "x"));
+    this.key = CryptoJS.enc.Utf8.parse(apiConfig.PASSWORD.padEnd(32, "x"));
+    this.iv = CryptoJS.enc.Utf8.parse(apiConfig.PASSWORD.padEnd(16, "x"));
     console.log("LOG: CryptoJS key/IV init.");
     this.axiosInstance = axios.create({
       headers: {
@@ -75,11 +74,10 @@ class Chat4oClient {
     return result;
   }
   genRandIP() {
-    const octet1 = Math.floor(Math.random() * 223) + 1;
-    const octet2 = Math.floor(Math.random() * 256);
-    const octet3 = Math.floor(Math.random() * 256);
-    const octet4 = Math.floor(Math.random() * 256);
-    return `${octet1}.${octet2}.${octet3}.${octet4}`;
+    const ip = Array.from({
+      length: 4
+    }, (_, i) => i === 0 ? Math.floor(Math.random() * 223) + 1 : Math.floor(Math.random() * 256));
+    return ip.join(".");
   }
   async createEmail() {
     try {

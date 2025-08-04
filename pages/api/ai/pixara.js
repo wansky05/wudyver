@@ -254,6 +254,9 @@ class PixaraAPI {
           }
         };
         const task_id = this.enc(taskData);
+        const models = await this.models({
+          type: "txt2img"
+        });
         console.log("✅ txt2img task initiated!");
         return {
           success: true,
@@ -261,7 +264,8 @@ class PixaraAPI {
           message: "Task initiated. Use status method to check progress.",
           metadata: {
             ...taskData.metadata,
-            processingTime: Date.now() - startTime
+            processingTime: Date.now() - startTime,
+            ...models
           }
         };
       }
@@ -428,6 +432,9 @@ class PixaraAPI {
         }
       };
       const task_id = this.enc(taskData);
+      const models = await this.models({
+        type: "img2vid"
+      });
       console.log("✅ img2vid initiated!");
       return {
         success: true,
@@ -435,7 +442,8 @@ class PixaraAPI {
         message: "Task initiated. Use status method to check progress.",
         metadata: {
           ...taskData.metadata,
-          processingTime: Date.now() - startTime
+          processingTime: Date.now() - startTime,
+          ...models
         }
       };
     } catch (error) {
@@ -498,6 +506,9 @@ class PixaraAPI {
         }
       };
       const task_id = this.enc(taskData);
+      const models = await this.models({
+        type: "txt2vid"
+      });
       console.log("✅ txt2vid initiated!");
       return {
         success: true,
@@ -505,7 +516,8 @@ class PixaraAPI {
         message: "Task initiated. Use status method to check progress.",
         metadata: {
           ...taskData.metadata,
-          processingTime: Date.now() - startTime
+          processingTime: Date.now() - startTime,
+          ...models
         }
       };
     } catch (error) {
@@ -577,7 +589,9 @@ class PixaraAPI {
   }
   genName() {
     const names = ["Alex", "Jordan", "Casey", "Riley", "Morgan", "Avery", "Quinn", "Sage", "Taylor", "Parker", "Blake", "Cameron", "Drew", "Emery", "Finley", "Gray"];
-    return names[Math.floor(Math.random() * names.length)];
+    const randomName = names[Math.floor(Math.random() * names.length)];
+    const randomId = Math.floor(Math.random() * 9999);
+    return `${randomName}${randomId}`;
   }
   genPass(length = 12) {
     const charset = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789!@#$%^&*";
