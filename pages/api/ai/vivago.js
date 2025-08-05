@@ -31,6 +31,7 @@ class VivagoAPI {
     this.username = null;
     this.deviceId = this.generateUUID();
     this.email = null;
+    this.cookies = {};
   }
   enc(data) {
     const textToEncrypt = JSON.stringify(data);
@@ -67,25 +68,39 @@ class VivagoAPI {
   sleep(ms) {
     return new Promise(resolve => setTimeout(resolve, ms));
   }
-  _getCookies() {
-    if (!this.ticket) {
-      return `region=1; device_id=${this.deviceId}`;
+  _updateCookies(setCookieHeaders) {
+    if (setCookieHeaders) {
+      setCookieHeaders.forEach(cookieString => {
+        const [cookiePair] = cookieString.split(";");
+        const [name, value] = cookiePair.split("=");
+        this.cookies[name.trim()] = value.trim();
+      });
     }
-    return `region=1; device_id=${this.deviceId}; ticket=${this.ticket}; refresh_token=${this.refreshToken}; username=${this.username};`;
+  }
+  _getCookies() {
+    let cookieString = `region=1; device_id=${this.deviceId}`;
+    for (const key in this.cookies) {
+      cookieString += `; ${key}=${this.cookies[key]}`;
+    }
+    console.log(`[LOG] Cookies yang dikirim: ${cookieString}`);
+    return cookieString;
   }
   async _createTempEmail() {
+    console.log("[LOG] Autentikasi: Membuat email sementara.");
     try {
       const response = await axios.get(`${this.emailService}?action=create`);
       this.email = response.data.email;
+      console.log(`[LOG] Autentikasi: Email sementara berhasil dibuat: ${this.email}`);
       return this.email;
     } catch (error) {
       throw new Error(`Failed to create temp email: ${error.message}`);
     }
   }
   async _sendCaptcha() {
+    console.log(`[LOG] Autentikasi: Mengirim captcha ke email: ${this.email}`);
     try {
       const requestId = this.generateUUID();
-      await axios.post(`${this.prodAPI}/user/captcha`, {
+      const response = await axios.post(`${this.prodAPI}/user/captcha`, {
         method: "email",
         email: this.email,
         request_id: requestId
@@ -95,29 +110,37 @@ class VivagoAPI {
           Cookie: this._getCookies()
         }
       });
+      this._updateCookies(response.headers["set-cookie"]);
+      console.log("[LOG] Autentikasi: Permintaan captcha berhasil dikirim.");
     } catch (error) {
       throw new Error(`Failed to send captcha: ${error.message}`);
     }
   }
   async _getEmailMessages() {
+    console.log("[LOG] Autentikasi: Memeriksa email masuk.");
     try {
       const response = await axios.get(`${this.emailService}?action=message&email=${this.email}`);
+      console.log("[LOG] Autentikasi: Pesan email berhasil diambil.");
       return response.data;
     } catch (error) {
       throw new Error(`Failed to get email messages: ${error.message}`);
     }
   }
   _extractCaptcha(emailData) {
+    console.log("[LOG] Autentikasi: Mengekstrak kode captcha dari email.");
     if (emailData.data && emailData.data.length > 0) {
       const textContent = emailData.data[0].text_content;
-      const codeMatch = textContent.match(/Vivago captcha code: (\d{6})/);
+      const codeMatch = textContent.match(/verify code:\s*(\d{6})/);
       if (codeMatch) {
+        console.log(`[LOG] Autentikasi: Captcha berhasil diekstrak: ${codeMatch[1]}`);
         return codeMatch[1];
       }
     }
+    console.warn("[WARNING] Autentikasi: Kode captcha tidak ditemukan.");
     return null;
   }
   async _login(captcha) {
+    console.log("[LOG] Autentikasi: Mencoba login dengan captcha.");
     try {
       const requestId = this.generateUUID();
       const response = await axios.post(`${this.prodAPI}/user/login/email/captcha`, {
@@ -133,41 +156,57 @@ class VivagoAPI {
       if (response.data.code !== 0 || !response.data.result) {
         throw new Error(`Login failed with message: ${response.data.message}`);
       }
+      this._updateCookies(response.headers["set-cookie"]);
       const result = response.data.result;
-      this.ticket = result.ticket;
-      this.refreshToken = result.refresh_token;
       this.userId = result.id;
-      this.username = result.username;
+      this.username = result.nickname;
+      this.ticket = this.cookies["ticket"] || null;
+      this.refreshToken = this.cookies["refresh_token"] || null;
+      console.log("[LOG] Autentikasi: Login berhasil. Informasi pengguna disimpan.");
+      console.log(`[LOG] Autentikasi: Ticket: ${this.ticket ? this.ticket.substring(0, 10) + "..." : "N/A"}`);
+      console.log(`[LOG] Autentikasi: Refresh Token: ${this.refreshToken ? this.refreshToken.substring(0, 10) + "..." : "N/A"}`);
+      console.log(`[LOG] Autentikasi: User ID: ${this.userId}`);
+      console.log(`[LOG] Autentikasi: Username: ${this.username}`);
       return result;
     } catch (error) {
       throw new Error(`Failed to login: ${error.message}`);
     }
   }
   async _ensureAuth() {
-    if (this.ticket) {
+    console.log("[LOG] Autentikasi: Memeriksa status autentikasi.");
+    if (this.ticket && this.userId) {
+      console.log("[LOG] Autentikasi: Pengguna sudah terautentikasi, dilewati.");
       return;
     }
+    console.log("[LOG] Autentikasi: Pengguna belum terautentikasi. Memulai proses login.");
     try {
       await this._createTempEmail();
       await this._sendCaptcha();
       let captcha;
       let attempts = 0;
       const maxAttempts = 10;
+      console.log("[LOG] Autentikasi: Menunggu email captcha...");
       while (!captcha && attempts < maxAttempts) {
         await this.sleep(5e3);
         const emailData = await this._getEmailMessages();
         captcha = this._extractCaptcha(emailData);
         attempts++;
+        if (!captcha) {
+          console.log(`[LOG] Autentikasi: Kode tidak ditemukan, mencoba lagi... (Percobaan ${attempts}/${maxAttempts})`);
+        }
       }
       if (!captcha) {
         throw new Error("Captcha code not found in email after multiple attempts.");
       }
       await this._login(captcha);
+      console.log("[LOG] Autentikasi: Proses autentikasi selesai.");
     } catch (error) {
+      console.error(`[ERROR] Autentikasi: Gagal dalam alur autentikasi: ${error.message}`);
       throw error;
     }
   }
   async _getPresignedUrl(fileName, contentType) {
+    console.log(`[LOG] Unggahan: Meminta URL presigned untuk ${fileName} (${contentType}).`);
     try {
       const response = await axios.get(`${this.prodAPI}/user/google_key/hidreamai-image?filename=${fileName}&content_type=${encodeURIComponent(contentType)}`, {
         headers: {
@@ -178,23 +217,27 @@ class VivagoAPI {
       if (response.data.code !== 0 || !response.data.result) {
         throw new Error(`Failed to get presigned URL: ${response.data.message}`);
       }
+      console.log(`[LOG] Unggahan: URL presigned diterima.`);
       return response.data.result;
     } catch (error) {
       throw new Error(`Failed to get presigned URL: ${error.message}`);
     }
   }
   async _uploadImageToPresignedUrl(url, buffer, contentType) {
+    console.log(`[LOG] Unggahan: Mengunggah gambar ke URL presigned.`);
     try {
       await axios.put(url, buffer, {
         headers: {
           "Content-Type": contentType
         }
       });
+      console.log("[LOG] Unggahan: Gambar berhasil diunggah ke URL presigned.");
     } catch (error) {
       throw new Error(`Failed to upload file to presigned URL: ${error.message}`);
     }
   }
   async _commitAsset(mediaKey) {
+    console.log(`[LOG] Unggahan: Melakukan commit aset untuk media key: ${mediaKey}.`);
     try {
       const requestId = this.generateUUID();
       await axios.put(`${this.prodAPI}/content/assets_folder/v1/auto`, {
@@ -207,11 +250,13 @@ class VivagoAPI {
           Cookie: this._getCookies()
         }
       });
+      console.log("[LOG] Unggahan: Aset berhasil di-commit.");
     } catch (error) {
       throw new Error(`Failed to commit asset: ${error.message}`);
     }
   }
   async _uploadImageFromUrl(imageUrl) {
+    console.log(`[LOG] Unggahan: Memulai alur unggahan gambar dari URL: ${imageUrl}.`);
     try {
       const imageResponse = await axios.get(imageUrl, {
         responseType: "arraybuffer"
@@ -223,12 +268,14 @@ class VivagoAPI {
       const presignedUrl = await this._getPresignedUrl(mediaKey, contentType);
       await this._uploadImageToPresignedUrl(presignedUrl, imageBuffer, contentType);
       await this._commitAsset(mediaKey);
+      console.log(`[LOG] Unggahan: Gambar berhasil diunggah. Media Key: ${mediaKey}.`);
       return mediaKey;
     } catch (error) {
       throw new Error(`Failed to upload image from URL: ${error.message}`);
     }
   }
   async _refinePrompt(prompt) {
+    console.log(`[LOG] Prompt Refinement: Meminta penyempurnaan prompt untuk: "${prompt}".`);
     try {
       const requestId = this.generateUUID();
       const response = await axios.post(`${this.baseURL}/api/gw/v2/text/img2video_prompt_refine/sync`, {
@@ -243,9 +290,10 @@ class VivagoAPI {
       if (response.data.code !== 0 || !response.data.result) {
         throw new Error(`Failed to refine prompt: ${response.data.message}`);
       }
+      console.log(`[LOG] Prompt Refinement: Prompt berhasil disempurnakan.`);
       return response.data.result.prompt;
     } catch (error) {
-      console.warn(`Warning: Prompt refinement failed. Using original prompt. Error: ${error.message}`);
+      console.warn(`[WARNING] Prompt Refinement: Gagal menyempurnakan prompt. Menggunakan prompt asli. Error: ${error.message}`);
       return prompt;
     }
   }
@@ -254,6 +302,7 @@ class VivagoAPI {
     negative_prompt = "",
     ...rest
   }) {
+    console.log("[LOG] Txt2vid: Memulai pembuatan video dari teks.");
     try {
       await this._ensureAuth();
       const refinedPrompt = await this._refinePrompt(prompt);
@@ -299,6 +348,7 @@ class VivagoAPI {
         audios: [],
         request_id: requestId
       };
+      console.log("[LOG] Txt2vid: Mengirim permintaan pembuatan video.");
       const response = await axios.post(`${this.baseURL}/api/gw/v3/video/video_diffusion/async`, payload, {
         headers: {
           ...this.headers,
@@ -317,6 +367,7 @@ class VivagoAPI {
         deviceId: this.deviceId,
         id: task_id
       };
+      console.log(`[LOG] Txt2vid: Tugas video berhasil dibuat. ID terenkripsi: ${this.enc(encryptedData)}`);
       return this.enc(encryptedData);
     } catch (error) {
       throw new Error(`Failed to create txt2vid task: ${error.message}`);
@@ -325,8 +376,10 @@ class VivagoAPI {
   async img2vid({
     imageUrl,
     prompt,
+    negative_prompt = "",
     ...rest
   }) {
+    console.log("[LOG] Img2vid: Memulai pembuatan video dari gambar.");
     try {
       await this._ensureAuth();
       const mediaKey = await this._uploadImageFromUrl(imageUrl);
@@ -362,7 +415,7 @@ class VivagoAPI {
           ...rest
         },
         prompt: prompt,
-        negative_prompt: "",
+        negative_prompt: negative_prompt,
         role: "general",
         style: "default",
         wh_ratio: "960:1280",
@@ -373,6 +426,7 @@ class VivagoAPI {
         audios: [],
         request_id: requestId
       };
+      console.log("[LOG] Img2vid: Mengirim permintaan pembuatan video.");
       const response = await axios.post(`${this.baseURL}/api/gw/v3/video/video_diffusion_img2vid/async`, payload, {
         headers: {
           ...this.headers,
@@ -391,22 +445,28 @@ class VivagoAPI {
         deviceId: this.deviceId,
         id: task_id
       };
+      console.log(`[LOG] Img2vid: Tugas video berhasil dibuat. ID terenkripsi: ${this.enc(encryptedData)}`);
       return this.enc(encryptedData);
     } catch (error) {
       throw new Error(`Failed to create img2vid task: ${error.message}`);
     }
   }
   async status({
-    task_id
+    taskId
   }) {
+    console.log(`[LOG] Status: Memeriksa status untuk ID tugas terenkripsi: ${taskId}.`);
     try {
-      const decryptedData = this.dec(task_id);
+      const decryptedData = this.dec(taskId);
       const {
         ticket,
         userId,
-        id
+        id,
+        deviceId,
+        refreshToken,
+        username
       } = decryptedData;
-      const cookies = `region=1; device_id=${decryptedData.deviceId}; ticket=${ticket}; refresh_token=${decryptedData.refreshToken}; username=${decryptedData.username};`;
+      const cookies = `region=1; device_id=${deviceId}; ticket=${ticket}; refresh_token=${refreshToken}; username=${username};`;
+      console.log(`[LOG] Status: ID tugas terdekripsi: ${id}.`);
       const response = await axios.post(`${this.baseURL}/api/gw/v3/video/video_diffusion/async/results/batch`, {
         task_id_list: [id]
       }, {
@@ -420,6 +480,7 @@ class VivagoAPI {
       }
       const task = response.data.result.find(t => t.task_id === id);
       if (!task) {
+        console.warn(`[WARNING] Status: Tugas dengan ID ${id} tidak ditemukan dalam riwayat.`);
         return {
           task_id: id,
           status: "not_found",
@@ -427,7 +488,8 @@ class VivagoAPI {
         };
       }
       const status = task.process_seconds !== null ? "success" : "processing";
-      const videoUrl = task.url;
+      const videoUrl = task.url || null;
+      console.log(`[LOG] Status: Status tugas ${id}: ${status}.`);
       return {
         task_id: task.task_id,
         status: status,
