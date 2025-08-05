@@ -1,159 +1,97 @@
 import axios from "axios";
+import CryptoJS from "crypto-js";
 import apiConfig from "@/configs/apiConfig";
-class SunoApiOrgService {
+class SunoAPI {
   constructor() {
-    const apiKey = apiConfig.SUNOAPI_KEY;
-    if (!apiKey) {
-      throw new Error("SUNOAPI_KEY environment variable is not set.");
-    }
-    this.axiosInstance = axios.create({
-      baseURL: "https://api.sunoapi.org/api/v1",
-      headers: {
-        "Content-Type": "application/json",
-        Accept: "application/json",
-        Authorization: `Bearer ${apiKey}`
-      }
+    this.baseUrl = "https://api.sunoapi.org/api/v1";
+    this.token = apiConfig.SUNOAPI_KEY;
+    this.encKey = CryptoJS.enc.Utf8.parse(apiConfig.PASSWORD.padEnd(32, "x"));
+    this.encIV = CryptoJS.enc.Utf8.parse(apiConfig.PASSWORD.padEnd(16, "x"));
+  }
+  enc(data) {
+    const text = JSON.stringify(data);
+    const encrypted = CryptoJS.AES.encrypt(text, this.encKey, {
+      iv: this.encIV,
+      mode: CryptoJS.mode.CBC,
+      padding: CryptoJS.pad.Pkcs7
     });
+    return encrypted.ciphertext.toString(CryptoJS.enc.Hex);
   }
-  async generateMusic({
-    prompt = "",
-    style = "",
-    title = "",
-    customMode = false,
+  dec(encryptedHex) {
+    const ciphertext = CryptoJS.enc.Hex.parse(encryptedHex);
+    const cipherParams = CryptoJS.lib.CipherParams.create({
+      ciphertext: ciphertext
+    });
+    const decrypted = CryptoJS.AES.decrypt(cipherParams, this.encKey, {
+      iv: this.encIV,
+      mode: CryptoJS.mode.CBC,
+      padding: CryptoJS.pad.Pkcs7
+    });
+    const json = decrypted.toString(CryptoJS.enc.Utf8);
+    if (!json) throw new Error("Failed to decrypt or empty data.");
+    return JSON.parse(json);
+  }
+  async generate({
+    prompt,
+    style = "pop",
+    title = "untitled",
     instrumental = false,
     model = "V3_5",
-    negativeTags = "",
-    callBackUrl = ""
+    customMode = true
   }) {
+    if (!prompt) throw new Error("Prompt is required.");
     try {
-      const payload = {
+      const res = await axios.post(`${this.baseUrl}/generate`, {
         prompt: prompt,
         style: style,
         title: title,
-        customMode: customMode,
         instrumental: instrumental,
         model: model,
-        negativeTags: negativeTags,
-        callBackUrl: callBackUrl
+        customMode: customMode,
+        callBackUrl: "playground"
+      }, {
+        headers: {
+          Authorization: `Bearer ${this.token}`,
+          "Content-Type": "application/json",
+          "User-Agent": "Mozilla/5.0 (Linux; Android 10; K)",
+          Referer: "https://sunoapi.org/id/playground"
+        }
+      });
+      if (res.data.code !== 200) throw new Error(res.data.msg || "Failed to create task.");
+      const task_id = this.enc({
+        token: this.token,
+        taskId: res.data.data.taskId
+      });
+      return {
+        task_id: task_id,
+        message: "Task created successfully."
       };
-      if (!callBackUrl) {
-        throw new Error("Missing required parameter: callBackUrl.");
-      }
-      if (!model) {
-        throw new Error("Missing required parameter: model.");
-      }
-      if (customMode) {
-        if (!style) {
-          throw new Error("Custom Mode: Missing required parameter: style.");
-        }
-        if (!title) {
-          throw new Error("Custom Mode: Missing required parameter: title.");
-        }
-        if (!instrumental && !prompt) {
-          throw new Error("Custom Mode: If instrumental is false, prompt (lyrics) is required.");
-        }
-      } else {
-        if (!prompt) {
-          throw new Error("Non-custom Mode: prompt is always required.");
-        }
-        if (style || title || negativeTags) {
-          console.warn("Non-custom Mode: 'style', 'title', and 'negativeTags' should be left empty. Ignoring them.");
-          payload.style = "";
-          payload.title = "";
-          payload.negativeTags = "";
-        }
-      }
-      const response = await this.axiosInstance.post("/generate", payload);
-      if (response.data.code !== 200) {
-        throw new Error(response.data.msg || "Music generation request failed.");
-      }
-      return response.data;
-    } catch (error) {
-      console.error("Error generating music:", error.response?.data || error.message);
-      throw new Error(error.response?.data?.msg || error.message || "Failed to generate music.");
+    } catch (err) {
+      throw new Error(`Generate failed: ${err.message}`);
     }
   }
-  async getMusicDetails(taskId) {
-    try {
-      if (!taskId) {
-        throw new Error("Missing required parameter: taskId.");
-      }
-      const response = await this.axiosInstance.get(`/get?task_id=${taskId}`);
-      if (response.data.code !== 200) {
-        throw new Error(response.data.msg || "Failed to get music details.");
-      }
-      return response.data;
-    } catch (error) {
-      console.error("Error getting music details:", error.response?.data || error.message);
-      throw new Error(error.response?.data?.msg || error.message || "Failed to get music details.");
-    }
-  }
-  async extendMusic({
-    continue_clip_id,
-    continue_at,
-    prompt = "",
-    style = "",
-    title = "",
-    customMode = false,
-    instrumental = false,
-    model = "V3_5",
-    negativeTags = "",
-    callBackUrl = ""
+  async status({
+    task_id
   }) {
+    if (!task_id) throw new Error("task_id is required.");
     try {
-      if (!continue_clip_id) {
-        throw new Error("Missing required parameter: continue_clip_id.");
-      }
-      if (typeof continue_at !== "number") {
-        throw new Error("Missing or invalid parameter: continue_at (must be a number).");
-      }
-      if (!callBackUrl) {
-        throw new Error("Missing required parameter: callBackUrl.");
-      }
-      if (!model) {
-        throw new Error("Missing required parameter: model.");
-      }
-      const payload = {
-        continue_clip_id: continue_clip_id,
-        continue_at: continue_at,
-        prompt: prompt,
-        style: style,
-        title: title,
-        customMode: customMode,
-        instrumental: instrumental,
-        model: model,
-        negativeTags: negativeTags,
-        callBackUrl: callBackUrl
-      };
-      if (customMode) {
-        if (!style) {
-          throw new Error("Custom Mode: Missing required parameter: style.");
+      const {
+        token,
+        taskId
+      } = this.dec(task_id);
+      const res = await axios.get(`${this.baseUrl}/generate/record-info`, {
+        headers: {
+          Authorization: `Bearer ${token}`,
+          "User-Agent": "Mozilla/5.0 (Linux; Android 10; K)",
+          Referer: "https://sunoapi.org/id/playground"
+        },
+        params: {
+          taskId: taskId
         }
-        if (!title) {
-          throw new Error("Custom Mode: Missing required parameter: title.");
-        }
-        if (!instrumental && !prompt) {
-          throw new Error("Custom Mode: If instrumental is false, prompt (lyrics) is required.");
-        }
-      } else {
-        if (!prompt) {
-          throw new Error("Non-custom Mode: prompt is always required.");
-        }
-        if (style || title || negativeTags) {
-          console.warn("Non-custom Mode: 'style', 'title', and 'negativeTags' should be left empty. Ignoring them.");
-          payload.style = "";
-          payload.title = "";
-          payload.negativeTags = "";
-        }
-      }
-      const response = await this.axiosInstance.post("/extend", payload);
-      if (response.data.code !== 200) {
-        throw new Error(response.data.msg || "Music extension request failed.");
-      }
-      return response.data;
-    } catch (error) {
-      console.error("Error extending music:", error.response?.data || error.message);
-      throw new Error(error.response?.data?.msg || error.message || "Failed to extend music.");
+      });
+      return res.data;
+    } catch (err) {
+      throw new Error(`Status check failed: ${err.message}`);
     }
   }
 }
@@ -162,87 +100,37 @@ export default async function handler(req, res) {
     action,
     ...params
   } = req.method === "GET" ? req.query : req.body;
-  const api = new SunoApiOrgService();
+  if (!action) {
+    return res.status(400).json({
+      error: "Action (create or status) is required."
+    });
+  }
+  const suno = new SunoAPI();
   try {
-    let result;
     switch (action) {
-      case "generate":
-        if (!params.callBackUrl) {
+      case "create":
+        if (!params.prompt) {
           return res.status(400).json({
-            success: false,
-            message: "Missing required parameter: callBackUrl"
+            error: "Prompt is required for 'create' action."
           });
         }
-        if (!params.model) {
+        const createResponse = await suno.generate(params);
+        return res.status(200).json(createResponse);
+      case "status":
+        if (!params.task_id) {
           return res.status(400).json({
-            success: false,
-            message: "Missing required parameter: model"
+            error: "task_id is required for 'status' action."
           });
         }
-        if (typeof params.customMode !== "boolean" || typeof params.instrumental !== "boolean") {
-          return res.status(400).json({
-            success: false,
-            message: "Parameters 'customMode' and 'instrumental' must be boolean."
-          });
-        }
-        result = await api.generateMusic(params);
-        break;
-      case "getDetails":
-        if (!params.taskId) {
-          return res.status(400).json({
-            success: false,
-            message: "Missing required parameter: taskId"
-          });
-        }
-        result = await api.getMusicDetails(params.taskId);
-        break;
-      case "extend":
-        if (!params.continue_clip_id) {
-          return res.status(400).json({
-            success: false,
-            message: "Missing required parameter: continue_clip_id"
-          });
-        }
-        if (typeof params.continue_at === "undefined" || typeof params.continue_at !== "number") {
-          return res.status(400).json({
-            success: false,
-            message: "Missing or invalid parameter: continue_at (must be a number)"
-          });
-        }
-        if (!params.callBackUrl) {
-          return res.status(400).json({
-            success: false,
-            message: "Missing required parameter: callBackUrl"
-          });
-        }
-        if (!params.model) {
-          return res.status(400).json({
-            success: false,
-            message: "Missing required parameter: model"
-          });
-        }
-        if (typeof params.customMode !== "boolean" || typeof params.instrumental !== "boolean") {
-          return res.status(400).json({
-            success: false,
-            message: "Parameters 'customMode' and 'instrumental' must be boolean."
-          });
-        }
-        result = await api.extendMusic(params);
-        break;
+        const statusResponse = await suno.status(params);
+        return res.status(200).json(statusResponse);
       default:
         return res.status(400).json({
-          success: false,
-          error: "Action tidak valid. Gunakan ?action=generate, ?action=getDetails, atau ?action=extend."
+          error: "Invalid action. Supported actions are 'create' and 'status'."
         });
     }
-    return res.status(200).json({
-      success: true,
-      data: result
-    });
   } catch (error) {
-    console.error("Error in API handler:", error);
     res.status(500).json({
-      success: false,
       error: error.message || "Internal Server Error"
     });
   }

@@ -1,4 +1,5 @@
 import axios from "axios";
+import FormData from "form-data";
 class HypicAPI {
   constructor() {
     this.baseUrl = "https://hypic.app/generate";
@@ -19,6 +20,22 @@ class HypicAPI {
       "user-agent": "Mozilla/5.0 (Linux; Android 10; K) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Mobile Safari/537.36"
     };
   }
+  async uploadToTmpFiles(buffer) {
+    try {
+      const form = new FormData();
+      form.append("file", buffer, {
+        filename: "image.png",
+        contentType: "image/png"
+      });
+      const uploadResponse = await axios.post("https://tmpfiles.org/api/v1/upload", form, {
+        headers: form.getHeaders()
+      });
+      const originalURL = uploadResponse.data?.data?.url;
+      return originalURL ? `https://tmpfiles.org/dl/${originalURL.split("/").slice(-2).join("/")}` : null;
+    } catch (err) {
+      throw new Error("Upload gagal: " + err.message);
+    }
+  }
   async generateImage({
     prompt,
     width = 1024,
@@ -29,7 +46,7 @@ class HypicAPI {
     nofeed = true
   }) {
     if (!prompt) throw new Error('Parameter "prompt" harus diisi.');
-    const url = `${this.baseUrl}/${prompt}`;
+    const url = `${this.baseUrl}/${encodeURIComponent(prompt)}`;
     const params = {
       width: width,
       height: height,
@@ -44,9 +61,10 @@ class HypicAPI {
         params: params,
         responseType: "arraybuffer"
       });
+      const uploadUrl = await this.uploadToTmpFiles(response.data);
       return {
         success: true,
-        data: response.data
+        url: uploadUrl
       };
     } catch (error) {
       return {
@@ -59,16 +77,21 @@ class HypicAPI {
 export default async function handler(req, res) {
   const params = req.method === "GET" ? req.query : req.body;
   const hypic = new HypicAPI();
-  if (!params.prompt) return res.status(400).json({
-    error: 'Parameter "prompt" wajib disertakan.'
-  });
-  try {
-    const response = await hypic.generateImage(params);
-    if (!response.success) return res.status(500).json({
-      error: response.message
+  if (!params.prompt) {
+    return res.status(400).json({
+      error: 'Parameter "prompt" wajib disertakan.'
     });
-    res.setHeader("Content-Type", "image/png");
-    return res.status(200).send(response.data);
+  }
+  try {
+    const result = await hypic.generateImage(params);
+    if (!result.success) {
+      return res.status(500).json({
+        error: result.message
+      });
+    }
+    return res.status(200).json({
+      url: result.url
+    });
   } catch (error) {
     return res.status(500).json({
       error: error.message
