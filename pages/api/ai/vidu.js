@@ -346,6 +346,40 @@ class ViduAPI {
       throw new Error(`Failed to create video task (${taskType}): ${error.message}`);
     }
   }
+  async txt2vid({
+    prompt,
+    ...rest
+  }) {
+    try {
+      await this._ensureAuth();
+      console.log("--- Memulai Proses Txt2Vid ---");
+      const prompts = [{
+        type: "text",
+        content: prompt
+      }];
+      const defaultSettings = {
+        style: "general",
+        duration: "4",
+        resolution: "512",
+        movement_amplitude: "auto",
+        aspect_ratio: "9:16",
+        sample_count: 1,
+        schedule_mode: "normal",
+        model_version: "1.5",
+        use_trial: false
+      };
+      const settings = {
+        ...defaultSettings,
+        ...rest
+      };
+      const encryptedId = await this._createVideoTask("text2video", prompts, settings);
+      console.log("[LOG] txt2vid berhasil.");
+      return encryptedId;
+    } catch (error) {
+      console.error("[ERROR] Gagal membuat video txt2vid:", error.message);
+      throw error;
+    }
+  }
   async img2vid({
     imageUrl,
     prompt,
@@ -422,14 +456,14 @@ class ViduAPI {
         id
       } = decryptedData;
       console.log(`[LOG] ID tugas terdekripsi: ${id}`);
-      const historyUrl = `${this.baseURL}/vidu/v1/tasks/history/me?pager.page=0&pager.pagesz=20&states=created&states=queueing&states=processing&states=success&states=failed&types=img2video&types=character2video`;
-      const response = await axios.get(historyUrl, {
+      const statusUrl = `${this.baseURL}/vidu/v1/tasks/${id}`;
+      const response = await axios.get(statusUrl, {
         headers: {
           ...this.headers,
           Cookie: `JWT=${jwt}; SSUID=${userId}`
         }
       });
-      const task = response.data.tasks.find(t => t.id === id);
+      const task = response.data;
       if (!task) {
         console.warn(`[WARNING] Tugas dengan ID ${id} tidak ditemukan dalam riwayat.`);
         return null;
@@ -466,6 +500,16 @@ export default async function handler(req, res) {
         return res.status(200).json({
           task_id: response
         });
+      case "txt2vid":
+        if (!params.prompt) {
+          return res.status(400).json({
+            error: "Prompt is required for txt2vid."
+          });
+        }
+        response = await viduAPI.txt2vid(params);
+        return res.status(200).json({
+          task_id: response
+        });
       case "character2vid":
         if (!params.prompt || !params.imageUrl) {
           return res.status(400).json({
@@ -486,7 +530,7 @@ export default async function handler(req, res) {
         return res.status(200).json(response);
       default:
         return res.status(400).json({
-          error: `Invalid action: ${action}. Supported actions are 'img2vid', 'character2vid', and 'status'.`
+          error: `Invalid action: ${action}. Supported actions are 'img2vid', 'txt2vid', 'character2vid', and 'status'.`
         });
     }
   } catch (error) {
