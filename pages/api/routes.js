@@ -397,6 +397,7 @@ export default function handler(req, res) {
     { path: "/api/ai/tecuts-chat", name: "Tecuts-chat", params: [{ "name": "prompt", "in": "query", "required": false }], },
     { path: "/api/ai/vidu", name: "Vidu", params: [{ "name": "prompt", "in": "query", "required": false }], },
     { path: "/api/ai/vivago", name: "Vivago", params: [{ "name": "prompt", "in": "query", "required": false }], },
+    { path: "/api/ai/makefilm", name: "Makefilm", params: [{ "name": "prompt", "in": "query", "required": false }], },
     { path: "/api/ai/studyxai", name: "Studyxai", params: [{ "name": "prompt", "in": "query", "required": false }], },
     { path: "/api/ai/sup-ai", name: "Sup-ai", params: [{ "name": "prompt", "in": "query", "required": false }], },
     { path: "/api/ai/genape", name: "Genape", params: [{ "name": "prompt", "in": "query", "required": false }], },
