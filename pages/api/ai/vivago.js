@@ -452,11 +452,11 @@ class VivagoAPI {
     }
   }
   async status({
-    taskId
+    task_id
   }) {
-    console.log(`[LOG] Status: Memeriksa status untuk ID tugas terenkripsi: ${taskId}.`);
+    console.log(`[LOG] Status: Memeriksa status untuk ID tugas terenkripsi: ${task_id}.`);
     try {
-      const decryptedData = this.dec(taskId);
+      const decryptedData = this.dec(task_id);
       const {
         ticket,
         userId,

@@ -420,6 +420,7 @@ export default function handler(req, res) {
     { path: "/api/ai/video/v6", name: "V6", params: [{ "name": "prompt", "in": "query", "required": false }], },
     { path: "/api/ai/video/v7", name: "V7", params: [{ "name": "prompt", "in": "query", "required": false }], },
     { path: "/api/ai/video/v8", name: "V8", params: [{ "name": "prompt", "in": "query", "required": false }], },
+    { path: "/api/ai/video/v9", name: "V9", params: [{ "name": "prompt", "in": "query", "required": false }], },
     { path: "/api/ai/just-ai", name: "Just-ai", params: [{ "name": "prompt", "in": "query", "required": false }], },
     { path: "/api/ai/nowtech", name: "Nowtech", params: [{ "name": "prompt", "in": "query", "required": false }], },
     { path: "/api/ai/chat-z", name: "Chat-z", params: [{ "name": "prompt", "in": "query", "required": false }], },
