@@ -1,14 +1,45 @@
 import fetch from "node-fetch";
 import crypto from "crypto";
+import apiConfig from "@/configs/apiConfig";
+import CryptoJS from "crypto-js";
 class EaseMate {
   constructor() {
     this.API_URL_BASE = "https://api.easemate.ai/api2";
+    this.AUTH_URL_BASE = "https://www.easemate.ai/lh-account-api";
+    this.MAIL_API = `https://${apiConfig.DOMAIN_URL}/api/mails/v13`;
     this.DEVICE_UUID = crypto.randomBytes(16).toString("hex");
     this.LOCATION_HOST = "www.easemate.ai";
     this.BROWSER_PLATFORM = "Android,Chrome";
     this.LANG = "en";
     this.LANGUAGE = "en-US";
     this.MODEL_ID = 3;
+    this.encKey = CryptoJS.enc.Utf8.parse(apiConfig.PASSWORD.padEnd(32, "x"));
+    this.encIV = CryptoJS.enc.Utf8.parse(apiConfig.PASSWORD.padEnd(16, "x"));
+  }
+  enc(data) {
+    const textToEncrypt = JSON.stringify(data);
+    const encrypted = CryptoJS.AES.encrypt(textToEncrypt, this.encKey, {
+      iv: this.encIV,
+      mode: CryptoJS.mode.CBC,
+      padding: CryptoJS.pad.Pkcs7
+    });
+    return encrypted.ciphertext.toString(CryptoJS.enc.Hex);
+  }
+  dec(encryptedHex) {
+    const ciphertext = CryptoJS.enc.Hex.parse(encryptedHex);
+    const cipherParams = CryptoJS.lib.CipherParams.create({
+      ciphertext: ciphertext
+    });
+    const decrypted = CryptoJS.AES.decrypt(cipherParams, this.encKey, {
+      iv: this.encIV,
+      mode: CryptoJS.mode.CBC,
+      padding: CryptoJS.pad.Pkcs7
+    });
+    const json = decrypted.toString(CryptoJS.enc.Utf8);
+    if (!json) {
+      throw new Error("Dekripsi mengembalikan data kosong atau tidak valid.");
+    }
+    return JSON.parse(json);
   }
   _md5(data) {
     return crypto.createHash("md5").update(data).digest("hex");
@@ -90,48 +121,49 @@ class EaseMate {
   _generateRandomIP() {
     return Array(4).fill(0).map(() => Math.floor(Math.random() * 255) + 1).join(".");
   }
-  async _apiCall(path, method, body, s3Upload = false, isStream = false) {
-    const url = s3Upload ? path : `${this.API_URL_BASE}${path}`;
+  async _apiCall(path, method, body, s3Upload = false, isStream = false, isAuth = false, token = null) {
+    const baseUrl = isAuth ? this.AUTH_URL_BASE : s3Upload ? "" : this.API_URL_BASE;
+    const url = s3Upload ? path : `${baseUrl}${path}`;
     try {
-      const {
-        sign,
-        timestamp
-      } = this._getSigns(body);
+      let headers = {};
       const randomIP = this._generateRandomIP();
-      let headers = {
+      if (!s3Upload && !path.startsWith(this.MAIL_API)) {
+        const {
+          sign,
+          timestamp
+        } = this._getSigns(body);
+        headers = {
+          ...headers,
+          "client-name": "chatpdf",
+          "client-type": "web",
+          "device-identifier": this.DEVICE_UUID,
+          "device-platform": this.BROWSER_PLATFORM,
+          "device-type": "web",
+          "device-uuid": this.DEVICE_UUID,
+          lang: this.LANG,
+          language: this.LANGUAGE,
+          site: this.LOCATION_HOST,
+          sign: sign,
+          timestamp: timestamp,
+          "X-Forwarded-For": randomIP,
+          "X-Real-IP": randomIP
+        };
+        if (token) {
+          headers.authorization = `Bearer ${token}`;
+        }
+      }
+      headers = {
+        ...headers,
         "Accept-Language": "id-ID,id;q=0.9",
         Connection: "keep-alive",
         Origin: "https://www.easemate.ai",
         Referer: "https://www.easemate.ai/",
-        "Sec-Fetch-Dest": "empty",
-        "Sec-Fetch-Mode": "cors",
-        "Sec-Fetch-Site": "same-site",
         "User-Agent": "Mozilla/5.0 (Linux; Android 10; K) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/135.0.0.0 Mobile Safari/537.36",
-        "client-name": "chatpdf",
-        "client-type": "web",
-        "device-identifier": this.DEVICE_UUID,
-        "device-platform": this.BROWSER_PLATFORM,
-        "device-type": "web",
-        "device-uuid": this.DEVICE_UUID,
-        lang: this.LANG,
-        language: this.LANGUAGE,
-        site: this.LOCATION_HOST,
-        sign: sign,
-        timestamp: timestamp,
-        "X-Forwarded-For": randomIP,
-        "X-Real-IP": randomIP
+        accept: "application/json"
       };
       if (isStream) {
-        headers = {
-          ...headers,
-          Accept: "text/event-stream, text/event-stream",
-          "Cache-Control": "no-cache"
-        };
-      } else {
-        headers = {
-          ...headers,
-          accept: "application/json"
-        };
+        headers.accept = "text/event-stream, text/event-stream";
+        headers["Cache-Control"] = "no-cache";
       }
       let requestBody = body ? JSON.stringify(body) : undefined;
       if (s3Upload) {
@@ -188,7 +220,7 @@ class EaseMate {
         return fullAnswer.trim();
       }
       const data = await response.json();
-      if (data.code !== 200) {
+      if (!s3Upload && !path.startsWith(this.MAIL_API) && data.code !== 200) {
         throw new Error(`API Error: ${data.message} (Code: ${data.code})`);
       }
       return data.data;
@@ -196,6 +228,62 @@ class EaseMate {
       console.error(`❌ Terjadi kesalahan dalam panggilan API ke ${url}:`, error.message);
       throw error;
     }
+  }
+  async _authenticate() {
+    console.log("🔐 Memulai proses autentikasi...");
+    const createMailUrl = `${this.MAIL_API}?action=create`;
+    const mailResponse = await fetch(createMailUrl);
+    const mailData = await mailResponse.json();
+    const email = mailData.data.address;
+    const authPayload1 = {
+      email: email,
+      type: "user_register",
+      nonce: crypto.randomBytes(8).toString("hex"),
+      timestamp: this._getTimestamp(),
+      web_app_key: "account_web"
+    };
+    const {
+      sign: sign1
+    } = this._getSigns(authPayload1);
+    authPayload1.sign = sign1;
+    await this._apiCall("/auth/send-email-code", "POST", authPayload1, false, false, true);
+    console.log(`✉️ Kode verifikasi dikirim ke: ${email}. Menunggu...`);
+    await new Promise(resolve => setTimeout(resolve, 1e4));
+    const getMessageUrl = `${this.MAIL_API}?action=message&email=${email}`;
+    const messageResponse = await fetch(getMessageUrl);
+    const messageData = await messageResponse.json();
+    if (messageData.data.rows.length === 0) {
+      throw new Error("Tidak ada email verifikasi yang ditemukan.");
+    }
+    const htmlContent = messageData.data.rows[0].html;
+    const match = /<span[^>]*>(\d{4})<\/span>/g.exec(htmlContent);
+    const emailCode = match ? match[1] : null;
+    if (!emailCode) {
+      throw new Error("Gagal mengekstrak kode verifikasi dari email.");
+    }
+    const authPayload2 = {
+      email: email,
+      email_code: emailCode,
+      type: "user_register",
+      nonce: crypto.randomBytes(8).toString("hex"),
+      timestamp: this._getTimestamp(),
+      web_app_key: "account_web"
+    };
+    const {
+      sign: sign2
+    } = this._getSigns(authPayload2);
+    authPayload2.sign = sign2;
+    const checkCodeResponse = await this._apiCall("/auth/check-email-code", "POST", authPayload2, false, false, true);
+    console.log("✅ Kode verifikasi berhasil diperiksa.");
+    const registerPayload = {
+      sign: checkCodeResponse.sign,
+      nonce: checkCodeResponse.nonce,
+      timestamp: this._getTimestamp(),
+      web_app_key: "account_web"
+    };
+    const registerResponse = await this._apiCall("/auth/register", "POST", registerPayload, false, false, true);
+    console.log("✅ Autentikasi berhasil.");
+    return registerResponse.token;
   }
   async chat({
     imageUrl = null,
@@ -332,20 +420,128 @@ class EaseMate {
       throw error;
     }
   }
-  async status({
+  async image_status({
     task_id: taskId
   }) {
     try {
-      console.log(`⏳ Memeriksa status tugas dengan ID: ${taskId}`);
+      console.log(`⏳ Memeriksa image_status tugas dengan ID: ${taskId}`);
       const queryPayload = {
         taskId: taskId,
         task_type: 10002
       };
       const queryResponse = await this._apiCall("/async/query_generate_image", "POST", queryPayload);
-      console.log(`✅ Status tugas berhasil diperiksa.`);
+      console.log(`✅ image_status tugas berhasil diperiksa.`);
       return queryResponse;
     } catch (error) {
-      console.error(`❌ Terjadi kesalahan saat memeriksa status tugas ${taskId}:`, error.message);
+      console.error(`❌ Terjadi kesalahan saat memeriksa image_status tugas ${taskId}:`, error.message);
+      throw error;
+    }
+  }
+  async video({
+    imageUrl = null,
+    prompt = "Turn static image into dynamic video",
+    duration = "5s",
+    quality = "720p",
+    aspectRatio = "9:16",
+    ...rest
+  }) {
+    try {
+      console.log("🎬 Memulai proses video...");
+      if (!imageUrl) {
+        throw new Error("Parameter 'imageUrl' harus ada untuk membuat video.");
+      }
+      const token = await this._authenticate();
+      const objectInfo = [];
+      if (imageUrl) {
+        console.log("📷 Mengunggah gambar ke S3 untuk video...");
+        const timestamp = new Date().getTime();
+        const uniqueId = crypto.randomBytes(16).toString("hex");
+        const imageKey = `pro/${this.DEVICE_UUID}/${uniqueId}_${timestamp}.jpg`;
+        const uploadUrlPayload = {
+          key: imageKey,
+          value: crypto.randomBytes(16).toString("hex")
+        };
+        const uploadResponse = await this._apiCall("/task/query_upload_url", "POST", uploadUrlPayload, false, false, false, token);
+        const {
+          upload_url,
+          download_url
+        } = uploadResponse;
+        const imageFetchResponse = await fetch(imageUrl);
+        if (!imageFetchResponse.ok) {
+          throw new Error(`Gagal mengambil gambar dari URL: ${imageUrl}`);
+        }
+        const imageArrayBuffer = await imageFetchResponse.arrayBuffer();
+        const imageBuffer = Buffer.from(imageArrayBuffer);
+        await this._apiCall(upload_url, "PUT", imageBuffer, true, false, false, token);
+        console.log("✅ Gambar sumber berhasil diunggah untuk video.");
+        objectInfo.push({
+          img_info: {
+            s3_name: imageKey,
+            s3_url: download_url,
+            size: imageBuffer.length,
+            origin_name: "input_image.jpg"
+          }
+        });
+      } else {
+        console.log("ℹ️ Tidak ada URL gambar yang disediakan, melewati langkah unggah gambar.");
+      }
+      const createTaskPayload = {
+        model_id: 10001,
+        operation_info: {
+          id: 600,
+          operation: "VIDEO_GENERATION"
+        },
+        object_info: objectInfo,
+        parameters: JSON.stringify({
+          prompt: prompt,
+          duration: duration,
+          quality: quality,
+          aspectRatio: aspectRatio,
+          ...rest
+        })
+      };
+      const createResponse = await this._apiCall("/async/create_generate_video", "POST", createTaskPayload, false, false, false, token);
+      const {
+        taskId
+      } = createResponse;
+      console.log(`ℹ️ Tugas video dibuat dengan ID: ${taskId}`);
+      const task_id = this.enc({
+        taskId: taskId,
+        token: token
+      });
+      return {
+        task_id: task_id
+      };
+    } catch (error) {
+      console.error("❌ Terjadi kesalahan pada fungsi video:", error.message);
+      throw error;
+    }
+  }
+  async video_status({
+    task_id: _taskId
+  }) {
+    try {
+      if (!_taskId) {
+        throw new Error("task_id is required to check status.");
+      }
+      console.log(`⏳ Memeriksa status tugas video dengan ID: ${_taskId}`);
+      const decryptedData = this.dec(_taskId);
+      const {
+        taskId,
+        token
+      } = decryptedData;
+      if (!taskId) {
+        throw new Error("Invalid task_id: Missing videoId after decryption.");
+      }
+      const queryPayload = {
+        taskId: taskId,
+        task_type: 10001
+      };
+      const queryResponse = await this._apiCall("/async/query_generate_video", "POST", queryPayload, false, false, false, token);
+      console.log(`✅ Status tugas video berhasil diperiksa.`);
+      return queryResponse;
+    } catch (error) {
+      console.error(`❌ Terjadi kesalahan saat memeriksa status tugas video ${taskId}:`, error.message);
       throw error;
     }
   }
@@ -380,7 +576,7 @@ export default async function handler(req, res) {
       case "image": {
         console.log("➡️ Menerima permintaan 'image'.");
         if (!params.prompt) {
-          console.error("⛔️ Parameter 'prompt' harus ada untuk aksi 'chat'.");
+          console.error("⛔️ Parameter 'prompt' harus ada untuk aksi 'image'.");
           return res.status(400).json({
             error: "Parameter 'prompt' harus ada untuk aksi 'image'."
           });
@@ -389,22 +585,46 @@ export default async function handler(req, res) {
         console.log("✅ Mengirimkan respons 'image' berhasil.");
         return res.status(200).json(result);
       }
-      case "status": {
-        console.log("➡️ Menerima permintaan 'status'.");
+      case "image_status": {
+        console.log("➡️ Menerima permintaan 'image_status'.");
         if (!params.task_id) {
           console.error("⛔️ Parameter 'task_id' hilang.");
           return res.status(400).json({
-            error: "Parameter 'task_id' diperlukan untuk aksi 'status'."
+            error: "Parameter 'task_id' diperlukan untuk aksi 'image_status'."
           });
         }
-        const result = await ai.status(params);
-        console.log("✅ Mengirimkan respons 'status' berhasil.");
+        const result = await ai.image_status(params);
+        console.log("✅ Mengirimkan respons 'image_status' berhasil.");
+        return res.status(200).json(result);
+      }
+      case "video": {
+        console.log("➡️ Menerima permintaan 'video'.");
+        if (!params.prompt) {
+          console.error("⛔️ Parameter 'prompt' harus ada untuk aksi 'video'.");
+          return res.status(400).json({
+            error: "Parameter 'prompt' harus ada untuk aksi 'video'."
+          });
+        }
+        const result = await ai.video(params);
+        console.log("✅ Mengirimkan respons 'video' berhasil.");
+        return res.status(200).json(result);
+      }
+      case "video_status": {
+        console.log("➡️ Menerima permintaan 'video_status'.");
+        if (!params.task_id) {
+          console.error("⛔️ Parameter 'task_id' hilang.");
+          return res.status(400).json({
+            error: "Parameter 'task_id' diperlukan untuk aksi 'video_status'."
+          });
+        }
+        const result = await ai.video_status(params);
+        console.log("✅ Mengirimkan respons 'video_status' berhasil.");
         return res.status(200).json(result);
       }
       default:
         console.error("⛔️ Aksi tidak valid:", action);
         return res.status(400).json({
-          error: `Aksi tidak valid. Aksi yang didukung: 'chat', 'image', 'status'.`
+          error: `Aksi tidak valid. Aksi yang didukung: 'chat', 'image', 'image_status', 'video', 'video_status'.`
         });
     }
   } catch (error) {

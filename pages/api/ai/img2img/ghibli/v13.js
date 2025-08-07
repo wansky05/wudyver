@@ -229,6 +229,7 @@ export default async function handler(req, res) {
       error: "Action is required."
     });
   }
+  const ghibliGPT = new GhibliGPTAPI();
   try {
     switch (action) {
       case "generate": {
