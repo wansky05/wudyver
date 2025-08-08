@@ -1,6 +1,6 @@
-const axios = require("axios");
-const https = require("https");
-const crypto = require("crypto");
+import axios from "axios";
+import https from "https";
+import crypto from "crypto";
 class ChatGPTClient {
   constructor(options = {}) {
     this.baseURL = "https://chatgpt.com";

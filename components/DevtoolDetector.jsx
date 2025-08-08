@@ -42,11 +42,9 @@ const DevtoolDetector = () => {
       typeWriter();
       if (typeof console !== "undefined") {
         console.clear();
-        console.warn("!!! SYSTEM ALERT !!!");
-        console.log("AKSES TIDAK SAH: Developer Tools Terdeteksi.");
-        console.info("Memulai protokol keamanan: KONEKSI DIPUTUS.");
-        console.warn("Harap nonaktifkan Developer Tools untuk melanjutkan.");
-        console.log("Kegagalan untuk mematuhi dapat mengakibatkan pembatasan lebih lanjut.");
+        console.log("%c🔑🔐%c AKSES DITOLAK %c🔐🔑", "font-size: 25px;", "font-size: 25px; font-weight: bold;", "font-size: 25px;");
+console.warn("⚠️ DEVELOPER TOOLS TERDETEKSI! KONEKSI DIPUTUS. ⚠️");
+console.info("Harap matikan DevTools untuk melanjutkan. 🔌");
       }
       debugger;
     }

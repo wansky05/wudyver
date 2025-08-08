@@ -11,14 +11,7 @@ class GhibliGPTAPI {
         task: "/v1/gpt4o-image/record-info"
       }
     };
-    this.headers = {
-      accept: "*/*",
-      "content-type": "application/json",
-      origin: "https://ghibli-gpt.net",
-      referer: "https://ghibli-gpt.net/",
-      "user-agent": "NB Android/1.0.0",
-      authorization: ""
-    };
+    this.baseUrl = "https://ghibli-gpt.net";
     this.state = {
       token: null
     };
@@ -26,6 +19,39 @@ class GhibliGPTAPI {
       keyBase64: "UBsnTxs80g8p4iW72eYyPaDvGZbpzun8K2cnoSSEz1Y",
       ivBase64: "fG1SBDUyE2IG8kPw",
       ciphertextBase64: "2QpqZCkOD/WMHixMqt46AvhdKRYgy5aUMLXi6D0nOPGuDbH4gbNKDV0ZW/+9w9I="
+    };
+  }
+  randomID(length) {
+    const chars = "abcdefghijklmnopqrstuvwxyz0123456789";
+    let result = "";
+    for (let i = 0; i < length; i++) {
+      result += chars.charAt(Math.floor(Math.random() * chars.length));
+    }
+    return result;
+  }
+  randomCryptoIP() {
+    return Array(4).fill(0).map(() => Math.floor(Math.random() * 255) + 1).join(".");
+  }
+  buildHeaders(extra = {}) {
+    const ip = this.randomCryptoIP();
+    return {
+      accept: "*/*",
+      "accept-language": "id-ID,id;q=0.9",
+      "content-type": "application/json",
+      origin: this.baseUrl,
+      priority: "u=1, i",
+      referer: `${this.baseUrl}/ghibli-image-generator/`,
+      "sec-ch-ua": '"Lemur";v="135", "", "", "Microsoft Edge Simulate";v="135"',
+      "sec-ch-ua-mobile": "?1",
+      "sec-ch-ua-platform": '"Android"',
+      "sec-fetch-dest": "empty",
+      "sec-fetch-mode": "cors",
+      "sec-fetch-site": "same-origin",
+      "user-agent": "Mozilla/5.0 (Linux; Android 10; K) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/135.0.0.0 Mobile Safari/537.36",
+      "x-forwarded-for": ip,
+      "x-real-ip": ip,
+      "x-request-id": this.randomID(8),
+      ...extra
     };
   }
   async decryptToken() {
@@ -41,7 +67,6 @@ class GhibliGPTAPI {
       decipher.setAuthTag(ciphertext.slice(-16));
       const decrypted = decipher.update(ciphertext.slice(0, -16), undefined, "utf8") + decipher.final("utf8");
       this.state.token = decrypted;
-      this.headers.authorization = `Bearer ${decrypted}`;
       console.log("Dekripsi token berhasil.");
       return decrypted;
     } catch (err) {
@@ -72,23 +97,13 @@ class GhibliGPTAPI {
     nVariants = 1
   }) {
     console.log("Memulai proses generasi gambar...");
-    if (!prompt?.trim()) {
-      console.error("Validasi gagal: Prompt diperlukan.");
+    if (!prompt?.trim() || !imageUrl) {
+      console.error("Validasi gagal: Prompt dan URL gambar diperlukan.");
       return {
         success: false,
         code: 400,
         result: {
-          error: "Prompt diperlukan."
-        }
-      };
-    }
-    if (!imageUrl || !(typeof imageUrl === "string" && (imageUrl.startsWith("https://") || imageUrl.startsWith("http://")))) {
-      console.error("Validasi gagal: URL gambar tidak valid.");
-      return {
-        success: false,
-        code: 400,
-        result: {
-          error: "URL gambar yang valid diperlukan."
+          error: "Prompt dan URL gambar diperlukan."
         }
       };
     }
@@ -114,7 +129,10 @@ class GhibliGPTAPI {
       filesUrl,
       files
     } = this.prepareImageData(imageBuffer);
-    await this.decryptToken();
+    const decryptedToken = await this.decryptToken();
+    const headers = this.buildHeaders({
+      authorization: `Bearer ${decryptedToken}`
+    });
     try {
       console.log("Mengirim permintaan ke API...");
       const {
@@ -126,7 +144,7 @@ class GhibliGPTAPI {
         size: size,
         nVariants: nVariants
       }, {
-        headers: this.headers
+        headers: headers
       });
       const task_id = data?.data?.taskId;
       if (!task_id) {
@@ -172,13 +190,16 @@ class GhibliGPTAPI {
         }
       };
     }
-    await this.decryptToken();
+    const decryptedToken = await this.decryptToken();
+    const headers = this.buildHeaders({
+      authorization: `Bearer ${decryptedToken}`
+    });
     try {
       console.log(`Mengecek status untuk task_id: ${task_id}`);
       const {
         data
       } = await axios.get(`${this.api.base}${this.api.endpoints.task}?taskId=${task_id}`, {
-        headers: this.headers
+        headers: headers
       });
       const d = data?.data || {};
       const status = d.status || "pending";
@@ -229,7 +250,7 @@ export default async function handler(req, res) {
       error: "Action is required."
     });
   }
-  const ghibliGPT = new GhibliGPTAPI();
+  const ghibliApi = new GhibliGPTAPI();
   try {
     switch (action) {
       case "generate": {
@@ -241,7 +262,7 @@ export default async function handler(req, res) {
           });
         }
         console.log("Memulai aksi 'generate'...");
-        const result = await ghibliGPT.generate(params);
+        const result = await ghibliApi.generate(params);
         return res.status(result.code).json(result);
       }
       case "status": {
@@ -252,7 +273,7 @@ export default async function handler(req, res) {
           });
         }
         console.log(`Memulai aksi 'status' untuk task_id: ${params.task_id}`);
-        const result = await ghibliGPT.status(params);
+        const result = await ghibliApi.status(params);
         return res.status(result.code).json(result);
       }
       default:
