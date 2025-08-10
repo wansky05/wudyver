@@ -1,9 +1,10 @@
 import axios from "axios";
 import * as cheerio from "cheerio";
+import apiConfig from "@/configs/apiConfig";
 class TelegramChannelsScraper {
   constructor() {
     this.base_url = "https://telegramchannels.me";
-    this.api_url = "https://wudysoft.xyz/api/tools/web/html/v1";
+    this.api_url = `https://${apiConfig.DOMAIN_URL}/api/tools/web/html/v1`;
   }
   async search({
     query,
