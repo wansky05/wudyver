@@ -15,12 +15,12 @@ class DuckAI {
     this.statusUrl = "https://duckduckgo.com/duckchat/v1/status";
     this.initialUrl = "https://duckduckgo.com/aichat";
     this.feVersionFetchUrl = "https://duckduckgo.com/?q=DuckDuckGo+AI+Chat&ia=chat&duckai=1";
-    this.userAgent = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126.0.0.0 Safari/537.36";
-    this.secChUa = `"Not/A)Brand";v="8", "Chromium";v="126", "Google Chrome";v="126"`;
-    this.secChUaMobile = "?0";
-    this.secChUaPlatform = `"Windows"`;
+    this.userAgent = "Mozilla/5.0 (Linux; Android 10; K) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/135.0.0.0 Mobile Safari/537.36";
+    this.secChUa = `"Lemur";v="135", "", "", "Microsoft Edge Simulate";v="135"`;
+    this.secChUaMobile = "?1";
+    this.secChUaPlatform = `"Android"`;
     this.acceptLanguage = "id-ID,id;q=0.9";
-    this.initialCookiesString = "ah=fr-fr; l=wt-wt; p=-2; dcm=3; dcs=1";
+    this.initialCookiesString = "ah=us-en; l=wt-wt; p=-2; dcm=3; dcs=1";
     this.requestOrigin = "https://duckduckgo.com";
     this.cookieJar = new CookieJar();
     this.initCookies();
@@ -76,45 +76,6 @@ class DuckAI {
       });
     }
   }
-  setupInt() {
-    this.log("debug", "Setting up axios interceptors");
-    this.client.interceptors.request.use(config => {
-      const commonHeaders = {
-        "accept-language": this.acceptLanguage,
-        "sec-ch-ua": this.secChUa,
-        "sec-ch-ua-mobile": this.secChUaMobile,
-        "sec-ch-ua-platform": this.secChUaPlatform,
-        "sec-fetch-dest": "empty",
-        "sec-fetch-mode": "cors",
-        "sec-fetch-site": "same-origin",
-        "user-agent": this.userAgent,
-        origin: this.requestOrigin
-      };
-      config.headers = {
-        ...commonHeaders,
-        ...config.headers
-      };
-      this.log("debug", `Making ${config.method?.toUpperCase()} request to: ${config.url}`);
-      this.log("debug", "Request Headers:", config.headers);
-      return config;
-    });
-    this.client.interceptors.response.use(response => {
-      this.log("debug", `Response received: ${response.status} ${response.statusText}`);
-      this.log("debug", "Response Headers:", response.headers);
-      return response;
-    }, error => {
-      if (error.response) {
-        this.logErr(`HTTP ${error.response.status}: ${error.response.statusText}`, error);
-        this.log("debug", "Error Response Headers:", error.response.headers);
-      } else if (error.request) {
-        this.logErr("Request failed - no response received", error);
-      } else {
-        this.logErr("Request setup failed", error);
-      }
-      return Promise.reject(error);
-    });
-    this.log("debug", "Axios interceptors configured");
-  }
   async sleep(durationMs) {
     if (durationMs > 0) {
       await new Promise(resolve => setTimeout(resolve, durationMs));
@@ -124,171 +85,127 @@ class DuckAI {
     const hash = CryptoJS.SHA256(text);
     return CryptoJS.enc.Base64.stringify(hash);
   }
-  deriveSecChUa(ua) {
-    let brands = [];
-    let platform = "Unknown";
-    let mobile = false;
-    if (ua.includes("Mobile") || ua.includes("Android") || ua.includes("iPhone") || ua.includes("iPad")) {
-      mobile = true;
-    }
-    if (ua.includes("Windows NT")) {
-      platform = "Windows";
-    } else if (ua.includes("Macintosh")) {
-      platform = "macOS";
-    } else if (ua.includes("Android")) {
-      platform = "Android";
-    } else if (ua.includes("Linux")) {
-      platform = "Linux";
-    } else if (ua.includes("iOS")) {
-      platform = "iOS";
-    }
-    if (ua.includes("Chrome/")) {
-      const chromeVersionMatch = ua.match(/Chrome\/(\d+)\./);
-      const chromeVersion = chromeVersionMatch ? chromeVersionMatch[1] : "0";
-      brands.push({
-        brand: "Lemur",
-        version: chromeVersion
-      });
-      brands.push({
-        brand: "",
-        version: ""
-      });
-      brands.push({
-        brand: "Microsoft Edge Simulate",
-        version: chromeVersion
-      });
-    } else if (ua.includes("Firefox/")) {
-      const firefoxVersionMatch = ua.match(/Firefox\/(\d+)\./);
-      const firefoxVersion = firefoxVersionMatch ? firefoxVersionMatch[1] : "0";
-      brands.push({
-        brand: "Firefox",
-        version: firefoxVersion
-      });
-    } else if (ua.includes("Safari/") && !ua.includes("Chrome/")) {
-      const safariVersionMatch = ua.match(/Version\/(\d+\.\d+).*Safari/);
-      const safariVersion = safariVersionMatch ? safariVersionMatch[1] : "0";
-      brands.push({
-        brand: "Safari",
-        version: safariVersion
-      });
-    }
-    const secChUaBrands = brands.map(b => `"${b.brand}";v="${b.version}"`).join(", ");
-    return {
-      secChUa: secChUaBrands,
-      secChUaMobile: mobile ? "?1" : "?0",
-      secChUaPlatform: `"${platform}"`
-    };
-  }
-  parseBrandsSecChUa(secChUaString) {
-    const brands = [];
-    const parts = secChUaString.split(",").map(s => s.trim());
-    for (const part of parts) {
-      const match = part.match(/"([^"]+)";v="([^"]+)"/);
-      if (match) {
-        brands.push({
-          brand: match[1],
-          version: match[2]
-        });
-      } else if (part === '""') {
-        brands.push({
-          brand: "",
-          version: ""
-        });
-      }
-    }
-    return brands;
-  }
   getFixedDomFP() {
     this.log("debug", "Returning fixed DOM fingerprint '6280' as specified.");
     return "6280";
   }
-  buildXVqdHash1(vqdHash1Raw) {
+  async runScriptFromString(scriptString) {
+    const dom = new JSDOM(`
+      <!DOCTYPE html>
+      <html>
+        <head>
+          <meta charset="UTF-8">
+          <meta name="viewport" content="width=device-width, initial-scale=1.0">
+          <title>DuckDuckGo</title>
+        </head>
+        <body></body>
+      </html>
+    `, {
+      runScripts: "dangerously",
+      resources: "usable",
+      pretendToBeVisual: true,
+      userAgent: this.userAgent,
+      url: this.requestOrigin
+    });
+    const {
+      window
+    } = dom;
+    const {
+      document
+    } = window;
     try {
+      Object.defineProperty(window.navigator, "userAgent", {
+        value: this.userAgent,
+        writable: false
+      });
+      Object.defineProperty(window.navigator, "webdriver", {
+        value: undefined,
+        writable: false
+      });
+      const scriptEl = document.createElement("script");
+      scriptEl.textContent = scriptString;
+      document.body.appendChild(scriptEl);
+      await new Promise(resolve => setTimeout(resolve, 100));
+      return window.lastResult;
+    } catch (error) {
+      this.logErr("Error executing script:", error);
+      throw error;
+    }
+  }
+  async buildXVqdHash1(vqdHash1Raw) {
+    let hashFromDom;
+    const n = Date.now();
+    try {
+      this.log("info", "Decoding raw x-vqd-hash-1 string.");
       const wordArray = CryptoJS.enc.Base64.parse(vqdHash1Raw);
       const jsLiteralString = CryptoJS.enc.Utf8.stringify(wordArray);
-      this.log("debug", `Decoded raw x-vqd-hash-1 string (first 200 chars): ${jsLiteralString.substring(0, 200)}...`);
-      const dom = new JSDOM(`<html><body><script>window.hashObject = ${jsLiteralString}</script></body></html>`, {
-        runScripts: "dangerously",
-        url: this.requestOrigin + "/",
-        userAgent: this.userAgent,
-        virtualConsole: new JSDOM().virtualConsole,
-        resources: "usable",
-        pretendToBeVisual: true,
-        beforeParse: window => {
-          Object.defineProperty(window.navigator, "userAgentData", {
-            value: {
-              brands: this.parseBrandsSecChUa(this.secChUa),
-              mobile: this.secChUaMobile === "?1",
-              platform: this.secChUaPlatform.replace(/"/g, "")
-            },
-            writable: false,
-            configurable: true
-          });
-        }
-      });
-      const hashFromDom = dom.window.hashObject;
-      if (!hashFromDom || !hashFromDom.client_hashes || !hashFromDom.server_hashes || !hashFromDom.meta) {
-        throw new Error("Invalid hash object structure after JSDOM parsing. Missing client_hashes, server_hashes, or meta.");
+      this.log("debug", `Decoded string (first 100 chars): ${jsLiteralString.substring(0, 100)}...`);
+      this.log("info", "Executing script in JSDOM to get hash components.");
+      try {
+        hashFromDom = await this.runScriptFromString(`
+          const res = ${jsLiteralString};
+          window.lastResult = res;
+        `);
+      } catch (e) {
+        this.logErr("Failed to parse JSDOM script, returning default object.", e);
+        hashFromDom = {
+          client_hashes: [],
+          server_hashes: [],
+          meta: {},
+          signals: {}
+        };
       }
-      if (typeof hashFromDom.meta.stack === "string") {
-        hashFromDom.meta.stack = hashFromDom.meta.stack.replace(/\\\\n/g, "\n").replace(/\\\\t/g, "\t");
+      if (!hashFromDom || !Array.isArray(hashFromDom.client_hashes) || !Array.isArray(hashFromDom.server_hashes)) {
+        this.log("warn", "Invalid hash object structure after JSDOM parsing. Missing expected keys or invalid types.");
+        hashFromDom = {
+          client_hashes: [],
+          server_hashes: [],
+          meta: {},
+          signals: {}
+        };
       }
-      let rawUserAgent = this.userAgent;
-      let rawDomFingerprint = this.getFixedDomFP();
-      if (hashFromDom.client_hashes && hashFromDom.client_hashes.length > 0) {
-        rawUserAgent = hashFromDom.client_hashes[0];
-        this.log("debug", `Extracted raw User Agent from client_hashes[0]: "${rawUserAgent}"`);
-        this.userAgent = rawUserAgent;
-        const derivedHints = this.deriveSecChUa(this.userAgent);
-        this.secChUa = derivedHints.secChUa;
-        this.secChUaMobile = derivedHints.secChUaMobile;
-        this.secChUaPlatform = derivedHints.secChUaPlatform;
-        this.log("debug", "Class User Agent and Client Hints updated based on decoded hash.");
-      }
-      if (hashFromDom.client_hashes && hashFromDom.client_hashes.length > 1) {
-        rawDomFingerprint = hashFromDom.client_hashes[1];
-        this.log("debug", `Extracted raw DOM Fingerprint from client_hashes[1]: "${rawDomFingerprint}"`);
-      }
-      const uaHash = this.sha256B64(rawUserAgent);
-      const domHash = this.sha256B64(rawDomFingerprint);
-      this.log("debug", `User Agent (for hashing): "${rawUserAgent}"`);
-      this.log("debug", `Calculated UA Hash: ${uaHash}`);
-      this.log("debug", `DOM Fingerprint Value (for hashing): ${rawDomFingerprint}`);
-      this.log("debug", `Calculated DOM Hash: ${domHash}`);
+      const client_hashes = await Promise.all((hashFromDom.client_hashes || []).map(async e => {
+        const t = new TextEncoder().encode(e);
+        const n = await crypto.subtle.digest("SHA-256", t);
+        const r = new Uint8Array(n);
+        return btoa(String.fromCharCode(...r));
+      }));
+      const defaultStack = "at l https://duckduckgo.com/dist/wpm.main.c2092753cfcca2df4cd1.js:1:362167\nat async https://duckduckgo.com/dist/wpm.main.c2092753cfcca2df4cd1.js:1:338979";
       const finalResult = {
-        server_hashes: hashFromDom.server_hashes,
-        client_hashes: [uaHash, domHash],
-        signals: hashFromDom.signals || {},
+        ...hashFromDom,
+        client_hashes: client_hashes,
         meta: {
-          v: hashFromDom.meta.v,
-          challenge_id: hashFromDom.meta.challenge_id,
+          ...hashFromDom.meta || {},
           origin: this.requestOrigin,
-          timestamp: hashFromDom.meta.timestamp,
-          stack: hashFromDom.meta.stack || "Error\nat https://duckduckgo.com/dist/wpm.chat.12cb9116cc862626ea76.js:1:25430\nat async https://duckduckgo.com/dist/wpm.chat.12cb9116cc862626ea76.js:1:23457"
+          stack: (hashFromDom.meta && hashFromDom.meta.stack) ?? defaultStack,
+          duration: String(Date.now() - n)
         }
       };
-      this.log("debug", "Final Hash Object before encoding:", finalResult);
-      return CryptoJS.enc.Base64.stringify(CryptoJS.enc.Utf8.parse(JSON.stringify(finalResult)));
+      this.log("info", "Encoding final hash object to Base64.");
+      this.log("debug", "Final hash object:", finalResult);
+      const finalResultString = JSON.stringify(finalResult);
+      return CryptoJS.enc.Base64.stringify(CryptoJS.enc.Utf8.parse(finalResultString));
     } catch (e) {
       this.logErr("Failed to build x-vqd-hash-1", e);
-      return "";
+      throw e;
     }
   }
   async getDefCookies() {
-    this.log("debug", "getDefaultCookies now primarily serves to hit the initial URL if needed for server-side cookie setting.");
+    this.log("info", "Fetching initial URL to establish session cookies.");
     try {
       await this.sleep(1500);
       await this.client.get(this.initialUrl);
-      this.log("debug", "Initial URL hit for cookie establishment. Cookies are now managed by CookieJar.");
+      this.log("debug", "Initial URL hit successfully. Cookies are now managed by CookieJar.");
     } catch (e) {
       this.logErr("Failed to hit initial URL for cookies", e);
+      throw e;
     }
   }
   async fetchFeVer() {
     const beVersionRegex = /__DDG_BE_VERSION__\s*=\s*"([^"]*)"/;
     const feChatHashRegex = /__DDG_FE_CHAT_HASH__\s*=\s*"([^"]*)"/;
     try {
-      this.log("debug", "Fetching x-fe-version dynamically...");
+      this.log("info", "Fetching x-fe-version dynamically...");
       await this.sleep(1500);
       const response = await this.client.get(this.feVersionFetchUrl);
       const content = response.data;
@@ -299,36 +216,38 @@ class DuckAI {
         this.log("debug", "Dynamically fetched x-fe-version:", this.chatXfe);
         return this.chatXfe;
       }
-      this.log("warn", `Could not extract x-fe-version from response using regex. Using fixed value from curl.`);
-      return "serp_20250620_202112_ET-12cb9116cc862626ea76";
+      this.log("warn", "Could not extract x-fe-version from response. Using fixed value.");
+      return "serp_20250808_165827_ET-6a827f0e445029228683";
     } catch (e) {
-      this.logErr("Failed to dynamically fetch x-fe-version, using fixed value from curl.", e);
-      return "serp_20250620_202112_ET-12cb9116cc862626ea76";
+      this.logErr("Failed to dynamically fetch x-fe-version, using fixed value.", e);
+      return "serp_20250808_165827_ET-6a827f0e445029228683";
     }
   }
   async getVQD(retryCount = 0) {
-    const headers = {
-      accept: "*/*",
-      "accept-language": this.acceptLanguage,
-      "cache-control": "no-store",
-      pragma: "no-cache",
-      priority: "u=1, i",
-      "sec-fetch-dest": "empty",
-      "sec-fetch-mode": "cors",
-      "sec-fetch-site": "same-origin",
-      "x-vqd-accept": "1",
-      "User-Agent": this.userAgent
-    };
+    this.log("info", `Fetching VQD data (Attempt ${retryCount + 1})...`);
     await this.getDefCookies();
     try {
-      this.log("debug", `Fetching VQD data (Attempt ${retryCount + 1})...`);
       await this.sleep(1500 * (1 + retryCount * .5));
       const response = await this.client.get(this.statusUrl, {
-        headers: headers
+        headers: {
+          accept: "*/*",
+          "x-vqd-accept": "1",
+          "accept-language": this.acceptLanguage,
+          "cache-control": "no-store",
+          priority: "u=1, i",
+          referer: this.requestOrigin + "/",
+          "sec-ch-ua": this.secChUa,
+          "sec-ch-ua-mobile": this.secChUaMobile,
+          "sec-ch-ua-platform": this.secChUaPlatform,
+          "sec-fetch-dest": "empty",
+          "sec-fetch-mode": "cors",
+          "sec-fetch-site": "same-origin",
+          "user-agent": this.userAgent
+        }
       });
       const hashHeader = response.headers["x-vqd-hash-1"];
       if (!hashHeader) {
-        this.log("warn", `Missing x-vqd-hash-1 header in status response. Trying again if retries available.`);
+        this.log("warn", "Missing x-vqd-hash-1 header in status response. Trying again if retries available.");
         throw new Error(`Status 200 but missing x-vqd-hash-1. Response Headers: ${JSON.stringify(response.headers)}`);
       }
       this.log("debug", "VQD data fetched successfully.", {
@@ -358,17 +277,12 @@ class DuckAI {
     prompt,
     messages = [],
     model = "gpt-4o-mini",
-    metadata = {
-      toolChoice: {
-        NewsSearch: false,
-        VideosSearch: false,
-        LocalSearch: false,
-        WeatherForecast: false
-      }
-    },
+    metadata = {},
     canUseTools = true,
+    canUseApproxLocation = true,
     ...rest
   }) {
+    this.log("info", "--- Starting chat request ---");
     const chatMessages = messages.length ? messages : prompt ? [{
       role: "user",
       content: prompt
@@ -376,37 +290,42 @@ class DuckAI {
     if (!chatMessages.length) {
       throw new Error("No prompt or messages provided for the chat request.");
     }
+    const combinedMetadata = {
+      toolChoice: {
+        NewsSearch: false,
+        VideosSearch: false,
+        LocalSearch: false,
+        WeatherForecast: false
+      },
+      ...metadata
+    };
     const request = {
+      model: model,
       messages: chatMessages,
+      metadata: combinedMetadata,
+      canUseTools: canUseTools,
+      canUseApproxLocation: canUseApproxLocation,
       ...rest
     };
-    this.log("info", "--- Starting chat request ---");
-    this.log("debug", "Chat request details:", {
-      model: request.model,
-      messageCount: request.messages?.length,
-      canUseTools: request.canUseTools
-    });
+    this.log("debug", "Chat request payload:", request);
     try {
-      this.log("info", "Step 1: Getting authentication tokens");
+      this.log("info", "Step 1: Getting authentication tokens (x-fe-version & VQD)");
       this.chatXfe = await this.fetchFeVer();
       const {
         vqd,
         hash
       } = await this.getVQD();
       const delay = 500 + Math.random() * 500;
-      this.log("debug", `Adding ${Math.round(delay)}ms delay to simulate browser behavior`);
+      this.log("debug", `Adding ${Math.round(delay)}ms delay to simulate browser behavior.`);
       await this.sleep(delay);
       this.log("info", "Step 2: Building x-vqd-hash-1 for chat request");
-      const xVqdHash1 = this.buildXVqdHash1(hash);
-      this.log("info", "Step 3: Generating additional request headers");
+      const xVqdHash1 = await this.buildXVqdHash1(hash);
+      this.log("debug", `Generated x-vqd-hash-1: ${xVqdHash1}`);
+      this.log("info", "Step 3: Preparing chat request headers");
       const feSignals = this.genXFeSig();
       const chatHeaders = {
         accept: "text/event-stream",
-        "cache-control": "no-cache",
         "content-type": "application/json",
-        origin: this.requestOrigin,
-        pragma: "no-cache",
-        priority: "u=1, i",
         referer: "https://duckduckgo.com/",
         "x-fe-signals": feSignals,
         "x-fe-version": this.chatXfe,
@@ -418,30 +337,22 @@ class DuckAI {
       };
       if (vqd === null) {
         delete chatHeaders["x-vqd-4"];
-        this.log("debug", "x-vqd-4 header removed as requested (vqd was null).");
+        this.log("debug", "x-vqd-4 header removed as vqd was null.");
       } else {
         chatHeaders["x-vqd-4"] = vqd;
       }
-      this.log("debug", "Authentication headers prepared");
-      this.log("info", "Step 4: Sending chat request to DuckDuckGo");
+      this.log("debug", "Final chat headers:", chatHeaders);
+      this.log("info", "Step 4: Sending chat request to API endpoint");
       const response = await this.client.post(this.apiEndpoint, request, {
         headers: chatHeaders
       });
-      if (response.status === 429) {
-        const retryAfter = response.headers["retry-after"];
-        const waitTime = retryAfter ? parseInt(retryAfter) * 1e3 : 6e4;
-        throw new Error(`Rate limited. Retry after ${waitTime}ms. Status: ${response.status}`);
-      }
       if (response.status !== 200) {
         throw new Error(`DuckAI API error: ${response.status} ${response.statusText}`);
       }
-      this.log("info", "Step 5: Processing response data");
+      this.log("info", "Step 5: Processing API response data");
       const resText = response.data;
-      this.log("debug", `Raw response length: ${resText.length} characters`);
-      const lines = resText.split("\n");
-      this.log("debug", `Processing ${lines.length} response lines`);
       let llmResponse = "";
-      for (const line of lines) {
+      for (const line of resText.split("\n")) {
         if (line.startsWith("data: ")) {
           try {
             const json = JSON.parse(line.slice(6));
@@ -455,12 +366,21 @@ class DuckAI {
       }
       const finalResponse = llmResponse.trim();
       if (!finalResponse) {
-        this.log("warn", "Duck.ai returned empty response, using fallback");
-        return "I apologize, but I'm unable to provide a response at the moment. Please try again.";
+        this.log("warn", "Duck.ai returned an empty response.");
+        return {
+          result: "I apologize, but I'm unable to provide a response at the moment. Please try again.",
+          model: model,
+          messages: chatMessages
+        };
       }
-      this.log("info", `Chat completed successfully - response length: ${finalResponse.length} characters`);
+      this.log("info", "Chat completed successfully.");
+      this.log("debug", `Final response length: ${finalResponse.length} characters`);
       this.log("debug", "Response preview:", finalResponse.substring(0, 100) + (finalResponse.length > 100 ? "..." : ""));
-      return finalResponse;
+      return {
+        result: finalResponse,
+        model: model,
+        messages: chatMessages
+      };
     } catch (error) {
       this.logErr("Chat request failed", error);
       throw error;
@@ -480,9 +400,7 @@ export default async function handler(req, res) {
   try {
     const duckAI = new DuckAI();
     const response = await duckAI.chat(params);
-    return res.status(200).json({
-      result: response
-    });
+    return res.status(200).json(response);
   } catch (error) {
     res.status(500).json({
       error: error.message || "Internal Server Error"
