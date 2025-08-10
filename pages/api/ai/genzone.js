@@ -377,7 +377,7 @@ class GenZoneAPI {
   }
   async talk2vid({
     imageUrl,
-    content,
+    prompt: content,
     voiceId = "202411070001"
   }) {
     try {

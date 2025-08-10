@@ -537,15 +537,16 @@ class EaseMate {
 }
 export default async function handler(req, res) {
   const {
-    action = "chat", ...params
+    action,
+    ...params
   } = req.method === "GET" ? req.query : req.body;
+  const ai = new EaseMate();
   if (!action) {
-    console.error("⛔️ Aksi tidak ditemukan.");
+    console.error("⛔️ Parameter 'action' tidak ditemukan.");
     return res.status(400).json({
       error: "Parameter 'action' diperlukan."
     });
   }
-  const ai = new EaseMate();
   try {
     switch (action) {
       case "chat": {
@@ -553,7 +554,7 @@ export default async function handler(req, res) {
         if (!params.prompt) {
           console.error("⛔️ Parameter 'prompt' harus ada untuk aksi 'chat'.");
           return res.status(400).json({
-            error: "Parameter 'prompt' atau 'imageUrl' harus ada untuk aksi 'chat'."
+            error: "Parameter 'prompt' harus ada untuk aksi 'chat'."
           });
         }
         const answer = await ai.chat(params);

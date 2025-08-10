@@ -7,9 +7,10 @@ class MagicLightAPI {
     this.mailAPI = `https://${apiConfig.DOMAIN_URL}/api/mails/v9`;
     this.token = null;
     this.user = null;
-    this.sessionId = "sess_" + Math.random().toString(36).substring(2, 16);
-    this.password = "@" + Math.random().toString(36).substring(2, 10);
-    this.username = "user_" + Math.random().toString(36).substring(2, 6);
+    this.sessionId = "sess_" + this.randString(14);
+    this.password = "@" + this.randString(10);
+    this.username = "user_" + this.randString(5);
+    this.affiliation = this.randString(9);
     this.api = axios.create({
       baseURL: this.baseURL,
       timeout: 3e4,
@@ -32,6 +33,14 @@ class MagicLightAPI {
       console.error("API Error:", error.response?.data || error.message);
       return Promise.reject(error);
     });
+  }
+  randString(length) {
+    const characters = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789";
+    let result = "";
+    for (let i = 0; i < length; i++) {
+      result += characters.charAt(Math.floor(Math.random() * characters.length));
+    }
+    return result;
   }
   async createTempEmail() {
     try {
@@ -85,7 +94,7 @@ class MagicLightAPI {
         confirm: this.password,
         phoneOrEmail: email,
         code: otp,
-        affiliation: "p55mwjlxd"
+        affiliation: this.affiliation
       });
       if (response.data.code !== 200) {
         throw new Error("Registration failed");
@@ -95,12 +104,12 @@ class MagicLightAPI {
       throw new Error(`Registration failed: ${error.message}`);
     }
   }
-  async loginUser(email) {
+  async loginUser(email, code) {
     try {
       const response = await this.api.post("/api/user/signin", {
         phone: email,
         password: this.password,
-        code: ""
+        code: code
       });
       if (response.data.code !== 200) {
         throw new Error("Login failed");
@@ -125,7 +134,7 @@ class MagicLightAPI {
     console.log("[📝] Registering user...");
     await this.registerUser(email, otp);
     console.log("[🔐] Logging in...");
-    await this.loginUser(email);
+    await this.loginUser(email, otp);
     console.log("[✅] Authentication successful");
   }
   enc(data) {
