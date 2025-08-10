@@ -1156,6 +1156,8 @@ export default function handler(req, res) {
     { path: "/api/search/group-tg/v2", name: "V2", params: [{ "name": "prompt", "in": "query", "required": false }], },
     { path: "/api/search/group-tg/v3", name: "V3", params: [{ "name": "prompt", "in": "query", "required": false }], },
     { path: "/api/search/group-tg/v4", name: "V4", params: [{ "name": "prompt", "in": "query", "required": false }], },
+    { path: "/api/search/group-tg/v5", name: "V5", params: [{ "name": "prompt", "in": "query", "required": false }], },
+    { path: "/api/search/group-tg/v6", name: "V6", params: [{ "name": "prompt", "in": "query", "required": false }], },
     { path: "/api/sound/freesound", name: "Freesound", params: [{ "name": "prompt", "in": "query", "required": false }], },
     { path: "/api/sound/jungle", name: "Jungle", params: [{ "name": "prompt", "in": "query", "required": false }], },
     { path: "/api/sound/ml", name: "Ml", params: [{ "name": "prompt", "in": "query", "required": false }], },

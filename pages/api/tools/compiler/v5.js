@@ -22,38 +22,47 @@ class SafeCodeExecutor {
       }
     };
     this.forbiddenPatterns = {
-      general: [/\.\.\/|\.\.\\/gi, /\/etc\/|\/proc\/|\/sys\//gi, /localhost|127\.0\.0\.1|0\.0\.0\.0/gi, /192\.168\.|10\.|172\.(1[6-9]|2[0-9]|3[0-1])\./gi],
-      python: [/import\s+os/gi, /import\s+subprocess/gi, /import\s+sys/gi, /open\s*\(/gi, /file\s*\(/gi, /write/gi, /delete/gi, /remove/gi, /unlink/gi, /system/gi, /shell/gi],
-      javascript: [/require\s*\(\s*['"]fs['"]\s*\)/gi, /require\s*\(\s*['"]child_process['"]\s*\)/gi, /require\s*\(\s*['"]os['"]\s*\)/gi, /exec\s*\(/gi, /eval\s*\(/gi, /spawn\s*\(/gi, /fork\s*\(/gi],
-      curl: [/file:\/\//gi, /ftp:\/\//gi, /gopher:\/\//gi, /dict:\/\//gi, /ldap:\/\//gi, /--upload-file/gi, /--output|--remote-name/gi, /--form|--data-binary|--data-raw/gi, /--config/gi, /--netrc/gi, /-K\s/gi, /--proxy/gi, /--connect-to/gi, /--unix-socket/gi, /--abstract-unix-socket/gi]
+      general: [/\.\/|\.\\/gi, /\.(env)|(\.pem)|(\.key)/gi, /\/(etc|proc|sys|root)/gi, /(localhost|127\.0\.0\.1|0\.0\.0\.0)/gi, /(192\.168|10|172\.(1[6-9]|2[0-9]|3[0-1]))/gi],
+      python: [/import\s+(os|subprocess|sys|shutil|socket|requests)/gi, /open\s*\(/gi, /(file|write|delete|remove|unlink|system|shell|rm|sudo|chmod|chown)/gi],
+      javascript: [/(require|import|fs|child_process|os|net|http|https)/gi, /(exec|eval|spawn|fork|rm|sudo|chmod|chown|unlink)/gi],
+      curl: [/(file|ftp|gopher|dict|ldap|tftp):\/\//gi, /--(upload-file|output|remote-name|form|data-binary|data-raw|config|netrc|proxy|connect-to|unix-socket)/gi]
     };
   }
   validateCode(code, language) {
     if (!code || typeof code !== "string") {
       throw new Error("Kode tidak valid");
     }
-    if (code.length > 2e3) {
-      throw new Error("Kode terlalu panjang (maksimal 2000 karakter)");
+    if (code.length > 5e3) {
+      throw new Error("Kode terlalu panjang (maksimal 5000 karakter)");
     }
-    const generalPatterns = this.forbiddenPatterns.general || [];
-    for (const pattern of generalPatterns) {
+    for (const pattern of this.forbiddenPatterns.general || []) {
       if (pattern.test(code)) {
         throw new Error("Kode mengandung operasi yang tidak diizinkan");
       }
     }
-    const languagePatterns = this.forbiddenPatterns[language] || [];
-    for (const pattern of languagePatterns) {
+    for (const pattern of this.forbiddenPatterns[language] || []) {
       if (pattern.test(code)) {
         throw new Error(`Kode mengandung operasi ${language} yang tidak diizinkan`);
       }
     }
     return true;
   }
+  validateLanguage(language) {
+    if (!language || typeof language !== "string") {
+      throw new Error("Bahasa pemrograman tidak valid");
+    }
+    const normalizedLang = language.toLowerCase().trim();
+    if (!this.supportedLanguages[normalizedLang]) {
+      throw new Error(`Bahasa '${language}' tidak didukung. Bahasa yang didukung: ${Object.keys(this.supportedLanguages).join(", ")}`);
+    }
+    return normalizedLang;
+  }
   parseCurlCommand(curlCommand) {
     const cleanCommand = curlCommand.replace(/^\s*curl\s+/i, "").trim();
     const args = this.parseCommandArgs(cleanCommand);
     const safeArgs = [];
     let hasUrl = false;
+    const securityArgs = ["--max-filesize", "51200", "--connect-timeout", "5", "--max-redirs", "3", "--proto", "=https", "--proto-redir", "=https", "--fail", "--silent", "--show-error"];
     for (let i = 0; i < args.length; i++) {
       const arg = args[i];
       if (this.isDangerousCurlArg(arg)) {
@@ -76,7 +85,6 @@ class SafeCodeExecutor {
     if (!hasUrl) {
       throw new Error("URL HTTPS diperlukan untuk cURL");
     }
-    const securityArgs = ["--max-time", "10", "--max-filesize", "51200", "--connect-timeout", "5", "--max-redirs", "3", "--proto", "=https", "--proto-redir", "=https", "--fail", "--silent", "--show-error"];
     return [...securityArgs, ...safeArgs];
   }
   parseCommandArgs(command) {
@@ -121,44 +129,20 @@ class SafeCodeExecutor {
         return false;
       }
       const hostname = urlObj.hostname.toLowerCase();
-      if (hostname === "localhost" || hostname === "127.0.0.1" || hostname === "0.0.0.0") {
-        return false;
-      }
-      if (hostname.match(/^192\.168\.|^10\.|^172\.(1[6-9]|2[0-9]|3[0-1])\./)) {
-        return false;
-      }
-      if (hostname.match(/^169\.254\./)) {
-        return false;
-      }
-      if (hostname === "::1" || hostname === "::") {
-        return false;
-      }
-      const internalDomains = [".local", ".internal", ".intranet", ".corp", ".home"];
-      if (internalDomains.some(domain => hostname.endsWith(domain))) {
-        return false;
+      const forbiddenHostnames = ["localhost", "127.0.0.1", "0.0.0.0", "::1", "::", /^192\.168\./, /^10\./, /^172\.(1[6-9]|2[0-9]|3[0-1])\./, /^169\.254\./, /\.local$/, /\.internal$/, /\.intranet$/, /\.corp$/, /\.home$/];
+      for (const forbidden of forbiddenHostnames) {
+        if (typeof forbidden === "string" && hostname === forbidden) return false;
+        if (forbidden instanceof RegExp && forbidden.test(hostname)) return false;
       }
       return true;
     } catch (e) {
       return false;
     }
   }
-  validateLanguage(language) {
-    if (!language || typeof language !== "string") {
-      throw new Error("Bahasa pemrograman tidak valid");
-    }
-    const normalizedLang = language.toLowerCase().trim();
-    if (!this.supportedLanguages[normalizedLang]) {
-      throw new Error(`Bahasa '${language}' tidak didukung. Bahasa yang didukung: ${Object.keys(this.supportedLanguages).join(", ")}`);
-    }
-    return normalizedLang;
-  }
   async executeCode(language, code) {
     const langConfig = this.supportedLanguages[language];
     const {
-      command,
-      timeout,
-      maxOutputSize,
-      requiresCustomParsing
+      command
     } = langConfig;
     let args;
     if (language === "curl") {
@@ -170,45 +154,18 @@ class SafeCodeExecutor {
       const childProcess = spawn(command, args, {
         shell: false,
         stdio: ["ignore", "pipe", "pipe"],
-        timeout: timeout,
         env: {},
         cwd: "/tmp"
       });
       let stdout = "";
       let stderr = "";
-      let killed = false;
-      const timeoutTimer = setTimeout(() => {
-        if (!killed) {
-          killed = true;
-          childProcess.kill("SIGKILL");
-          reject(new Error("Eksekusi timeout"));
-        }
-      }, timeout);
       childProcess.stdout.on("data", chunk => {
         stdout += chunk.toString();
-        if (stdout.length > maxOutputSize) {
-          if (!killed) {
-            killed = true;
-            childProcess.kill("SIGKILL");
-            clearTimeout(timeoutTimer);
-            reject(new Error("Output terlalu besar"));
-          }
-        }
       });
       childProcess.stderr.on("data", chunk => {
         stderr += chunk.toString();
-        if (stderr.length > maxOutputSize) {
-          if (!killed) {
-            killed = true;
-            childProcess.kill("SIGKILL");
-            clearTimeout(timeoutTimer);
-            reject(new Error("Error output terlalu besar"));
-          }
-        }
       });
       childProcess.on("close", exitCode => {
-        clearTimeout(timeoutTimer);
-        if (killed) return;
         if (exitCode !== 0) {
           reject(new Error(`Eksekusi gagal (kode: ${exitCode}): ${stderr || "Error tidak diketahui"}`));
         } else {
@@ -220,7 +177,6 @@ class SafeCodeExecutor {
         }
       });
       childProcess.on("error", error => {
-        clearTimeout(timeoutTimer);
         reject(new Error(`Gagal menjalankan ${command}: ${error.message}`));
       });
     });
@@ -235,14 +191,16 @@ class SafeCodeExecutor {
         language: validatedLanguage,
         output: result.stdout,
         error: result.stderr || null,
-        exitCode: result.exitCode
+        exitCode: result.exitCode,
+        executionMethod: "local"
       };
     } catch (error) {
       return {
         success: false,
         error: error.message,
         language: language,
-        output: null
+        output: null,
+        executionMethod: "local"
       };
     }
   }
@@ -271,7 +229,8 @@ export default async function handler(req, res) {
     console.error("Handler error:", error);
     return res.status(500).json({
       success: false,
-      error: "Internal server error"
+      error: "Internal server error",
+      details: error.message
     });
   }
 }
