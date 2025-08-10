@@ -99,7 +99,7 @@
     "next-auth": "latest",
     "@ducanh2912/next-pwa": "latest",
     "node-fetch": "latest",
-    "localdb-json": "latest",
+    "lru-cache": "latest",
     "node-html-parser": "latest",
     "ora": "latest",
     "pdfkit": "latest",
