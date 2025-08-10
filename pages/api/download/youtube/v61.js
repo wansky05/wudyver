@@ -1,11 +1,9 @@
 import axios from "axios";
-import CryptoJS from "crypto-js";
 import apiConfig from "@/configs/apiConfig";
+import Encoder from "@/lib/encoder";
 class YtDownloader {
   constructor() {
     this.base = "https://ytmp3.lat/";
-    this.encKey = CryptoJS.enc.Utf8.parse(apiConfig.PASSWORD.padEnd(32, "x"));
-    this.encIV = CryptoJS.enc.Utf8.parse(apiConfig.PASSWORD.padEnd(16, "x"));
     this.api = axios.create({
       baseURL: this.base,
       headers: {
@@ -31,33 +29,22 @@ class YtDownloader {
     });
   }
   enc(data) {
-    console.log("[🔐 ENCRYPT] Membuat task_id...");
-    const text = JSON.stringify(data);
-    const encrypted = CryptoJS.AES.encrypt(text, this.encKey, {
-      iv: this.encIV,
-      mode: CryptoJS.mode.CBC,
-      padding: CryptoJS.pad.Pkcs7
+    const encoder = new Encoder(apiConfig.PASSWORD);
+    const {
+      uuid: jsonUuid
+    } = encoder.enc({
+      data: data,
+      method: "combined"
     });
-    const hex = encrypted.ciphertext.toString(CryptoJS.enc.Hex);
-    console.log("[🔐 task_id]:", hex);
-    return hex;
+    return jsonUuid;
   }
-  dec(hex) {
-    console.log("[🔓 DECRYPT] Membaca task_id...");
-    const ciphertext = CryptoJS.enc.Hex.parse(hex);
-    const cipherParams = CryptoJS.lib.CipherParams.create({
-      ciphertext: ciphertext
+  dec(uuid) {
+    const encoder = new Encoder(apiConfig.PASSWORD);
+    const decryptedJson = encoder.dec({
+      uuid: uuid,
+      method: "combined"
     });
-    const decrypted = CryptoJS.AES.decrypt(cipherParams, this.encKey, {
-      iv: this.encIV,
-      mode: CryptoJS.mode.CBC,
-      padding: CryptoJS.pad.Pkcs7
-    });
-    const json = decrypted.toString(CryptoJS.enc.Utf8);
-    if (!json) throw new Error("❗ Data task_id tidak valid");
-    const data = JSON.parse(json);
-    console.log("[🔓 DECRYPTED DATA]:", data);
-    return data;
+    return decryptedJson.text;
   }
   randomHex(len = 32) {
     const chars = "0123456789abcdef";

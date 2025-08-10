@@ -1,12 +1,10 @@
 import axios from "axios";
-import CryptoJS from "crypto-js";
 import apiConfig from "@/configs/apiConfig";
+import Encoder from "@/lib/encoder";
 class Y2MateDownloader {
   constructor(domain = "random") {
     this.domains = ["https://content-cdn.y2mate.app", "https://bzhve.y2mate.app"];
     this.baseUrl = this.resolveBaseUrl(domain);
-    this.key = CryptoJS.enc.Utf8.parse(apiConfig.PASSWORD.padEnd(32, "x"));
-    this.iv = CryptoJS.enc.Utf8.parse(apiConfig.PASSWORD.padEnd(16, "x"));
     this.commonHeaders = {
       accept: "*/*",
       "accept-language": "id-ID,id;q=0.9",
@@ -20,6 +18,24 @@ class Y2MateDownloader {
       "x-requested-with": "XMLHttpRequest",
       "content-type": "application/x-www-form-urlencoded; charset=UTF-8"
     };
+  }
+  enc(data) {
+    const encoder = new Encoder(apiConfig.PASSWORD);
+    const {
+      uuid: jsonUuid
+    } = encoder.enc({
+      data: data,
+      method: "combined"
+    });
+    return jsonUuid;
+  }
+  dec(uuid) {
+    const encoder = new Encoder(apiConfig.PASSWORD);
+    const decryptedJson = encoder.dec({
+      uuid: uuid,
+      method: "combined"
+    });
+    return decryptedJson.text;
   }
   resolveBaseUrl(domain) {
     if (domain === "random") {
@@ -77,18 +93,13 @@ class Y2MateDownloader {
       });
       const convertResult = convertResponse.data;
       if (convertResult.status !== "ok") throw new Error(convertResult.mess || "Gagal konversi");
-      const text = JSON.stringify({
+      const text = {
         ...analyzeResult,
         ...convertResult,
         vid: videoId,
         b_id: b_id
-      });
-      const encrypted = CryptoJS.AES.encrypt(text, this.key, {
-        iv: this.iv,
-        mode: CryptoJS.mode.CBC,
-        padding: CryptoJS.pad.Pkcs7
-      });
-      const task_id = encrypted.ciphertext.toString(CryptoJS.enc.Hex);
+      };
+      const task_id = this.enc(text);
       return {
         status: true,
         task_id: task_id
@@ -105,18 +116,9 @@ class Y2MateDownloader {
     task_id
   }) {
     try {
-      const ciphertext = CryptoJS.enc.Hex.parse(task_id);
-      const cipherParams = CryptoJS.lib.CipherParams.create({
-        ciphertext: ciphertext
-      });
-      const decrypted = CryptoJS.AES.decrypt(cipherParams, this.key, {
-        iv: this.iv,
-        mode: CryptoJS.mode.CBC,
-        padding: CryptoJS.pad.Pkcs7
-      });
-      const json = decrypted.toString(CryptoJS.enc.Utf8);
+      const json = this.dec(task_id);
       if (!json) throw new Error("Gagal decrypt task_id (hasil kosong)");
-      const parsed = JSON.parse(json);
+      const parsed = json;
       const {
         vid: videoId,
         b_id

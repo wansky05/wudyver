@@ -2,8 +2,8 @@ import axios from "axios";
 import {
   v4 as uuidv4
 } from "uuid";
-import CryptoJS from "crypto-js";
 import apiConfig from "@/configs/apiConfig";
+import Encoder from "@/lib/encoder";
 class Sonu {
   constructor() {
     this.api = {
@@ -27,33 +27,24 @@ class Sonu {
     this.deviceId = uuidv4();
     this.userId = null;
     this.fcmToken = "eqnTqlxMTSKQL5NQz6r5aP:APA91bHa3CvL5Nlcqx2yzpTDAeqxm_L_vIYxXqehkgmTsCXrV29eAak6_jqXv5v1mQrdw4BGMLXl_BFNrJ67Em0vmdr3hQPVAYF8kR7RDtTRHQ08F3jLRRI";
-    this.encKey = CryptoJS.enc.Utf8.parse(apiConfig.PASSWORD.padEnd(32, "x"));
-    this.encIV = CryptoJS.enc.Utf8.parse(apiConfig.PASSWORD.padEnd(16, "x"));
   }
   enc(data) {
-    const textToEncrypt = JSON.stringify(data);
-    const encrypted = CryptoJS.AES.encrypt(textToEncrypt, this.encKey, {
-      iv: this.encIV,
-      mode: CryptoJS.mode.CBC,
-      padding: CryptoJS.pad.Pkcs7
+    const encoder = new Encoder(apiConfig.PASSWORD);
+    const {
+      uuid: jsonUuid
+    } = encoder.enc({
+      data: data,
+      method: "combined"
     });
-    return encrypted.ciphertext.toString(CryptoJS.enc.Hex);
+    return jsonUuid;
   }
-  dec(encryptedHex) {
-    const ciphertext = CryptoJS.enc.Hex.parse(encryptedHex);
-    const cipherParams = CryptoJS.lib.CipherParams.create({
-      ciphertext: ciphertext
+  dec(uuid) {
+    const encoder = new Encoder(apiConfig.PASSWORD);
+    const decryptedJson = encoder.dec({
+      uuid: uuid,
+      method: "combined"
     });
-    const decrypted = CryptoJS.AES.decrypt(cipherParams, this.encKey, {
-      iv: this.encIV,
-      mode: CryptoJS.mode.CBC,
-      padding: CryptoJS.pad.Pkcs7
-    });
-    const json = decrypted.toString(CryptoJS.enc.Utf8);
-    if (!json) {
-      throw new Error("Decryption failed.");
-    }
-    return JSON.parse(json);
+    return decryptedJson.text;
   }
   async _ensureRegistered() {
     if (!this.userId) {

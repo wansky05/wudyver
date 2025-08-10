@@ -3,6 +3,9 @@ import FormData from "form-data";
 import {
   EventSource
 } from "eventsource";
+import apiConfig from "@/configs/apiConfig";
+import Encoder from "@/lib/encoder";
+
 const randomIP = () => Array.from({
   length: 4
 }, () => Math.floor(Math.random() * 256)).join(".");
@@ -17,6 +20,19 @@ class RTLIT {
     };
     this.uploadId = Math.random().toString(36).slice(2);
     this.sessionHash = "s" + Math.random().toString(36).slice(2);
+  }
+  enc(data) {
+  const encoder = new Encoder(apiConfig.PASSWORD);
+    const { uuid: jsonUuid } = encoder.enc({
+            data: data,
+            method: 'combined'
+        });
+    return jsonUuid;
+  }
+  dec(uuid) {
+    const encoder = new Encoder(apiConfig.PASSWORD);
+    const decryptedJson = encoder.dec({ uuid: uuid, method: 'combined' });
+    return decryptedJson.text;
   }
   async upload(imageUrl) {
     try {
@@ -79,6 +95,7 @@ class RTLIT {
     width = 1024,
     height = 768,
     type = "image-to-video",
+    duration = 5
     ...rest
   }) {
     try {
@@ -98,7 +115,7 @@ class RTLIT {
         }
       };
       const payload = {
-        data: [prompt, n_prompt, imageData, "", width, height, type, 2, 9, 42, true, 1, true],
+        data: [prompt, n_prompt, imageData, "", width, height, type, duration, 9, 42, true, 1, true],
         fn_index: 7,
         trigger_id: 9,
         session_hash: this.sessionHash,
@@ -109,7 +126,13 @@ class RTLIT {
       await axios.post(`${this.baseURL}/queue/join?__theme=system`, payload, {
         headers: this.headers
       });
-      return await this.listenQueue();
+      const task_id = this.enc({
+        session_hash: this.sessionHash
+      });
+      return {
+        task_id: task_id,
+        message: "Video generation initiated successfully. Use the /?action=status endpoint to check its progress."
+      };
     } catch (err) {
       console.error(`[IMG2VID] Error:`, err.message);
       throw err;
@@ -121,13 +144,14 @@ class RTLIT {
     width = 1024,
     height = 768,
     type = "text-to-video",
+    duration = 5,
     seed = 3702559852,
     ...rest
   }) {
     try {
       console.log(`[TXT2VID] Starting...`);
       const payload = {
-        data: [prompt, n_prompt, "", "", width, height, type, 2, 9, seed, true, 1, true],
+        data: [prompt, n_prompt, "", "", width, height, type, duration, 9, seed, true, 1, true],
         fn_index: 6,
         trigger_id: 16,
         session_hash: this.sessionHash,
@@ -138,16 +162,32 @@ class RTLIT {
       await axios.post(`${this.baseURL}/queue/join?__theme=system`, payload, {
         headers: this.headers
       });
-      return await this.listenQueue();
+      const task_id = this.enc({
+        session_hash: this.sessionHash
+      });
+      return {
+        task_id: task_id,
+        message: "Video generation initiated successfully. Use the /?action=status endpoint to check its progress."
+      };
     } catch (err) {
       console.error(`[TXT2VID] Error:`, err.message);
       throw err;
     }
   }
-  listenQueue() {
+  async status({ task_id }) {
+  if (!task_id) {
+        throw new Error("task_id is required to check status.");
+      }
+      const decryptedData = this.dec(task_id);
+      const {
+        session_hash
+      } = decryptedData;
+      if (!session_hash) {
+        throw new Error("Invalid task_id: Missing videoId after decryption.");
+      }
     return new Promise((resolve, reject) => {
       console.log(`[QUEUE] Listening for results...`);
-      const es = new EventSource(`${this.baseURL}/queue/data?session_hash=${this.sessionHash}`, {
+      const es = new EventSource(`${this.baseURL}/queue/data?session_hash=${session_hash}`, {
         headers: this.headers
       });
       es.onmessage = e => {
@@ -200,9 +240,18 @@ export default async function handler(req, res) {
         const result = await ai.img2vid(params);
         return res.status(200).json(result);
       }
+      case "status": {
+        if (!params.task_id) {
+          return res.status(400).json({
+            error: "task_id is required for 'status'."
+          });
+        }
+        const result = await ai.status(params);
+        return res.status(200).json(result);
+      }
       default:
         return res.status(400).json({
-          error: "Invalid action. Supported actions: 'txt2vid', 'img2vid'."
+          error: "Invalid action. Supported actions: 'txt2vid', 'img2vid', 'status'."
         });
     }
   } catch (error) {

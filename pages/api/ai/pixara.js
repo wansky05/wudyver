@@ -1,7 +1,7 @@
 import axios from "axios";
 import crypto from "crypto";
-import CryptoJS from "crypto-js";
 import apiConfig from "@/configs/apiConfig";
+import Encoder from "@/lib/encoder";
 class PixaraAPI {
   constructor() {
     this.tokens = {
@@ -13,8 +13,6 @@ class PixaraAPI {
     this.password = null;
     this.firstName = null;
     this.lastName = null;
-    this.encKey = CryptoJS.enc.Utf8.parse(apiConfig.PASSWORD.padEnd(32, "x"));
-    this.encIV = CryptoJS.enc.Utf8.parse(apiConfig.PASSWORD.padEnd(16, "x"));
     this.api = axios.create();
     this.cookies = "";
     this.setupInterceptors();
@@ -33,26 +31,22 @@ class PixaraAPI {
     }, error => Promise.reject(error));
   }
   enc(data) {
-    const encrypted = CryptoJS.AES.encrypt(JSON.stringify(data), this.encKey, {
-      iv: this.encIV,
-      mode: CryptoJS.mode.CBC,
-      padding: CryptoJS.pad.Pkcs7
+    const encoder = new Encoder(apiConfig.PASSWORD);
+    const {
+      uuid: jsonUuid
+    } = encoder.enc({
+      data: data,
+      method: "combined"
     });
-    return encrypted.ciphertext.toString(CryptoJS.enc.Hex);
+    return jsonUuid;
   }
-  dec(encryptedHex) {
-    const ciphertext = CryptoJS.enc.Hex.parse(encryptedHex);
-    const cipherParams = CryptoJS.lib.CipherParams.create({
-      ciphertext: ciphertext
+  dec(uuid) {
+    const encoder = new Encoder(apiConfig.PASSWORD);
+    const decryptedJson = encoder.dec({
+      uuid: uuid,
+      method: "combined"
     });
-    const decrypted = CryptoJS.AES.decrypt(cipherParams, this.encKey, {
-      iv: this.encIV,
-      mode: CryptoJS.mode.CBC,
-      padding: CryptoJS.pad.Pkcs7
-    });
-    const json = decrypted.toString(CryptoJS.enc.Utf8);
-    if (!json) throw new Error("Decryption failed");
-    return JSON.parse(json);
+    return decryptedJson.text;
   }
   async models({
     type = "txt2img"

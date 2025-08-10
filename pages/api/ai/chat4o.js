@@ -1,6 +1,6 @@
 import axios from "axios";
-import CryptoJS from "crypto-js";
 import apiConfig from "@/configs/apiConfig";
+import Encoder from "@/lib/encoder";
 class Chat4oClient {
   constructor(options = {}) {
     this.mailApiUrl = `https://${apiConfig.DOMAIN_URL}/api/mails/v9`;
@@ -19,9 +19,6 @@ class Chat4oClient {
     this.currentModel = null;
     this.spoofedIp = this.genRandIP();
     console.log(`LOG: Init Chat4oClient with spoofed IP: ${this.spoofedIp}`);
-    this.key = CryptoJS.enc.Utf8.parse(apiConfig.PASSWORD.padEnd(32, "x"));
-    this.iv = CryptoJS.enc.Utf8.parse(apiConfig.PASSWORD.padEnd(16, "x"));
-    console.log("LOG: CryptoJS key/IV init.");
     this.axiosInstance = axios.create({
       headers: {
         "accept-language": this.defaultLang,
@@ -57,6 +54,24 @@ class Chat4oClient {
       console.error(`ERROR: Interceptor caught resp error from ${error.config ? error.config.url : "unknown"} :`, error.message);
       return Promise.reject(error);
     });
+  }
+  enc(data) {
+    const encoder = new Encoder(apiConfig.PASSWORD);
+    const {
+      uuid: jsonUuid
+    } = encoder.enc({
+      data: data,
+      method: "combined"
+    });
+    return jsonUuid;
+  }
+  dec(uuid) {
+    const encoder = new Encoder(apiConfig.PASSWORD);
+    const decryptedJson = encoder.dec({
+      uuid: uuid,
+      method: "combined"
+    });
+    return decryptedJson.text;
   }
   genUUID() {
     return "xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx".replace(/[xy]/g, function(c) {
@@ -375,18 +390,13 @@ class Chat4oClient {
         throw new Error(`Failed to init image gen: ${initialImgData.msg || "Unknown error"}. Resp: ${JSON.stringify(initialImgData)}`);
       }
       console.log("LOG: Image gen req submitted. Initial resp with jobId:", initialImgData.data.key);
-      const textToEncrypt = JSON.stringify({
+      const textToEncrypt = {
         task_id: initialImgData.data.key,
         type: "txt2img",
         sessionId: this.sessionId,
         token: this.bearerToken
-      });
-      const encrypted = CryptoJS.AES.encrypt(textToEncrypt, this.key, {
-        iv: this.iv,
-        mode: CryptoJS.mode.CBC,
-        padding: CryptoJS.pad.Pkcs7
-      });
-      const encrypted_task_id = encrypted.ciphertext.toString(CryptoJS.enc.Hex);
+      };
+      const encrypted_task_id = this.enc(textToEncrypt);
       console.log("LOG: Task ID encrypted.");
       return {
         status: true,
@@ -403,18 +413,9 @@ class Chat4oClient {
     console.log(`LOG: Attempting to retrieve image result for encrypted task ID.`);
     let decryptedData;
     try {
-      const ciphertext = CryptoJS.enc.Hex.parse(encrypted_task_id);
-      const cipherParams = CryptoJS.lib.CipherParams.create({
-        ciphertext: ciphertext
-      });
-      const decrypted = CryptoJS.AES.decrypt(cipherParams, this.key, {
-        iv: this.iv,
-        mode: CryptoJS.mode.CBC,
-        padding: CryptoJS.pad.Pkcs7
-      });
-      const json = decrypted.toString(CryptoJS.enc.Utf8);
+      const json = this.dec(encrypted_task_id);
       if (!json) throw new Error("Failed to decrypt task_id (empty result).");
-      decryptedData = JSON.parse(json);
+      decryptedData = json;
       console.log("LOG: Decrypted task data:", decryptedData);
     } catch (error) {
       console.error(`ERROR: Failed to decrypt task ID: ${error.message}`);

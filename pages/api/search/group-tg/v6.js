@@ -90,9 +90,21 @@ class TgramScraper {
             ...detailedInfo
           } : item);
         }
-        return finalResults;
+        return {
+          success: true,
+          query: query,
+          limit: limit,
+          count: finalResults.length,
+          results: finalResults
+        };
       }
-      return initialResults;
+      return {
+        success: true,
+        query: query,
+        limit: limit,
+        count: initialResults.length,
+        results: initialResults
+      };
     } catch (error) {
       console.error("Error saat melakukan pencarian:", error.message);
       return null;

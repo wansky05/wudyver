@@ -1,6 +1,6 @@
 import axios from "axios";
-import CryptoJS from "crypto-js";
 import apiConfig from "@/configs/apiConfig";
+import Encoder from "@/lib/encoder";
 class GenapeAPI {
   constructor(baseURL = "https://api.genape.ai") {
     this.api = axios.create({
@@ -21,9 +21,25 @@ class GenapeAPI {
         "user-agent": "Mozilla/5.0 (Linux; Android 10; K) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/135.0.0.0 Mobile Safari/537.36"
       }
     });
-    this.key = CryptoJS.enc.Utf8.parse(apiConfig.PASSWORD.padEnd(32, "x"));
-    this.iv = CryptoJS.enc.Utf8.parse(apiConfig.PASSWORD.padEnd(16, "x"));
     this.token = null;
+  }
+  enc(data) {
+    const encoder = new Encoder(apiConfig.PASSWORD);
+    const {
+      uuid: jsonUuid
+    } = encoder.enc({
+      data: data,
+      method: "combined"
+    });
+    return jsonUuid;
+  }
+  dec(uuid) {
+    const encoder = new Encoder(apiConfig.PASSWORD);
+    const decryptedJson = encoder.dec({
+      uuid: uuid,
+      method: "combined"
+    });
+    return decryptedJson.text;
   }
   genUuid() {
     return "xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx".replace(/[xy]/g, function(c) {
@@ -248,15 +264,10 @@ class GenapeAPI {
       };
       const videoRes = await this.generateVideo(videoPayload, accessToken);
       console.log("Process: Video generation started successfully!");
-      const textToEncrypt = JSON.stringify({
+      const textToEncrypt = {
         token: accessToken
-      });
-      const encrypted = CryptoJS.AES.encrypt(textToEncrypt, this.key, {
-        iv: this.iv,
-        mode: CryptoJS.mode.CBC,
-        padding: CryptoJS.pad.Pkcs7
-      });
-      const encrypted_task_id = encrypted.ciphertext.toString(CryptoJS.enc.Hex);
+      };
+      const encrypted_task_id = this.enc(textToEncrypt);
       return {
         status: true,
         task_id: encrypted_task_id,
@@ -275,18 +286,9 @@ class GenapeAPI {
     } = params;
     let decryptedData;
     try {
-      const ciphertext = CryptoJS.enc.Hex.parse(task_id);
-      const cipherParams = CryptoJS.lib.CipherParams.create({
-        ciphertext: ciphertext
-      });
-      const decrypted = CryptoJS.AES.decrypt(cipherParams, this.key, {
-        iv: this.iv,
-        mode: CryptoJS.mode.CBC,
-        padding: CryptoJS.pad.Pkcs7
-      });
-      const json = decrypted.toString(CryptoJS.enc.Utf8);
+      const json = this.dec(task_id);
       if (!json) throw new Error("Failed to decrypt task_id (empty result).");
-      decryptedData = JSON.parse(json);
+      decryptedData = json;
       this.token = decryptedData.token;
       const statusPayload = {
         exclude_list: [],

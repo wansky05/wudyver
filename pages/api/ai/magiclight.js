@@ -1,6 +1,6 @@
 import axios from "axios";
-import CryptoJS from "crypto-js";
 import apiConfig from "@/configs/apiConfig";
+import Encoder from "@/lib/encoder";
 class MagicLightAPI {
   constructor() {
     this.baseURL = "https://api.magiclight.ai";
@@ -10,8 +10,6 @@ class MagicLightAPI {
     this.sessionId = "sess_" + Math.random().toString(36).substring(2, 16);
     this.password = "@" + Math.random().toString(36).substring(2, 10);
     this.username = "user_" + Math.random().toString(36).substring(2, 6);
-    this.key = CryptoJS.enc.Utf8.parse(apiConfig.PASSWORD.padEnd(32, "x"));
-    this.iv = CryptoJS.enc.Utf8.parse(apiConfig.PASSWORD.padEnd(16, "x"));
     this.api = axios.create({
       baseURL: this.baseURL,
       timeout: 3e4,
@@ -130,35 +128,18 @@ class MagicLightAPI {
     await this.loginUser(email);
     console.log("[✅] Authentication successful");
   }
-  encrypt(text) {
-    const textToEncrypt = JSON.stringify(text);
-    const encrypted = CryptoJS.AES.encrypt(textToEncrypt, this.key, {
-      iv: this.iv,
-      mode: CryptoJS.mode.CBC,
-      padding: CryptoJS.pad.Pkcs7
-    });
-    return encrypted.ciphertext.toString(CryptoJS.enc.Hex);
+  enc(data) {
+  const encoder = new Encoder(apiConfig.PASSWORD);
+    const { uuid: jsonUuid } = encoder.enc({
+            data: data,
+            method: 'combined'
+        });
+    return jsonUuid;
   }
-  decrypt(encryptedText) {
-    let decryptedData;
-    try {
-      const ciphertext = CryptoJS.enc.Hex.parse(encryptedText);
-      const cipherParams = CryptoJS.lib.CipherParams.create({
-        ciphertext: ciphertext
-      });
-      const decrypted = CryptoJS.AES.decrypt(cipherParams, this.key, {
-        iv: this.iv,
-        mode: CryptoJS.mode.CBC,
-        padding: CryptoJS.pad.Pkcs7
-      });
-      const json = decrypted.toString(CryptoJS.enc.Utf8);
-      if (!json) throw new Error("Failed to decrypt task_id (empty result).");
-      decryptedData = JSON.parse(json);
-      return decryptedData;
-    } catch (error) {
-      console.error("Decryption error:", error.message);
-      throw new Error("Failed to decrypt task ID");
-    }
+  dec(uuid) {
+    const encoder = new Encoder(apiConfig.PASSWORD);
+    const decryptedJson = encoder.dec({ uuid: uuid, method: 'combined' });
+    return decryptedJson.text;
   }
   async enhance({
     prompt
@@ -221,7 +202,7 @@ class MagicLightAPI {
         token: this.token,
         loraGroupId: loraGroupId
       };
-      const encryptedTaskId = this.encrypt(taskInfo);
+      const encryptedTaskId = this.enc(taskInfo);
       return {
         success: true,
         task_id: encryptedTaskId,
@@ -289,7 +270,7 @@ class MagicLightAPI {
         sessionId: this.sessionId,
         token: this.token
       };
-      const encryptedTaskId = this.encrypt(taskInfo);
+      const encryptedTaskId = this.enctaskInfo);
       return {
         success: true,
         task_id: encryptedTaskId,
@@ -308,7 +289,7 @@ class MagicLightAPI {
   }) {
     try {
       console.log("[🔍] Checking status for task:", encryptedTaskId);
-      const taskData = this.decrypt(encryptedTaskId);
+      const taskData = this.dec(encryptedTaskId);
       const tempApi = axios.create({
         baseURL: this.baseURL,
         headers: {

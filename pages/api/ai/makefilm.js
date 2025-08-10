@@ -1,15 +1,13 @@
 import axios from "axios";
-import CryptoJS from "crypto-js";
 import {
   Blob,
   FormData
 } from "formdata-node";
 import apiConfig from "@/configs/apiConfig";
+import Encoder from "@/lib/encoder";
 class MakeFilm {
   constructor() {
     this.baseURL = "https://makefilm.ai/api";
-    this.encKey = CryptoJS.enc.Utf8.parse(apiConfig.PASSWORD.padEnd(32, "x"));
-    this.encIV = CryptoJS.enc.Utf8.parse(apiConfig.PASSWORD.padEnd(16, "x"));
     this.userAgents = ["Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/109.0.0.0 Safari/537.36", "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/109.0.0.0 Safari/537.36", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Edge/109.0.1518.78", "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/16.3 Safari/605.1.15", "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/109.0.0.0 Safari/537.36", "Mozilla/5.0 (iPhone; CPU iPhone OS 16_3 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/16.3 Mobile/15E148 Safari/604.1", "Mozilla/5.0 (Linux; Android 10; K) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/135.0.0.0 Mobile Safari/537.36"];
   }
   generateRandomIp() {
@@ -38,27 +36,22 @@ class MakeFilm {
     return dynamicHeaders;
   }
   enc(data) {
-    const textToEncrypt = JSON.stringify(data);
-    const encrypted = CryptoJS.AES.encrypt(textToEncrypt, this.encKey, {
-      iv: this.encIV,
-      mode: CryptoJS.mode.CBC,
-      padding: CryptoJS.pad.Pkcs7
+    const encoder = new Encoder(apiConfig.PASSWORD);
+    const {
+      uuid: jsonUuid
+    } = encoder.enc({
+      data: data,
+      method: "combined"
     });
-    return encrypted.ciphertext.toString(CryptoJS.enc.Hex);
+    return jsonUuid;
   }
-  dec(encryptedHex) {
-    const ciphertext = CryptoJS.enc.Hex.parse(encryptedHex);
-    const cipherParams = CryptoJS.lib.CipherParams.create({
-      ciphertext: ciphertext
+  dec(uuid) {
+    const encoder = new Encoder(apiConfig.PASSWORD);
+    const decryptedJson = encoder.dec({
+      uuid: uuid,
+      method: "combined"
     });
-    const decrypted = CryptoJS.AES.decrypt(cipherParams, this.encKey, {
-      iv: this.encIV,
-      mode: CryptoJS.mode.CBC,
-      padding: CryptoJS.pad.Pkcs7
-    });
-    const json = decrypted.toString(CryptoJS.enc.Utf8);
-    if (!json) throw new Error("Dekripsi mengembalikan data kosong / invalid");
-    return JSON.parse(json);
+    return decryptedJson.text;
   }
   async img2vid({
     imageUrl,

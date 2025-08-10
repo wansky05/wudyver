@@ -5,8 +5,8 @@ import {
 import {
   CookieJar
 } from "tough-cookie";
-import CryptoJS from "crypto-js";
 import apiConfig from "@/configs/apiConfig";
+import Encoder from "@/lib/encoder";
 class FunFunArt {
   constructor() {
     this.baseURL = "https://www.funfun.art/api";
@@ -18,8 +18,6 @@ class FunFunArt {
       jar: this.cookieJar,
       withCredentials: true
     }));
-    this.encKey = CryptoJS.enc.Utf8.parse(apiConfig.PASSWORD.padEnd(32, "x"));
-    this.encIV = CryptoJS.enc.Utf8.parse(apiConfig.PASSWORD.padEnd(16, "x"));
     this.headers = {
       accept: "*/*",
       "accept-language": "id-ID,id;q=0.9",
@@ -36,36 +34,22 @@ class FunFunArt {
     console.log("[INIT] FunFunArt instance created.");
   }
   enc(data) {
-    console.log("[ENC] Encrypting data:", data);
-    const textToEncrypt = JSON.stringify(data);
-    const encrypted = CryptoJS.AES.encrypt(textToEncrypt, this.encKey, {
-      iv: this.encIV,
-      mode: CryptoJS.mode.CBC,
-      padding: CryptoJS.pad.Pkcs7
+    const encoder = new Encoder(apiConfig.PASSWORD);
+    const {
+      uuid: jsonUuid
+    } = encoder.enc({
+      data: data,
+      method: "combined"
     });
-    const hexResult = encrypted.ciphertext.toString(CryptoJS.enc.Hex);
-    console.log("[ENC] Encrypted result (HEX):", hexResult.substring(0, 30) + "...");
-    return hexResult;
+    return jsonUuid;
   }
-  dec(encryptedHex) {
-    console.log("[DEC] Decrypting HEX:", encryptedHex.substring(0, 30) + "...");
-    const ciphertext = CryptoJS.enc.Hex.parse(encryptedHex);
-    const cipherParams = CryptoJS.lib.CipherParams.create({
-      ciphertext: ciphertext
+  dec(uuid) {
+    const encoder = new Encoder(apiConfig.PASSWORD);
+    const decryptedJson = encoder.dec({
+      uuid: uuid,
+      method: "combined"
     });
-    const decrypted = CryptoJS.AES.decrypt(cipherParams, this.encKey, {
-      iv: this.encIV,
-      mode: CryptoJS.mode.CBC,
-      padding: CryptoJS.pad.Pkcs7
-    });
-    const json = decrypted.toString(CryptoJS.enc.Utf8);
-    if (!json) {
-      console.error("[DEC] Decryption returned empty or invalid data.");
-      throw new Error("Dekripsi mengembalikan data kosong atau tidak valid.");
-    }
-    const result = JSON.parse(json);
-    console.log("[DEC] Decrypted data:", result);
-    return result;
+    return decryptedJson.text;
   }
   getSessionTokenFromCookies() {
     const cookies = this.cookieJar.getCookiesSync("https://www.funfun.art");

@@ -2,8 +2,8 @@ import axios from "axios";
 import {
   v4 as uuidv4
 } from "uuid";
-import CryptoJS from "crypto-js";
 import apiConfig from "@/configs/apiConfig";
+import Encoder from "@/lib/encoder";
 class AudioXClient {
   constructor(userId) {
     this.userId = userId || uuidv4();
@@ -13,8 +13,6 @@ class AudioXClient {
     this.supabaseRest = "https://jkdptytqsihuiawmeqsw.supabase.co/rest/v1";
     this.audioxAPI = "https://audiox.app/api";
     this.apiKey = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImprZHB0eXRxc2lodWlhd21lcXN3Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDAxMjA2NjQsImV4cCI6MjA1NTY5NjY2NH0.Vpn_6_SSKPP7vKu6mHsGEtvNjV8tIvmZpg5wKRss-A0";
-    this.encKey = CryptoJS.enc.Utf8.parse(apiConfig.PASSWORD.padEnd(32, "x"));
-    this.encIV = CryptoJS.enc.Utf8.parse(apiConfig.PASSWORD.padEnd(16, "x"));
     this.axios = axios.create({
       headers: {
         accept: "*/*",
@@ -37,39 +35,22 @@ class AudioXClient {
     console.log(`[${time}] [${prefix}] ${msg}`);
   }
   enc(data) {
-    try {
-      const textToEncrypt = JSON.stringify(data);
-      const encrypted = CryptoJS.AES.encrypt(textToEncrypt, this.encKey, {
-        iv: this.encIV,
-        mode: CryptoJS.mode.CBC,
-        padding: CryptoJS.pad.Pkcs7
-      });
-      return encrypted.ciphertext.toString(CryptoJS.enc.Hex);
-    } catch (error) {
-      this.log(`Encryption failed: ${error.message}`, "error");
-      throw error;
-    }
+    const encoder = new Encoder(apiConfig.PASSWORD);
+    const {
+      uuid: jsonUuid
+    } = encoder.enc({
+      data: data,
+      method: "combined"
+    });
+    return jsonUuid;
   }
-  dec(encryptedHex) {
-    try {
-      const ciphertext = CryptoJS.enc.Hex.parse(encryptedHex);
-      const cipherParams = CryptoJS.lib.CipherParams.create({
-        ciphertext: ciphertext
-      });
-      const decrypted = CryptoJS.AES.decrypt(cipherParams, this.encKey, {
-        iv: this.encIV,
-        mode: CryptoJS.mode.CBC,
-        padding: CryptoJS.pad.Pkcs7
-      });
-      const json = decrypted.toString(CryptoJS.enc.Utf8);
-      if (!json) {
-        throw new Error("Decryption failed.");
-      }
-      return JSON.parse(json);
-    } catch (error) {
-      this.log(`Decryption failed: ${error.message}`, "error");
-      throw error;
-    }
+  dec(uuid) {
+    const encoder = new Encoder(apiConfig.PASSWORD);
+    const decryptedJson = encoder.dec({
+      uuid: uuid,
+      method: "combined"
+    });
+    return decryptedJson.text;
   }
   async getEmail() {
     try {

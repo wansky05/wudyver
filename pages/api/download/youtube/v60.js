@@ -1,54 +1,28 @@
-import CryptoJS from "crypto-js";
 import fetch from "node-fetch";
 import apiConfig from "@/configs/apiConfig";
+import Encoder from "@/lib/encoder";
 class Ytmp3Converter {
   constructor() {
     this.baseUrl = "https://ytmp3.as/";
-    this.encKey = CryptoJS.enc.Utf8.parse(apiConfig.PASSWORD.padEnd(32, "x"));
-    this.encIV = CryptoJS.enc.Utf8.parse(apiConfig.PASSWORD.padEnd(16, "x"));
     console.log("[LOG] Ytmp3Converter initialized.");
   }
   enc(data) {
-    try {
-      console.log("[LOG] Encrypting data...");
-      const textToEncrypt = JSON.stringify(data);
-      const encrypted = CryptoJS.AES.encrypt(textToEncrypt, this.encKey, {
-        iv: this.encIV,
-        mode: CryptoJS.mode.CBC,
-        padding: CryptoJS.pad.Pkcs7
-      });
-      const encryptedHex = encrypted.ciphertext.toString(CryptoJS.enc.Hex);
-      console.log("[LOG] Data encrypted successfully.");
-      return encryptedHex;
-    } catch (error) {
-      console.error(`[ERROR] Encryption failed: ${error.message}`);
-      throw new Error(`Encryption failed: ${error.message}`);
-    }
+    const encoder = new Encoder(apiConfig.PASSWORD);
+    const {
+      uuid: jsonUuid
+    } = encoder.enc({
+      data: data,
+      method: "combined"
+    });
+    return jsonUuid;
   }
-  dec(encryptedHex) {
-    try {
-      console.log("[LOG] Decrypting data...");
-      const ciphertext = CryptoJS.enc.Hex.parse(encryptedHex);
-      const cipherParams = CryptoJS.lib.CipherParams.create({
-        ciphertext: ciphertext
-      });
-      const decrypted = CryptoJS.AES.decrypt(cipherParams, this.encKey, {
-        iv: this.encIV,
-        mode: CryptoJS.mode.CBC,
-        padding: CryptoJS.pad.Pkcs7
-      });
-      const json = decrypted.toString(CryptoJS.enc.Utf8);
-      if (!json) {
-        console.error("[ERROR] Decryption returned empty or invalid data.");
-        throw new Error("Dekripsi mengembalikan data kosong atau tidak valid.");
-      }
-      const parsedData = JSON.parse(json);
-      console.log("[LOG] Data decrypted successfully.");
-      return parsedData;
-    } catch (error) {
-      console.error(`[ERROR] Decryption failed: ${error.message}`);
-      throw new Error(`Decryption failed: ${error.message}`);
-    }
+  dec(uuid) {
+    const encoder = new Encoder(apiConfig.PASSWORD);
+    const decryptedJson = encoder.dec({
+      uuid: uuid,
+      method: "combined"
+    });
+    return decryptedJson.text;
   }
   getBaseHeaders() {
     return {

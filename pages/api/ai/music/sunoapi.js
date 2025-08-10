@@ -1,35 +1,28 @@
 import axios from "axios";
-import CryptoJS from "crypto-js";
 import apiConfig from "@/configs/apiConfig";
+import Encoder from "@/lib/encoder";
 class SunoAPI {
   constructor() {
     this.baseUrl = "https://api.sunoapi.org/api/v1";
     this.token = apiConfig.SUNOAPI_KEY;
-    this.encKey = CryptoJS.enc.Utf8.parse(apiConfig.PASSWORD.padEnd(32, "x"));
-    this.encIV = CryptoJS.enc.Utf8.parse(apiConfig.PASSWORD.padEnd(16, "x"));
   }
   enc(data) {
-    const text = JSON.stringify(data);
-    const encrypted = CryptoJS.AES.encrypt(text, this.encKey, {
-      iv: this.encIV,
-      mode: CryptoJS.mode.CBC,
-      padding: CryptoJS.pad.Pkcs7
+    const encoder = new Encoder(apiConfig.PASSWORD);
+    const {
+      uuid: jsonUuid
+    } = encoder.enc({
+      data: data,
+      method: "combined"
     });
-    return encrypted.ciphertext.toString(CryptoJS.enc.Hex);
+    return jsonUuid;
   }
-  dec(encryptedHex) {
-    const ciphertext = CryptoJS.enc.Hex.parse(encryptedHex);
-    const cipherParams = CryptoJS.lib.CipherParams.create({
-      ciphertext: ciphertext
+  dec(uuid) {
+    const encoder = new Encoder(apiConfig.PASSWORD);
+    const decryptedJson = encoder.dec({
+      uuid: uuid,
+      method: "combined"
     });
-    const decrypted = CryptoJS.AES.decrypt(cipherParams, this.encKey, {
-      iv: this.encIV,
-      mode: CryptoJS.mode.CBC,
-      padding: CryptoJS.pad.Pkcs7
-    });
-    const json = decrypted.toString(CryptoJS.enc.Utf8);
-    if (!json) throw new Error("Failed to decrypt or empty data.");
-    return JSON.parse(json);
+    return decryptedJson.text;
   }
   async generate({
     prompt,

@@ -1,6 +1,7 @@
 import axios from "axios";
 import CryptoJS from "crypto-js";
 import apiConfig from "@/configs/apiConfig";
+import Encoder from "@/lib/encoder";
 class WayinAPI {
   constructor(baseURL = "https://wayinvideo-api.wayin.ai") {
     this.api = axios.create({
@@ -21,43 +22,24 @@ class WayinAPI {
         "user-agent": "Mozilla/5.0 (Linux; Android 10; K) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/135.0.0.0 Mobile Safari/537.36"
       }
     });
-    this.encKey = CryptoJS.enc.Utf8.parse(apiConfig.PASSWORD.padEnd(32, "x"));
-    this.encIV = CryptoJS.enc.Utf8.parse(apiConfig.PASSWORD.padEnd(16, "x"));
   }
   enc(data) {
-    try {
-      const textToEncrypt = JSON.stringify(data);
-      const encrypted = CryptoJS.AES.encrypt(textToEncrypt, this.encKey, {
-        iv: this.encIV,
-        mode: CryptoJS.mode.CBC,
-        padding: CryptoJS.pad.Pkcs7
-      });
-      return encrypted.ciphertext.toString(CryptoJS.enc.Hex);
-    } catch (e) {
-      console.error("Error during encryption:", e.message);
-      throw e;
-    }
+    const encoder = new Encoder(apiConfig.PASSWORD);
+    const {
+      uuid: jsonUuid
+    } = encoder.enc({
+      data: data,
+      method: "combined"
+    });
+    return jsonUuid;
   }
-  dec(encryptedHex) {
-    try {
-      const ciphertext = CryptoJS.enc.Hex.parse(encryptedHex);
-      const cipherParams = CryptoJS.lib.CipherParams.create({
-        ciphertext: ciphertext
-      });
-      const decrypted = CryptoJS.AES.decrypt(cipherParams, this.encKey, {
-        iv: this.encIV,
-        mode: CryptoJS.mode.CBC,
-        padding: CryptoJS.pad.Pkcs7
-      });
-      const json = decrypted.toString(CryptoJS.enc.Utf8);
-      if (!json) {
-        throw new Error("Decryption returned empty or invalid data.");
-      }
-      return JSON.parse(json);
-    } catch (e) {
-      console.error("Error during decryption:", e.message);
-      throw e;
-    }
+  dec(uuid) {
+    const encoder = new Encoder(apiConfig.PASSWORD);
+    const decryptedJson = encoder.dec({
+      uuid: uuid,
+      method: "combined"
+    });
+    return decryptedJson.text;
   }
   b64(input, urlSafe = false) {
     try {

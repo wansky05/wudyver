@@ -1,13 +1,11 @@
 import axios from "axios";
 import apiConfig from "@/configs/apiConfig";
-import CryptoJS from "crypto-js";
+import Encoder from "@/lib/encoder";
 class VivagoAPI {
   constructor() {
     this.baseURL = "https://vivago.ai";
     this.prodAPI = `${this.baseURL}/prod-api`;
     this.emailService = `https://${apiConfig.DOMAIN_URL}/api/mails/v9`;
-    this.encKey = CryptoJS.enc.Utf8.parse(apiConfig.PASSWORD.padEnd(32, "x"));
-    this.encIV = CryptoJS.enc.Utf8.parse(apiConfig.PASSWORD.padEnd(16, "x"));
     this.baseHeaders = {
       accept: "application/json, text/plain, */*",
       "accept-language": "id-ID,id;q=0.9",
@@ -92,29 +90,22 @@ class VivagoAPI {
     });
   }
   enc(data) {
-    const textToEncrypt = JSON.stringify(data);
-    const encrypted = CryptoJS.AES.encrypt(textToEncrypt, this.encKey, {
-      iv: this.encIV,
-      mode: CryptoJS.mode.CBC,
-      padding: CryptoJS.pad.Pkcs7
+    const encoder = new Encoder(apiConfig.PASSWORD);
+    const {
+      uuid: jsonUuid
+    } = encoder.enc({
+      data: data,
+      method: "combined"
     });
-    return encrypted.ciphertext.toString(CryptoJS.enc.Hex);
+    return jsonUuid;
   }
-  dec(encryptedHex) {
-    const ciphertext = CryptoJS.enc.Hex.parse(encryptedHex);
-    const cipherParams = CryptoJS.lib.CipherParams.create({
-      ciphertext: ciphertext
+  dec(uuid) {
+    const encoder = new Encoder(apiConfig.PASSWORD);
+    const decryptedJson = encoder.dec({
+      uuid: uuid,
+      method: "combined"
     });
-    const decrypted = CryptoJS.AES.decrypt(cipherParams, this.encKey, {
-      iv: this.encIV,
-      mode: CryptoJS.mode.CBC,
-      padding: CryptoJS.pad.Pkcs7
-    });
-    const json = decrypted.toString(CryptoJS.enc.Utf8);
-    if (!json) {
-      throw new Error("Dekripsi mengembalikan data kosong atau tidak valid.");
-    }
-    return JSON.parse(json);
+    return decryptedJson.text;
   }
   generateUUID() {
     return "xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx".replace(/[xy]/g, c => {

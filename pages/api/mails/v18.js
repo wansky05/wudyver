@@ -1,6 +1,6 @@
 import axios from "axios";
-import CryptoJS from "crypto-js";
 import apiConfig from "@/configs/apiConfig";
+import Encoder from "@/lib/encoder";
 class TempMail {
   constructor() {
     this.baseURL = "https://api.tempmail.lol";
@@ -11,38 +11,24 @@ class TempMail {
       baseURL: this.baseURL,
       headers: this.headers
     });
-    this.encKey = CryptoJS.enc.Utf8.parse(apiConfig.PASSWORD.padEnd(32, "x"));
-    this.encIV = CryptoJS.enc.Utf8.parse(apiConfig.PASSWORD.padEnd(16, "x"));
   }
   enc(data) {
-    const textToEncrypt = JSON.stringify(data);
-    const encrypted = CryptoJS.AES.encrypt(textToEncrypt, this.encKey, {
-      iv: this.encIV,
-      mode: CryptoJS.mode.CBC,
-      padding: CryptoJS.pad.Pkcs7
+    const encoder = new Encoder(apiConfig.PASSWORD);
+    const {
+      uuid: jsonUuid
+    } = encoder.enc({
+      data: data,
+      method: "combined"
     });
-    return encrypted.ciphertext.toString(CryptoJS.enc.Hex);
+    return jsonUuid;
   }
-  dec(encryptedHex) {
-    try {
-      const ciphertext = CryptoJS.enc.Hex.parse(encryptedHex);
-      const cipherParams = CryptoJS.lib.CipherParams.create({
-        ciphertext: ciphertext
-      });
-      const decrypted = CryptoJS.AES.decrypt(cipherParams, this.encKey, {
-        iv: this.encIV,
-        mode: CryptoJS.mode.CBC,
-        padding: CryptoJS.pad.Pkcs7
-      });
-      const json = decrypted.toString(CryptoJS.enc.Utf8);
-      if (!json) {
-        throw new Error("Dekripsi mengembalikan data kosong atau tidak valid.");
-      }
-      return JSON.parse(json);
-    } catch (error) {
-      console.error("Decryption error:", error);
-      throw new Error("Failed to decrypt task_id. It might be invalid or corrupted.");
-    }
+  dec(uuid) {
+    const encoder = new Encoder(apiConfig.PASSWORD);
+    const decryptedJson = encoder.dec({
+      uuid: uuid,
+      method: "combined"
+    });
+    return decryptedJson.text;
   }
   async create({
     prefix = null

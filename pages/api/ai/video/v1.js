@@ -1,6 +1,6 @@
 import axios from "axios";
-import CryptoJS from "crypto-js";
 import apiConfig from "@/configs/apiConfig";
+import Encoder from "@/lib/encoder";
 import {
   CookieJar
 } from "tough-cookie";
@@ -12,8 +12,6 @@ class DigenClient {
     this.baseUrl = "https://api.digen.ai/v1";
     this.mailApiUrl = `https://${apiConfig.DOMAIN_URL}/api/mails/v9`;
     this.videoApiUrl = "https://api.digen.ai/v3/video";
-    this.key = CryptoJS.enc.Utf8.parse(apiConfig.PASSWORD.padEnd(32, "x"));
-    this.iv = CryptoJS.enc.Utf8.parse(apiConfig.PASSWORD.padEnd(16, "x"));
     this.defaultPassword = this.generateRandomPassword(12);
     this.defaultName = "";
     this.defaultLanguage = "id-ID";
@@ -52,6 +50,24 @@ class DigenClient {
       withCredentials: true
     }));
     Object.assign(this, options);
+  }
+  enc(data) {
+    const encoder = new Encoder(apiConfig.PASSWORD);
+    const {
+      uuid: jsonUuid
+    } = encoder.enc({
+      data: data,
+      method: "combined"
+    });
+    return jsonUuid;
+  }
+  dec(uuid) {
+    const encoder = new Encoder(apiConfig.PASSWORD);
+    const decryptedJson = encoder.dec({
+      uuid: uuid,
+      method: "combined"
+    });
+    return decryptedJson.text;
   }
   generateUUID() {
     return "xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx".replace(/[xy]/g, function(c) {
@@ -432,18 +448,13 @@ class DigenClient {
       }
       console.log(data);
       console.log(`LOG: Image generation submitted. Task ID: ${data.data.id}`);
-      const textToEncrypt = JSON.stringify({
+      const textToEncrypt = {
         task_id: data.data.id,
         type: "txt2img",
         sessionId: this.sessionId,
         token: this.token
-      });
-      const encrypted = CryptoJS.AES.encrypt(textToEncrypt, this.key, {
-        iv: this.iv,
-        mode: CryptoJS.mode.CBC,
-        padding: CryptoJS.pad.Pkcs7
-      });
-      const encrypted_task_id = encrypted.ciphertext.toString(CryptoJS.enc.Hex);
+      };
+      const encrypted_task_id = this.enc(textToEncrypt);
       return {
         status: true,
         task_id: encrypted_task_id
@@ -542,18 +553,13 @@ class DigenClient {
       }
       console.log(data);
       console.log(`LOG: Video generation submitted. Job ID: ${data.data.jobId}`);
-      const textToEncrypt = JSON.stringify({
+      const textToEncrypt = {
         task_id: data.data.jobId,
         type: "txt2vid",
         sessionId: this.sessionId,
         token: this.token
-      });
-      const encrypted = CryptoJS.AES.encrypt(textToEncrypt, this.key, {
-        iv: this.iv,
-        mode: CryptoJS.mode.CBC,
-        padding: CryptoJS.pad.Pkcs7
-      });
-      const encrypted_task_id = encrypted.ciphertext.toString(CryptoJS.enc.Hex);
+      };
+      const encrypted_task_id = this.enc(textToEncrypt);
       return {
         status: true,
         task_id: encrypted_task_id
@@ -569,18 +575,9 @@ class DigenClient {
     let decryptedData;
     let taskType;
     try {
-      const ciphertext = CryptoJS.enc.Hex.parse(task_id);
-      const cipherParams = CryptoJS.lib.CipherParams.create({
-        ciphertext: ciphertext
-      });
-      const decrypted = CryptoJS.AES.decrypt(cipherParams, this.key, {
-        iv: this.iv,
-        mode: CryptoJS.mode.CBC,
-        padding: CryptoJS.pad.Pkcs7
-      });
-      const json = decrypted.toString(CryptoJS.enc.Utf8);
+      const json = this.dec(task_id);
       if (!json) throw new Error("Failed to decrypt task_id (empty result).");
-      decryptedData = JSON.parse(json);
+      decryptedData = json;
       this.sessionId = decryptedData.sessionId;
       this.token = decryptedData.token;
       taskType = decryptedData.type;
