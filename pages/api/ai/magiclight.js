@@ -129,16 +129,21 @@ class MagicLightAPI {
     console.log("[✅] Authentication successful");
   }
   enc(data) {
-  const encoder = new Encoder(apiConfig.PASSWORD);
-    const { uuid: jsonUuid } = encoder.enc({
-            data: data,
-            method: 'combined'
-        });
+    const encoder = new Encoder(apiConfig.PASSWORD);
+    const {
+      uuid: jsonUuid
+    } = encoder.enc({
+      data: data,
+      method: "combined"
+    });
     return jsonUuid;
   }
   dec(uuid) {
     const encoder = new Encoder(apiConfig.PASSWORD);
-    const decryptedJson = encoder.dec({ uuid: uuid, method: 'combined' });
+    const decryptedJson = encoder.dec({
+      uuid: uuid,
+      method: "combined"
+    });
     return decryptedJson.text;
   }
   async enhance({
@@ -270,7 +275,7 @@ class MagicLightAPI {
         sessionId: this.sessionId,
         token: this.token
       };
-      const encryptedTaskId = this.enctaskInfo);
+      const encryptedTaskId = this.enc(taskInfo);
       return {
         success: true,
         task_id: encryptedTaskId,

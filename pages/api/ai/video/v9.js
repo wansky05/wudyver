@@ -5,7 +5,6 @@ import {
 } from "eventsource";
 import apiConfig from "@/configs/apiConfig";
 import Encoder from "@/lib/encoder";
-
 const randomIP = () => Array.from({
   length: 4
 }, () => Math.floor(Math.random() * 256)).join(".");
@@ -22,16 +21,21 @@ class RTLIT {
     this.sessionHash = "s" + Math.random().toString(36).slice(2);
   }
   enc(data) {
-  const encoder = new Encoder(apiConfig.PASSWORD);
-    const { uuid: jsonUuid } = encoder.enc({
-            data: data,
-            method: 'combined'
-        });
+    const encoder = new Encoder(apiConfig.PASSWORD);
+    const {
+      uuid: jsonUuid
+    } = encoder.enc({
+      data: data,
+      method: "combined"
+    });
     return jsonUuid;
   }
   dec(uuid) {
     const encoder = new Encoder(apiConfig.PASSWORD);
-    const decryptedJson = encoder.dec({ uuid: uuid, method: 'combined' });
+    const decryptedJson = encoder.dec({
+      uuid: uuid,
+      method: "combined"
+    });
     return decryptedJson.text;
   }
   async upload(imageUrl) {
@@ -95,7 +99,7 @@ class RTLIT {
     width = 1024,
     height = 768,
     type = "image-to-video",
-    duration = 5
+    duration = 5,
     ...rest
   }) {
     try {
@@ -174,17 +178,19 @@ class RTLIT {
       throw err;
     }
   }
-  async status({ task_id }) {
-  if (!task_id) {
-        throw new Error("task_id is required to check status.");
-      }
-      const decryptedData = this.dec(task_id);
-      const {
-        session_hash
-      } = decryptedData;
-      if (!session_hash) {
-        throw new Error("Invalid task_id: Missing videoId after decryption.");
-      }
+  async status({
+    task_id
+  }) {
+    if (!task_id) {
+      throw new Error("task_id is required to check status.");
+    }
+    const decryptedData = this.dec(task_id);
+    const {
+      session_hash
+    } = decryptedData;
+    if (!session_hash) {
+      throw new Error("Invalid task_id: Missing videoId after decryption.");
+    }
     return new Promise((resolve, reject) => {
       console.log(`[QUEUE] Listening for results...`);
       const es = new EventSource(`${this.baseURL}/queue/data?session_hash=${session_hash}`, {
