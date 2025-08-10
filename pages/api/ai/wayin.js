@@ -24,18 +24,16 @@ class WayinAPI {
     });
   }
   enc(data) {
-    const encoder = new Encoder(apiConfig.PASSWORD);
     const {
       uuid: jsonUuid
-    } = encoder.enc({
+    } = Encoder.enc({
       data: data,
       method: "combined"
     });
     return jsonUuid;
   }
   dec(uuid) {
-    const encoder = new Encoder(apiConfig.PASSWORD);
-    const decryptedJson = encoder.dec({
+    const decryptedJson = Encoder.dec({
       uuid: uuid,
       method: "combined"
     });

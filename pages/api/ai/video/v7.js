@@ -7,18 +7,16 @@ class Text2VideoGenerator {
     this.availableRatios = ["16:9", "9:16", "1:1", "4:3", "3:4"];
   }
   enc(data) {
-    const encoder = new Encoder(apiConfig.PASSWORD);
     const {
       uuid: jsonUuid
-    } = encoder.enc({
+    } = Encoder.enc({
       data: data,
       method: "combined"
     });
     return jsonUuid;
   }
   dec(uuid) {
-    const encoder = new Encoder(apiConfig.PASSWORD);
-    const decryptedJson = encoder.dec({
+    const decryptedJson = Encoder.dec({
       uuid: uuid,
       method: "combined"
     });

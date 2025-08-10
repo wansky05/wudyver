@@ -173,18 +173,16 @@ class VidflyAPI {
     throw new Error("Gagal mendapatkan sesi atau token sesi dari Vidfly (cookie 'next_source_state' tidak ditemukan atau tidak valid).");
   }
   enc(data) {
-    const encoder = new Encoder(apiConfig.PASSWORD);
     const {
       uuid: jsonUuid
-    } = encoder.enc({
+    } = Encoder.enc({
       data: data,
       method: "combined"
     });
     return jsonUuid;
   }
   dec(uuid) {
-    const encoder = new Encoder(apiConfig.PASSWORD);
-    const decryptedJson = encoder.dec({
+    const decryptedJson = Encoder.dec({
       uuid: uuid,
       method: "combined"
     });

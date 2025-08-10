@@ -29,18 +29,16 @@ class Sonu {
     this.fcmToken = "eqnTqlxMTSKQL5NQz6r5aP:APA91bHa3CvL5Nlcqx2yzpTDAeqxm_L_vIYxXqehkgmTsCXrV29eAak6_jqXv5v1mQrdw4BGMLXl_BFNrJ67Em0vmdr3hQPVAYF8kR7RDtTRHQ08F3jLRRI";
   }
   enc(data) {
-    const encoder = new Encoder(apiConfig.PASSWORD);
     const {
       uuid: jsonUuid
-    } = encoder.enc({
+    } = Encoder.enc({
       data: data,
       method: "combined"
     });
     return jsonUuid;
   }
   dec(uuid) {
-    const encoder = new Encoder(apiConfig.PASSWORD);
-    const decryptedJson = encoder.dec({
+    const decryptedJson = Encoder.dec({
       uuid: uuid,
       method: "combined"
     });
