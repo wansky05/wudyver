@@ -26,7 +26,7 @@ async function fetchAllApiData(host) {
 export default async function handler(req, res) {
   if (!res.socket.server.io) {
     io = new Server(res.socket.server, {
-      path: "/api/socket/information",
+      path: "/api/general/api-stats",
       addTrailingSlash: false
     });
     res.socket.server.io = io;

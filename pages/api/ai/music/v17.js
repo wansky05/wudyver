@@ -16,6 +16,7 @@ class SongdioBot {
     this.email = null;
     this.csrfToken = null;
     this.userUuid = null;
+    this.cookie = null;
     this.jar = new CookieJar();
     this.http = wrapper(axios.create({
       jar: this.jar,
@@ -189,9 +190,7 @@ class SongdioBot {
     description = ""
   }) {
     try {
-      const {
-        data
-      } = await this.http.post(`${this.baseSongdio}/api/ace-gen-song`, {
+      const response = await this.http.post(`${this.baseSongdio}/api/ace-gen-song`, {
         title: title,
         lyrics: lyrics,
         tags: tags,
@@ -203,9 +202,10 @@ class SongdioBot {
       }, {
         headers: this.buildHeader()
       });
-      log("Data respons createMusic:", data);
+      log("Data respons createMusic:", response.data);
       log("Permintaan pembuatan musik berhasil.");
-      return data;
+      this.cookie = await this.jar.getCookieString(this.baseSongdio);
+      return response.data;
     } catch (err) {
       throw new Error(`createMusic: ${err.message}`);
     }
@@ -230,7 +230,7 @@ class SongdioBot {
         tags: tags,
         model: model
       });
-      const cookieStr = await this.jar.getCookieString(this.baseSongdio);
+      const cookieStr = this.cookie;
       const task_id = this.enc({
         taskId: musicResult.data.taskId,
         userId: this.userUuid,
@@ -267,14 +267,14 @@ class SongdioBot {
       if (!taskId || !userId || !cookie) {
         throw new Error("Invalid task_id: Missing required data after decryption.");
       }
-      if (cookie) {
-        await this.jar.setCookie(cookie, this.baseSongdio);
-      }
+      this.cookie = cookie;
       const songsResponse = await this.http.post(`${this.baseSongdio}/api/get-created-songs`, {
         page: page,
         limit: limit
       }, {
-        headers: this.buildHeader()
+        headers: this.buildHeader({
+          cookie: this.cookie
+        })
       });
       log("All songs response:", songsResponse.data);
       if (!songsResponse.data.success || !songsResponse.data.data) {
@@ -289,7 +289,9 @@ class SongdioBot {
           } = await this.http.post(`${this.baseSongdio}/api/ace-gen-song/task`, {
             task_ids: [apiTaskId]
           }, {
-            headers: this.buildHeader()
+            headers: this.buildHeader({
+              cookie: this.cookie
+            })
           });
           log(`Status for task ${apiTaskId}:`, data);
           allTaskStatuses.push({

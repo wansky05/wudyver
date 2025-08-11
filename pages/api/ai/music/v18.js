@@ -41,7 +41,7 @@ class Piapi {
     return this.models;
   }
   async create({
-    model = "music-u",
+    model = "suno-v4.5",
     gpt_description_prompt = "pop, rock",
     negative_tags = "",
     lyrics_type = "user",
