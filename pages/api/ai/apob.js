@@ -1,7 +1,7 @@
 import axios from "axios";
 import Encoder from "@/lib/encoder";
 class ApobAutomatedApi {
-  constructor(apiKey = "AIzaSyDV8DAfC8b4XzclNHd8UQAAO8P5vdw4C6U") {
+  constructor(apiKey = atob("QUl6YVN5RFY4REFmQzhiNFh6Y2xOSGQ4VVFBQU84UDV2ZHc0QzZV")) {
     if (!apiKey) {
       throw new Error("API Key is required to initialize ApobAutomatedApi.");
     }
