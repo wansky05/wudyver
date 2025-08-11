@@ -60,14 +60,14 @@ class SoundverseAPI {
     console.log("[LOG] Sesi berhasil dipulihkan dari taskId.");
   }
   async create({
-    lyrics,
+    prompt,
     ...rest
   }) {
     try {
       await this._fullAuthFlow();
       const projectId = await this._createProject();
       const generationParams = {
-        prompt: lyrics,
+        prompt: prompt,
         ...rest
       };
       const generateResponse = await this._internalGenerateMusic(projectId, generationParams);
@@ -301,7 +301,7 @@ class SoundverseAPI {
         userId: this.userId,
         projectId: projectId,
         prompt: params.prompt || `[Verse]\nAisles stretching out like endless dreams\nCereal boxes and canned food schemes\nPickle jars and pasta towers\nLost for hours in neon flowered scenes\n[Chorus]\nTrolley rolling to a distant beat\nDancing down the frozen treat street\nMilk's going wild in the dairy lane\nGet lost with me in this bizarre terrain`,
-        actionByUser: params.action || "song_gen" || "vocals_gen" || "generate_music" || "other",
+        actionByUser: params.type || "song_gen" || "vocals_gen" || "generate_music" || "other",
         duration: params.duration || 30,
         loop: params.loop || false,
         model: params.model || "sansaar_1_lite"
@@ -356,9 +356,9 @@ export default async function handler(req, res) {
   try {
     switch (action) {
       case "create":
-        if (!params.lyrics) {
+        if (!params.prompt) {
           return res.status(400).json({
-            error: "lyrics is required for 'create' action."
+            error: "prompt is required for 'create' action."
           });
         }
         const createResponse = await generator.create(params);

@@ -1,8 +1,16 @@
 import axios from "axios";
+import crypto from "crypto";
 import SpoofHead from "@/lib/spoof-head";
+const GC = "useandom-26T198340PX75pxJACKVERYMINDBUSHWOLF_GQZbfghjklqvwyzrict";
+const YC = (e = 21) => {
+  let t = "";
+  const r = crypto.getRandomValues(new Uint8Array(e |= 0));
+  for (; e--;) t += GC[r[e] & 63];
+  return t;
+};
 class VozartApi {
   constructor() {
-    this.xTempSession = `task_${Math.random().toString(36).substring(2, 15)}`;
+    this.xTempSession = YC(12);
     this.axiosInstance = axios.create({
       baseURL: "https://vozart.ai/api",
       headers: {
