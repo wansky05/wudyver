@@ -4,6 +4,7 @@ import {
   Blob
 } from "formdata-node";
 import * as cheerio from "cheerio";
+import SpoofHead from "@/lib/spoof-head";
 class VocalCutAiUploader {
   constructor() {
     this.url = "https://mmd.uvronline.app/upload/vocalCutAi?catch-file";
@@ -26,7 +27,8 @@ class VocalCutAiUploader {
           "sec-fetch-dest": "empty",
           "sec-fetch-mode": "cors",
           "sec-fetch-site": "cross-site",
-          "user-agent": "Mozilla/5.0 (Linux; Android 10; K) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Mobile Safari/537.36"
+          "user-agent": "Mozilla/5.0 (Linux; Android 10; K) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Mobile Safari/537.36",
+          ...SpoofHead()
         }
       });
       const $ = cheerio.load(response.data);
@@ -108,6 +110,7 @@ class VocalCutAiUploader {
           "sec-fetch-site": "cross-site",
           "user-agent": "Mozilla/5.0 (Linux; Android 10; K) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Mobile Safari/537.36",
           cookie: cookies.join("; "),
+          ...SpoofHead(),
           ...formData.headers
         }
       });
@@ -146,7 +149,8 @@ class VocalCutAiUploader {
             "sec-fetch-dest": "empty",
             "sec-fetch-mode": "cors",
             "sec-fetch-site": "cross-site",
-            "user-agent": "Mozilla/5.0 (Linux; Android 10; K) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Mobile Safari/537.36"
+            "user-agent": "Mozilla/5.0 (Linux; Android 10; K) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Mobile Safari/537.36",
+            ...SpoofHead()
           }
         });
         const {
@@ -183,7 +187,8 @@ class VocalCutAiUploader {
           "sec-fetch-dest": "empty",
           "sec-fetch-mode": "cors",
           "sec-fetch-site": "cross-site",
-          "user-agent": "Mozilla/5.0 (Linux; Android 10; K) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Mobile Safari/537.36"
+          "user-agent": "Mozilla/5.0 (Linux; Android 10; K) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Mobile Safari/537.36",
+          ...SpoofHead()
         },
         maxRedirects: 0,
         validateStatus: status => status === 302

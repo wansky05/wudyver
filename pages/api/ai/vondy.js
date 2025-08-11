@@ -1,4 +1,5 @@
 import axios from "axios";
+import SpoofHead from "@/lib/spoof-head";
 class VondyChat {
   constructor() {
     this.apiUrl = "https://vondyapi-proxy.com/bot/8e5fddc2-d5bb-42be-9f63-3142d73ccfd6/chat-stream-assistant-dfp/";
@@ -6,7 +7,8 @@ class VondyChat {
       accept: "text/event-stream",
       "content-type": "application/json",
       "User-Agent": "Mozilla/5.0 (Linux; Android 10; K) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Mobile Safari/537.36",
-      Referer: "https://www.vondy.com/assistant?chat=SGFp&lc=5"
+      Referer: "https://www.vondy.com/assistant?chat=SGFp&lc=5",
+      ...SpoofHead()
     };
   }
   async sendRequest(payload) {
