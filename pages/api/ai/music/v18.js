@@ -126,8 +126,8 @@ export default async function handler(req, res) {
         const statusResponse = await generator.status(params);
         return res.status(200).json(statusResponse);
       case "models":
-        const createResponse = await generator.models();
-        return res.status(200).json(createResponse);
+        const modelsResponse = await generator.models();
+        return res.status(200).json(modelsResponse);
       default:
         return res.status(400).json({
           error: "Invalid action. Supported actions are 'create' and 'status'."
