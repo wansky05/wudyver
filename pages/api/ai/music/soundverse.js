@@ -205,7 +205,7 @@ class SoundverseAPI {
       const payload = {
         userId: this.userId,
         projectId: projectId,
-        prompt: params.prompt,
+        prompt: params.prompt || `[Verse]\nAisles stretching out like endless dreams\nCereal boxes and canned food schemes\nPickle jars and pasta towers\nLost for hours in neon flowered scenes\n[Chorus]\nTrolley rolling to a distant beat\nDancing down the frozen treat street\nMilk's going wild in the dairy lane\nGet lost with me in this bizarre terrain`,
         actionByUser: params.action || "song_gen" || "vocals_gen" || "generate_music" || "other",
         duration: params.duration || 30,
         loop: params.loop || false,

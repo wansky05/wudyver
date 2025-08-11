@@ -211,18 +211,7 @@ class LitMediaAPI {
   }
   async create({
     token,
-    lyrics = `[Verse]
-Aisles stretching out like endless dreams
-Cereal boxes and canned food schemes
-Pickle jars and pasta towers
-Lost for hours in neon flowered scenes
-
-[Chorus]
-Trolley rolling to a distant beat
-Dancing down the frozen treat street
-Milk's going wild in the dairy lane
-Get lost with me in this bizarre terrain
-`,
+    lyrics = `[Verse]\nAisles stretching out like endless dreams\nCereal boxes and canned food schemes\nPickle jars and pasta towers\nLost for hours in neon flowered scenes\n[Chorus]\nTrolley rolling to a distant beat\nDancing down the frozen treat street\nMilk's going wild in the dairy lane\nGet lost with me in this bizarre terrain`,
     title = "Grocery Store Anthem",
     style = "Sheng,Symphonic Metal,Content",
     instrumental = 0,

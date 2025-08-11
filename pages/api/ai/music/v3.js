@@ -30,7 +30,7 @@ class MusicAPI {
     mode = "custom"
   }) {
     const data = {
-      prompt: prompt || "[Verse]\nIn the echoes of the night so clear\nForgotten dreams whisper in your ear\nMemory's voice like a phantom unseen\nLeading you back to where you've been\n\n[Verse 2]\nStarlight’s dance on the ocean’s edge\nPromises linger on the wind’s pledge\nTime’s a thief with a gentle touch\nTakes your heart but leaves a crutch\n\n[Chorus]\nWhispers of forgotten dreams\nIn the night they weave their schemes\nHold on tight to what remains\nCatch the echoes in your veins\n\n[Verse 3]\nMoonlight’s glow on the empty street\nLonely paths where hopes and shadows meet\nSilhouette traces a story untold\nIn midnight’s arms secrets unfold\n\n[Chorus]\nWhispers of forgotten dreams\nIn the night they weave their schemes\nHold on tight to what remains\nCatch the echoes in your veins\n\n[Bridge]\nWhen tomorrow sings a brand new tune\nLet's not forget the dancing moon\nIn every shadow lies a spark\nWhispers alive in the dark",
+      prompt: prompt || `[Verse]\nAisles stretching out like endless dreams\nCereal boxes and canned food schemes\nPickle jars and pasta towers\nLost for hours in neon flowered scenes\n[Chorus]\nTrolley rolling to a distant beat\nDancing down the frozen treat street\nMilk's going wild in the dairy lane\nGet lost with me in this bizarre terrain`,
       isLyricsMode: isLyricsMode,
       isInstrumental: isInstrumental,
       email: email,

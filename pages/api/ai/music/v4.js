@@ -15,7 +15,7 @@ class LyricsToSong {
   }
   async create({
     style = "pop, pop",
-    prompt = "(Verse 1) \nWhispers through the willow trees, \nMemories in the evening breeze, ...",
+    prompt = `[Verse]\nAisles stretching out like endless dreams\nCereal boxes and canned food schemes\nPickle jars and pasta towers\nLost for hours in neon flowered scenes\n[Chorus]\nTrolley rolling to a distant beat\nDancing down the frozen treat street\nMilk's going wild in the dairy lane\nGet lost with me in this bizarre terrain`,
     title = "Echoes of Yesterday",
     customMode = true,
     instrumental = false,

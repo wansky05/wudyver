@@ -246,7 +246,7 @@ class AudioXClient {
           endpoint = `${this.audioxAPI}/${action}`;
           data = {
             userId: this.userId,
-            prompt: rest.prompt || "Wind howling through trees, creating a haunting atmosphere",
+            prompt: rest.prompt || `[Verse]\nAisles stretching out like endless dreams\nCereal boxes and canned food schemes\nPickle jars and pasta towers\nLost for hours in neon flowered scenes\n[Chorus]\nTrolley rolling to a distant beat\nDancing down the frozen treat street\nMilk's going wild in the dairy lane\nGet lost with me in this bizarre terrain`,
             negativePrompt: rest.negativePrompt || "",
             duration: rest.duration || "15",
             voice: rest.voice || "jm_kumo",

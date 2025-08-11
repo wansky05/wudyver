@@ -163,6 +163,13 @@ export default async function handler(req, res) {
   const client = new Infip();
   try {
     const data = await client.chat(params);
+    const base64String = data?.image_urls?.[0];
+    if (base64String) {
+      const base64Data = base64String.split(";base64,").pop();
+      const imageBuffer = Buffer.from(base64Data, "base64");
+      res.setHeader("Content-Type", "image/jpeg");
+      return res.send(imageBuffer);
+    }
     return res.status(200).json(data);
   } catch (error) {
     res.status(500).json({

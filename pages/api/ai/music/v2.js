@@ -18,7 +18,7 @@ class MusicGenerator {
     type = "description",
     instrument = false,
     title = "Epic Orchestral Score",
-    prompt = "A grand and sweeping orchestral piece suitable for a movie soundtrack.",
+    prompt = `[Verse]\nAisles stretching out like endless dreams\nCereal boxes and canned food schemes\nPickle jars and pasta towers\nLost for hours in neon flowered scenes\n[Chorus]\nTrolley rolling to a distant beat\nDancing down the frozen treat street\nMilk's going wild in the dairy lane\nGet lost with me in this bizarre terrain`,
     style = "orchestral, cinematic, epic",
     version = "2.0",
     lang = "en"
