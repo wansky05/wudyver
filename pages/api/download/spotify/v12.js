@@ -1,90 +1,56 @@
 import axios from "axios";
-import {
-  wrapper
-} from "axios-cookiejar-support";
-import {
-  CookieJar
-} from "tough-cookie";
-import qs from "qs";
-class SpotisongDownloader {
+import * as cheerio from "cheerio";
+class SpotifyDownloader {
   constructor() {
-    this.jar = new CookieJar();
-    this.client = wrapper(axios.create({
-      baseURL: "https://spotisongdownloader.to",
+    this.baseUrl = "https://spotifydownloader.pro/";
+    this.client = axios.create({
+      baseURL: this.baseUrl,
       headers: {
-        Accept: "application/json, text/javascript, */*; q=0.01",
-        "Accept-Language": "id-ID,id;q=0.9",
-        "User-Agent": "Mozilla/5.0 (Linux; Android 10; K) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Mobile Safari/537.36",
-        "Sec-Fetch-Dest": "empty",
-        "Sec-Fetch-Mode": "cors",
-        "Sec-Fetch-Site": "same-origin",
-        "sec-ch-ua": '"Chromium";v="131", "Not_A Brand";v="24", "Microsoft Edge Simulate";v="131", "Lemur";v="131"',
-        "sec-ch-ua-mobile": "?1",
-        "sec-ch-ua-platform": '"Android"',
-        Referer: "https://spotisongdownloader.to/track.php",
-        Origin: "https://spotisongdownloader.to",
-        "X-Requested-With": "XMLHttpRequest",
-        Priority: "u=1, i"
-      },
-      jar: this.jar,
-      withCredentials: true
-    }));
+        accept: "text/html,application/xhtml+xml;q=0.9",
+        "cache-control": "no-cache",
+        pragma: "no-cache",
+        referer: this.baseUrl,
+        "sec-fetch-mode": "navigate",
+        "user-agent": "Mozilla/5.0 (Linux; Android 10) AppleWebKit/537.36 Chrome/131.0.0.0 Safari/537.36"
+      }
+    });
   }
-  async getCookies() {
+  async fetchCookies() {
     try {
-      const response = await this.client.get("/");
-      const setCookie = response.headers["set-cookie"] || [];
-      const PHPSESSID = setCookie.find(c => c.includes("PHPSESSID"))?.split(";")[0] || "";
-      const quality = setCookie.find(c => c.includes("quality"))?.split(";")[0] || "";
-      this.cookies = `${PHPSESSID}; ${quality}`;
-      return this.cookies;
-    } catch (error) {
-      console.error("Gagal mengambil cookie:", error.message);
-      return "";
+      const res = await this.client.get("/");
+      const cookies = res.headers["set-cookie"]?.map(c => c.split(";")[0]).join("; ") || "";
+      this.client.defaults.headers.cookie = cookies;
+      console.log("[OK] Cookies set");
+    } catch (e) {
+      console.error("[ERR] Fetch cookies:", e.message);
     }
   }
-  async getSongData(url) {
+  async download(url) {
+    if (!this.client.defaults.headers.cookie) await this.fetchCookies();
     try {
-      if (!this.cookies) await this.getCookies();
-      const response = await this.client.get(`/api/composer/spotify/xsingle_track.php?url=${encodeURIComponent(url)}`, {
+      console.log("[INFO] Downloading...");
+      const res = await this.client.post("/", `url=${encodeURIComponent(url)}`, {
         headers: {
-          Cookie: this.cookies
+          "content-type": "application/x-www-form-urlencoded",
+          origin: this.baseUrl
         }
       });
-      const {
-        data
-      } = response;
-      if (!data || !data.song_name || !data.artist || !data.url) return null;
-      const output = await this.downloadSong(data);
-      return {
-        ...data,
-        ...output
-      };
-    } catch (error) {
-      console.error("Error mendapatkan data lagu:", error.message);
-      return null;
+      return this.parseResponse(res.data);
+    } catch (e) {
+      console.error("[ERR] Download failed:", e.message);
+      return [];
     }
   }
-  async downloadSong(songData) {
-    try {
-      const payload = qs.stringify({
-        song_name: songData.song_name,
-        artist_name: songData.artist,
-        url: songData.url
-      });
-      const {
-        data
-      } = await this.client.post("/api/composer/spotify/wertyuht9847635.php", payload, {
-        headers: {
-          "Content-Type": "application/x-www-form-urlencoded; charset=UTF-8",
-          Cookie: this.cookies
-        }
-      });
-      return data;
-    } catch (error) {
-      console.error("Error mengunduh lagu:", error.message);
-      return null;
-    }
+  parseResponse(html) {
+    const $ = cheerio.load(html);
+    const results = $(".res_box tr").map((_, el) => ({
+      title: $(el).find(".rb_title").text().trim() || "No Title",
+      artist: $(el).find(".rb_title em, .rb_title span").text().trim() || "Unknown",
+      image: $(el).find(".rb_icon").attr("src") || "",
+      link: $(el).find(".rb_btn").attr("href") || ""
+    })).get();
+    console.log("[OK] Parsing complete:", results.length, "results found");
+    return results;
   }
 }
 export default async function handler(req, res) {
@@ -97,9 +63,11 @@ export default async function handler(req, res) {
     });
   }
   try {
-    const spotify = new SpotisongDownloader();
-    const result = await spotify.getSongData(url);
-    return res.status(200).json(result);
+    const spotify = new SpotifyDownloader();
+    const result = await spotify.download(url);
+    return res.status(200).json({
+      result: result
+    });
   } catch (error) {
     return res.status(500).json({
       error: error.message

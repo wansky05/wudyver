@@ -1,124 +1,333 @@
 import axios from "axios";
-import {
-  CookieJar
-} from "tough-cookie";
-import {
-  wrapper
-} from "axios-cookiejar-support";
+
 class SpotifyDownloader {
-  constructor() {
-    this.jar = new CookieJar();
-    this.client = wrapper(axios.create({
-      jar: this.jar,
-      headers: {
-        accept: "application/json, text/javascript, */*; q=0.01",
-        "accept-language": "id-ID,id;q=0.9",
-        "user-agent": "Mozilla/5.0 (Linux; Android 10; K) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Mobile Safari/537.36",
-        "x-requested-with": "XMLHttpRequest"
-      },
-      withCredentials: true
-    }));
-  }
-  async getCookie(url) {
-    try {
-      await this.client.get(url);
-      return this.jar.getCookiesSync(url).map(c => `${c.key}=${c.value}`).join("; ");
-    } catch (error) {
-      console.error("Error getting cookies:", error.message);
-      return "";
+    constructor(options = {}) {
+        this.baseUrl = 'https://spotisongdownloader.to';
+        this.timeout = options.timeout || 30000;
+        this.retryAttempts = options.retryAttempts || 3;
+        this.retryDelay = options.retryDelay || 1000;
+        
+        // Setup axios instance with default config
+        this.client = axios.create({
+            timeout: this.timeout,
+            headers: this.getBaseHeaders(),
+            validateStatus: (status) => status < 500 // Don't reject on 4xx errors
+        });
+
+        // Setup request/response interceptors for logging
+        this.setupInterceptors();
     }
-  }
-  cleanText(text) {
-    return text.replace(/&amp;/g, "&").replace(/[^\w\s-]/g, "").trim();
-  }
-  async getTrackInfo(url) {
-    try {
-      const siteUrl = "https://spotisongdownloader.to/";
-      const cookies = await this.getCookie(siteUrl);
-      const {
-        data
-      } = await this.client.get("https://spotisongdownloader.to/api/composer/spotify/xsingle_track.php", {
-        params: {
-          url: url
-        },
-        headers: {
-          cookie: cookies,
-          referer: siteUrl,
-          "sec-fetch-mode": "cors"
+
+    getBaseHeaders() {
+        return {
+            'accept-encoding': 'gzip, deflate, br, zstd',
+            'user-agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/139.0.0.0 Safari/537.36 Edg/139.0.0.0',
+            'accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,*/*;q=0.8',
+            'accept-language': 'en-US,en;q=0.5'
+        };
+    }
+
+    setupInterceptors() {
+        // Request interceptor
+        this.client.interceptors.request.use(
+            (config) => {
+                console.log(`🚀 [REQUEST] ${config.method?.toUpperCase()} ${config.url}`);
+                return config;
+            },
+            (error) => {
+                console.error('❌ [REQUEST ERROR]', error.message);
+                return Promise.reject(error);
+            }
+        );
+
+        // Response interceptor
+        this.client.interceptors.response.use(
+            (response) => {
+                console.log(`✅ [RESPONSE] ${response.status} ${response.config.url}`);
+                return response;
+            },
+            (error) => {
+                const status = error.response?.status || 'NETWORK_ERROR';
+                const url = error.config?.url || 'unknown';
+                console.error(`❌ [RESPONSE ERROR] ${status} ${url} - ${error.message}`);
+                return Promise.reject(error);
+            }
+        );
+    }
+
+    async makeRequest(description, config, returnType = 'text') {
+        let lastError;
+        
+        for (let attempt = 1; attempt <= this.retryAttempts; attempt++) {
+            try {
+                console.log(`🔄 [ATTEMPT ${attempt}/${this.retryAttempts}] ${description}`);
+                
+                const response = await this.client(config);
+                
+                // Check if response is successful
+                if (response.status >= 400) {
+                    throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+                }
+
+                // Parse response based on returnType
+                let data;
+                if (returnType === 'json') {
+                    data = response.data;
+                    if (typeof data === 'string') {
+                        data = JSON.parse(data);
+                    }
+                } else {
+                    data = response.data;
+                }
+
+                console.log(`✨ [SUCCESS] ${description} completed`);
+                return { data, response };
+
+            } catch (error) {
+                lastError = error;
+                console.warn(`⚠️ [RETRY] ${description} failed (attempt ${attempt}): ${error.message}`);
+                
+                if (attempt < this.retryAttempts) {
+                    const delay = this.retryDelay * attempt;
+                    console.log(`⏳ [DELAY] Waiting ${delay}ms before retry...`);
+                    await this.sleep(delay);
+                }
+            }
         }
-      });
-      if (data.res !== 200) {
-        console.error("Invalid response from API:", data);
-        return null;
-      }
-      return {
-        ...data,
-        song_name: this.cleanText(data.song_name),
-        artist: this.cleanText(data.artist)
-      };
-    } catch (error) {
-      console.error("Error fetching track info:", error.message);
-      return null;
+
+        throw new Error(`${description} failed after ${this.retryAttempts} attempts: ${lastError.message}`);
     }
-  }
-  async getDownloadLink(trackInfo) {
-    try {
-      if (!trackInfo || !trackInfo.song_name || !trackInfo.artist) return null;
-      const siteUrl = "https://spotisongdownloader.to/track.php";
-      const cookies = await this.getCookie(siteUrl);
-      const form = new URLSearchParams();
-      form.append("song_name", trackInfo.song_name);
-      form.append("artist_name", trackInfo.artist);
-      form.append("url", trackInfo.url || "");
-      const {
-        data
-      } = await this.client.post("https://spotisongdownloader.to/api/composer/spotify/wertyuht3456.php", form, {
-        headers: {
-          cookie: cookies,
-          "content-type": "application/x-www-form-urlencoded; charset=UTF-8",
-          origin: "https://spotisongdownloader.to",
-          referer: siteUrl
+
+    async sleep(ms) {
+        return new Promise(resolve => setTimeout(resolve, ms));
+    }
+
+    validateSpotifyUrl(url) {
+        const spotifyRegex = /^https:\/\/open\.spotify\.com\/track\/[a-zA-Z0-9]{22}(\?.*)?$/;
+        if (!spotifyRegex.test(url)) {
+            throw new Error('Invalid Spotify track URL format');
         }
-      });
-      return data;
-    } catch (error) {
-      console.error("Error fetching download link:", error.message);
-      return null;
+        console.log('✅ [VALIDATION] Spotify URL is valid');
     }
-  }
-  async downloadSpotifyTrack(url) {
-    const trackInfo = await this.getTrackInfo(url);
-    if (!trackInfo) return {
-      error: "Track not found"
-    };
-    const downloadData = await this.getDownloadLink(trackInfo);
-    return downloadData ? {
-      ...trackInfo,
-      ...downloadData
-    } : {
-      error: "Failed to fetch download link"
-    };
-  }
+
+    async getCookie() {
+        console.log('🍪 [STEP 1] Getting cookie from homepage...');
+        
+        const config = {
+            method: 'GET',
+            url: this.baseUrl,
+            headers: this.getBaseHeaders()
+        };
+
+        const { response } = await this.makeRequest('get cookie', config);
+        
+        // Extract cookie from set-cookie header
+        const setCookieHeader = response.headers['set-cookie'];
+        if (!setCookieHeader || !setCookieHeader.length) {
+            throw new Error('No set-cookie header found in response');
+        }
+
+        let cookie = setCookieHeader[0].split(';')[0];
+        if (!cookie) {
+            throw new Error('Failed to extract cookie from set-cookie header');
+        }
+
+        // Add additional cookie data
+        cookie += '; _ga=GA1.1.2675401.1754827078';
+        
+        console.log('✅ [COOKIE] Successfully obtained session cookie');
+        return { cookie };
+    }
+
+    async validateCookie(cookieObj) {
+        console.log('🔐 [STEP 2] Validating cookie...');
+        
+        const config = {
+            method: 'GET',
+            url: `${this.baseUrl}/ifCaptcha.php`,
+            headers: {
+                ...this.getBaseHeaders(),
+                'referer': this.baseUrl,
+                'cookie': cookieObj.cookie
+            }
+        };
+
+        await this.makeRequest('validate cookie', config);
+        
+        const validatedHeaders = {
+            ...this.getBaseHeaders(),
+            'referer': this.baseUrl,
+            'cookie': cookieObj.cookie
+        };
+
+        console.log('✅ [VALIDATION] Cookie validated successfully');
+        return validatedHeaders;
+    }
+
+    async getTrackMetadata(spotifyUrl, headers) {
+        console.log('📋 [STEP 3] Fetching track metadata...');
+        
+        const config = {
+            method: 'GET',
+            url: `${this.baseUrl}/api/composer/spotify/xsingle_track.php`,
+            headers: headers,
+            params: {
+                url: spotifyUrl
+            }
+        };
+
+        const { data } = await this.makeRequest('get track metadata', config, 'json');
+        
+        // Validate required metadata fields
+        const requiredFields = ['song_name', 'artist', 'duration', 'img', 'url', 'album_name', 'released'];
+        for (const field of requiredFields) {
+            if (!data[field]) {
+                console.warn(`⚠️ [METADATA] Missing field: ${field}`);
+            }
+        }
+
+        console.log(`✅ [METADATA] Track: "${data.song_name}" by ${data.artist}`);
+        return data;
+    }
+
+    async submitTrackData(trackData, headers) {
+        console.log('📤 [STEP 4] Submitting track data...');
+        
+        const payload = [
+            trackData.song_name,
+            trackData.duration,
+            trackData.img,
+            trackData.artist,
+            trackData.url,
+            trackData.album_name,
+            trackData.released
+        ];
+
+        const config = {
+            method: 'POST',
+            url: `${this.baseUrl}/track.php`,
+            headers: {
+                ...headers,
+                'content-type': 'application/x-www-form-urlencoded'
+            },
+            data: new URLSearchParams({
+                data: JSON.stringify(payload)
+            }).toString()
+        };
+
+        await this.makeRequest('submit track data', config);
+        console.log('✅ [SUBMIT] Track data submitted successfully');
+    }
+
+    async getDownloadUrl(spotifyUrl, headers, trackData, downloadOptions = {}) {
+        console.log('🎵 [STEP 5] Getting download URL...');
+        
+        const {
+            quality = 'm4a',
+            zipDownload = false,
+            songName = '',
+            artistName = '',
+            ...additionalOptions
+        } = downloadOptions;
+        
+        // Log download configuration
+        console.log(`🎚️ [CONFIG] Quality: ${quality}, Zip: ${zipDownload}`);
+        
+        const formData = new URLSearchParams({
+            song_name: songName,
+            artist_name: artistName,
+            url: spotifyUrl,
+            zip_download: zipDownload.toString(),
+            quality: quality,
+            ...additionalOptions
+        });
+
+        const config = {
+            method: 'POST',
+            url: `${this.baseUrl}/api/composer/spotify/ssdw23456ytrfds.php`,
+            headers: {
+                ...headers,
+                'content-type': 'application/x-www-form-urlencoded'
+            },
+            data: formData.toString()
+        };
+
+        const { data } = await this.makeRequest('get download URL', config, 'json');
+        
+        // Merge track metadata with download data
+        const result = { ...data, ...trackData };
+        
+        if (result.status === 'success' && result.dlink) {
+            console.log('✅ [DOWNLOAD URL] Successfully obtained download link');
+        } else {
+            throw new Error('Failed to get valid download URL');
+        }
+
+        return result;
+    }
+
+    async download({ url, quality = 'm4a', zipDownload = false, ...options }) {
+        console.log('🎯 [START] Beginning Spotify track download process...');
+        console.log(`🔗 [URL] ${url}`);
+        console.log(`🎵 [QUALITY] ${quality}`);
+        console.log(`📦 [ZIP] ${zipDownload ? 'enabled' : 'disabled'}`);
+        
+        // Log additional options if provided
+        if (Object.keys(options).length > 0) {
+            console.log('⚙️ [OPTIONS]', options);
+        }
+        
+        try {
+            // Step 1: Validate URL
+            this.validateSpotifyUrl(url);
+            
+            // Step 2: Get cookie
+            const cookieObj = await this.getCookie();
+            
+            // Step 3: Validate cookie
+            const headers = await this.validateCookie(cookieObj);
+            
+            // Step 4: Get track metadata
+            const trackData = await this.getTrackMetadata(url, headers);
+            
+            // Step 5: Submit track data
+            await this.submitTrackData(trackData, headers);
+            
+            // Step 6: Get download URL with custom options
+            const downloadData = await this.getDownloadUrl(url, headers, trackData, {
+                quality,
+                zipDownload,
+                ...options
+            });
+            
+            console.log('🎉 [COMPLETE] Download process completed successfully!');
+            console.log(`🎵 Track: ${downloadData.song_name} - ${downloadData.artist}`);
+            console.log(`💿 Album: ${downloadData.album_name} (${downloadData.released})`);
+            console.log(`🔗 Download: ${downloadData.dlink}`);
+            
+            return downloadData;
+
+        } catch (error) {
+            console.error('💥 [ERROR] Download process failed:', error.message);
+            throw error;
+        }
+    }
 }
+
 export default async function handler(req, res) {
-  const {
-    url
-  } = req.method === "GET" ? req.query : req.body;
-  if (!url) {
+  const params = req.method === "GET" ? req.query : req.body;
+  if (!params.url) {
     return res.status(400).json({
-      error: "Missing required query parameter: url"
+      error: "Url are required"
     });
   }
   try {
-    const spotify = new SpotifyDownloader();
-    const result = await spotify.downloadSpotifyTrack(url);
-    return res.status(200).json({
-      result: result
-    });
+    const downloader = new SpotifyDownloader();
+    const response = await downloader.download(params);
+    return res.status(200).json(response);
   } catch (error) {
-    console.error("Handler Error:", error.message);
-    return res.status(500).json({
-      error: "Internal Server Error"
+    res.status(500).json({
+      error: error.message || "Internal Server Error"
     });
   }
 }
