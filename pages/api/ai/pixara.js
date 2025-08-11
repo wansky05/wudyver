@@ -2,6 +2,7 @@ import axios from "axios";
 import crypto from "crypto";
 import apiConfig from "@/configs/apiConfig";
 import Encoder from "@/lib/encoder";
+import SpoofHead from "@/lib/spoof-head";
 class PixaraAPI {
   constructor() {
     this.tokens = {
@@ -67,7 +68,8 @@ class PixaraAPI {
           accept: "application/json, text/plain, */*",
           "accept-language": "id-ID,id;q=0.9",
           referer: `https://app.pixara.ai/dashboard/${type === "txt2img" ? "ai-text-to-image" : "generative-text-to-video"}`,
-          "user-agent": "Mozilla/5.0 (Linux; Android 10; K) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/135.0.0.0 Mobile Safari/537.36"
+          "user-agent": "Mozilla/5.0 (Linux; Android 10; K) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/135.0.0.0 Mobile Safari/537.36",
+          ...SpoofHead()
         }
       });
       return {
@@ -109,7 +111,8 @@ class PixaraAPI {
           "next-action": "e3fb415365687f8ef68aa64bf339be44f9f81a51",
           origin: "https://app.pixara.ai",
           referer: "https://app.pixara.ai/sign-up",
-          "user-agent": "Mozilla/5.0 (Linux; Android 10; K) AppleWebKit/537.36"
+          "user-agent": "Mozilla/5.0 (Linux; Android 10; K) AppleWebKit/537.36",
+          ...SpoofHead()
         }
       });
       console.log(`✅ Registered: ${this.firstName} ${this.lastName}`);
@@ -145,7 +148,8 @@ class PixaraAPI {
           "content-type": "application/json",
           origin: "https://app.pixara.ai",
           referer: `https://app.pixara.ai/verify-email?token=${token}`,
-          "user-agent": "Mozilla/5.0 (Linux; Android 10; K) AppleWebKit/537.36"
+          "user-agent": "Mozilla/5.0 (Linux; Android 10; K) AppleWebKit/537.36",
+          ...SpoofHead()
         }
       });
       console.log("✅ Email verified");
@@ -206,7 +210,8 @@ class PixaraAPI {
           "content-type": "application/json",
           origin: "https://app.pixara.ai",
           referer: "https://app.pixara.ai/dashboard/ai-text-to-image",
-          "user-agent": "Mozilla/5.0 (Linux; Android 10; K) AppleWebKit/537.36"
+          "user-agent": "Mozilla/5.0 (Linux; Android 10; K) AppleWebKit/537.36",
+          ...SpoofHead()
         }
       });
       if (response.data.assetUrl) {
@@ -293,7 +298,8 @@ class PixaraAPI {
           accept: "application/json, text/plain, */*",
           "content-type": "application/json",
           origin: "https://app.pixara.ai",
-          "user-agent": "Mozilla/5.0 (Linux; Android 10; K) AppleWebKit/537.36"
+          "user-agent": "Mozilla/5.0 (Linux; Android 10; K) AppleWebKit/537.36",
+          ...SpoofHead()
         }
       });
       console.log("✅ Upload URL obtained");
@@ -348,7 +354,8 @@ class PixaraAPI {
           accept: "application/json, text/plain, */*",
           "content-type": "application/json",
           origin: "https://app.pixara.ai",
-          "user-agent": "Mozilla/5.0 (Linux; Android 10; K) AppleWebKit/537.36"
+          "user-agent": "Mozilla/5.0 (Linux; Android 10; K) AppleWebKit/537.36",
+          ...SpoofHead()
         }
       });
       console.log("✅ Video generation started");
@@ -363,7 +370,8 @@ class PixaraAPI {
       const response = await this.api.get(`https://app.pixara.ai/api/generative-video/generate/status/${generationId}`, {
         headers: {
           accept: "application/json, text/plain, */*",
-          "user-agent": "Mozilla/5.0 (Linux; Android 10; K) AppleWebKit/537.36"
+          "user-agent": "Mozilla/5.0 (Linux; Android 10; K) AppleWebKit/537.36",
+          ...SpoofHead()
         }
       });
       return response.data;

@@ -5,6 +5,7 @@ import {
 import {
   wrapper
 } from "axios-cookiejar-support";
+import SpoofHead from "@/lib/spoof-head";
 class MusicAPI {
   constructor() {
     this.jar = new CookieJar();
@@ -14,7 +15,8 @@ class MusicAPI {
       headers: {
         "Content-Type": "application/json",
         "User-Agent": "Mozilla/5.0 (Linux; Android 10; K) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/133.0.0.0 Mobile Safari/537.36",
-        Referer: "https://aimusiclab.co/id/create"
+        Referer: "https://aimusiclab.co/id/create",
+        ...SpoofHead()
       }
     }));
   }

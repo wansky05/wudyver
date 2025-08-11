@@ -5,6 +5,7 @@ import {
   Blob
 } from "formdata-node";
 import apiConfig from "@/configs/apiConfig";
+import SpoofHead from "@/lib/spoof-head";
 class ImageGenerator {
   constructor() {
     this.secretKeyHex = "85d3f541b21d0a307566ae59bb49484d3cefcd9f56d42a3de6d965594b71a836";
@@ -131,7 +132,8 @@ padding: CryptoJS.pad.Pkcs7
           secFetchDest: "empty",
           secFetchMode: "cors",
           secFetchSite: "same-site",
-          userAgent: "Mozilla/5.0 (Linux; Android 10; K) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Mobile Safari/537.36"
+          userAgent: "Mozilla/5.0 (Linux; Android 10; K) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Mobile Safari/537.36",
+          ...SpoofHead()
         }
       });
       console.log("ImageGenerator: Generate cartoon API response:", data);

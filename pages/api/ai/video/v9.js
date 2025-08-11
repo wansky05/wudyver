@@ -5,17 +5,14 @@ import {
 } from "eventsource";
 import apiConfig from "@/configs/apiConfig";
 import Encoder from "@/lib/encoder";
-const randomIP = () => Array.from({
-  length: 4
-}, () => Math.floor(Math.random() * 256)).join(".");
+import SpoofHead from "@/lib/spoof-head";
 class RTLIT {
   constructor() {
     this.baseURL = "https://rtlit-copy.hf.space/gradio_api";
     this.headers = {
       "user-agent": "Mozilla/5.0 (Linux; Android 10; K) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/135.0.0.0 Mobile Safari/537.36",
       "accept-language": "id-ID,id;q=0.9",
-      "x-forwarded-for": randomIP(),
-      "x-real-ip": randomIP()
+      ...SpoofHead()
     };
     this.uploadId = Math.random().toString(36).slice(2);
     this.sessionHash = "s" + Math.random().toString(36).slice(2);

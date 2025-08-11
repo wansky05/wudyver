@@ -1,4 +1,5 @@
 import axios from "axios";
+import SpoofHead from "@/lib/spoof-head";
 class AIChat {
   constructor() {
     this.apiUrl = "https://victor-deepsite.hf.space/api/ask-ai";
@@ -8,7 +9,8 @@ class AIChat {
       "content-type": "application/json",
       origin: "https://victor-deepsite.hf.space",
       referer: "https://victor-deepsite.hf.space/",
-      "user-agent": "Mozilla/5.0 (Linux; Android 10; K) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/135.0.0.0 Mobile Safari/537.36"
+      "user-agent": "Mozilla/5.0 (Linux; Android 10; K) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/135.0.0.0 Mobile Safari/537.36",
+      ...SpoofHead()
     };
   }
   async chat({

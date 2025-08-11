@@ -1,6 +1,7 @@
 import axios from "axios";
 import apiConfig from "@/configs/apiConfig";
 import Encoder from "@/lib/encoder";
+import SpoofHead from "@/lib/spoof-head";
 class MagicLightAPI {
   constructor() {
     this.baseURL = "https://api.magiclight.ai";
@@ -20,7 +21,8 @@ class MagicLightAPI {
         "user-agent": "Mozilla/5.0 (Linux; Android 10; K) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/135.0.0.0 Mobile Safari/537.36",
         "custom-client": "mobile",
         "custom-version": "1.2.5",
-        referer: "https://m.magiclight.ai/"
+        referer: "https://m.magiclight.ai/",
+        ...SpoofHead()
       }
     });
     this.api.interceptors.request.use(config => {

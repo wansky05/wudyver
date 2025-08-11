@@ -7,6 +7,7 @@ import {
 } from "tough-cookie";
 import apiConfig from "@/configs/apiConfig";
 import Encoder from "@/lib/encoder";
+import SpoofHead from "@/lib/spoof-head";
 class VidflyAPI {
   constructor() {
     this.mailBase = `https://${apiConfig.DOMAIN_URL}/api/mails/v9`;
@@ -39,6 +40,7 @@ class VidflyAPI {
           "sec-fetch-dest": "empty",
           "sec-fetch-mode": "cors",
           "user-agent": "Mozilla/5.0 (Linux; Android 10; K) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/135.0.0.0 Mobile Safari/537.36",
+          ...SpoofHead(),
           ...headers
         }
       });

@@ -3,7 +3,7 @@ import {
   FormData,
   Blob
 } from "formdata-node";
-import crypto from "crypto";
+import SpoofHead from "@/lib/spoof-head";
 class AmiaiGenerator {
   constructor() {
     this.baseUrl = "https://ai.amiai.club";
@@ -15,23 +15,13 @@ class AmiaiGenerator {
     const randomIndex = Math.floor(Math.random() * this.prompts.length);
     return this.prompts[randomIndex];
   }
-  randomCryptoIP() {
-    const bytes = crypto.randomBytes(4);
-    return Array.from(bytes).map(b => b % 256).join(".");
-  }
-  randomID(length = 16) {
-    return crypto.randomBytes(length).toString("hex");
-  }
   buildHeaders(token = "", extra = {}) {
-    const ip = this.randomCryptoIP();
     return {
       authorization: token,
       origin: "https://www.myimg.ai",
       referer: "https://www.myimg.ai/",
       "user-agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64)",
-      "x-forwarded-for": ip,
-      "x-real-ip": ip,
-      "x-request-id": this.randomID(8),
+      ...SpoofHead(),
       ...extra
     };
   }

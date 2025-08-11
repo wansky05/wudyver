@@ -1,4 +1,5 @@
 import axios from "axios";
+import SpoofHead from "@/lib/spoof-head";
 class MusicGenerator {
   constructor() {
     this.baseURL = "https://www.aimakesong.com";
@@ -10,7 +11,8 @@ class MusicGenerator {
       baseURL: this.baseURL,
       headers: {
         "Content-Type": "application/json",
-        Referer: `${this.baseURL}/`
+        Referer: `${this.baseURL}/`,
+        ...SpoofHead()
       }
     });
   }

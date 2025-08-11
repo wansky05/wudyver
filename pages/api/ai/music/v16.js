@@ -1,4 +1,5 @@
 import axios from "axios";
+import SpoofHead from "@/lib/spoof-head";
 class VozartApi {
   constructor() {
     this.xTempSession = `task_${Math.random().toString(36).substring(2, 15)}`;
@@ -12,7 +13,8 @@ class VozartApi {
         Origin: "https://vozart.ai",
         Referer: "https://vozart.ai/",
         "User-Agent": "Mozilla/5.0 (Linux; Android 10; K) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/135.0.0.0 Mobile Safari/537.36",
-        "x-temp-session": this.xTempSession
+        "x-temp-session": this.xTempSession,
+        ...SpoofHead()
       }
     });
   }

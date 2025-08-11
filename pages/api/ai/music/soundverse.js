@@ -12,11 +12,14 @@ import {
   randomBytes
 } from "crypto";
 import apiConfig from "@/configs/apiConfig";
+import SpoofHead from "@/lib/spoof-head";
+import Encoder from "@/lib/encoder";
 const delay = ms => new Promise(resolve => setTimeout(resolve, ms));
 class SoundverseAPI {
   constructor() {
+    this.jar = new CookieJar();
     this.api = axios.create({
-      jar: new CookieJar(),
+      jar: this.jar,
       withCredentials: true
     });
     axiosCookieJarSupport(this.api);
@@ -26,22 +29,107 @@ class SoundverseAPI {
     this.api.defaults.headers.common["User-Agent"] = "Mozilla/5.0 (Linux; Android 10; K) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/135.0.0.0 Mobile Safari/537.36";
     this.setupInterceptors();
   }
-  async generate(generationParams) {
+  enc(data) {
+    const {
+      uuid: jsonUuid
+    } = Encoder.enc({
+      data: data,
+      method: "combined"
+    });
+    return jsonUuid;
+  }
+  dec(uuid) {
+    const decryptedJson = Encoder.dec({
+      uuid: uuid,
+      method: "combined"
+    });
+    return decryptedJson.text;
+  }
+  async restoreSession({
+    cookieStore,
+    csrfToken,
+    userId
+  }) {
+    await this.jar.setStore(cookieStore);
+    this.csrfToken = csrfToken;
+    this.userId = userId;
+    console.log("[LOG] Sesi berhasil dipulihkan dari taskId.");
+  }
+  async create({
+    lyrics,
+    ...rest
+  }) {
     try {
       await this._fullAuthFlow();
       const projectId = await this._createProject();
+      const generationParams = {
+        prompt: lyrics,
+        ...rest
+      };
       const generateResponse = await this._internalGenerateMusic(projectId, generationParams);
       const messageId = generateResponse.messageId;
-      if (!messageId) throw new Error("Gagal mendapatkan messageId dari respons /generate.");
-      const finalResult = await this._pollTaskStatus(projectId, messageId);
-      if (finalResult?.audioData?.length > 0) {
+      if (!messageId) {
+        throw new Error("Gagal mendapatkan messageId dari respons /generate.");
+      }
+      const cookieStore = await this.jar.getStore();
+      const taskId = this.enc({
+        projectId: projectId,
+        messageId: messageId,
+        csrfToken: this.csrfToken,
+        userId: this.userId,
+        cookieStore: cookieStore
+      });
+      return {
+        success: true,
+        task_id: taskId
+      };
+    } catch (error) {
+      console.error("\n--- PROSES GAGAL ---\nTerjadi kesalahan fatal:", error.message);
+      return {
+        success: false,
+        error: error.message
+      };
+    }
+  }
+  async status({
+    task_id
+  }) {
+    try {
+      const {
+        projectId,
+        messageId,
+        cookieStore,
+        csrfToken,
+        userId
+      } = this.dec(task_id);
+      await this.restoreSession({
+        cookieStore: cookieStore,
+        csrfToken: csrfToken,
+        userId: userId
+      });
+      const response = await this.api.get(`https://api.soundverse.ai/studio/getAllMessages/?projectId=${projectId}`);
+      const message = response.data.data.find(m => m._id === messageId);
+      if (!message) {
+        throw new Error(`Pesan dengan messageId: ${messageId} tidak ditemukan.`);
+      }
+      if (message.status === "SUCCESSFUL") {
         return {
           success: true,
-          audioData: finalResult.audioData,
-          albumArt: finalResult.albumArt
+          status: "SUCCESSFUL",
+          audioData: message.audioData,
+          albumArt: message.albumArt
+        };
+      } else if (message.status === "FAILED" || message.status === "REJECTED") {
+        return {
+          success: false,
+          status: message.status,
+          error: `Pembuatan musik gagal dengan status: ${message.status}`
         };
       } else {
-        throw new Error("Proses selesai, namun tidak ada data audio yang ditemukan.");
+        return {
+          success: true,
+          status: "IN_PROGRESS"
+        };
       }
     } catch (error) {
       console.error("\n--- PROSES GAGAL ---\nTerjadi kesalahan fatal:", error.message);
@@ -102,7 +190,8 @@ class SoundverseAPI {
         headers: {
           "content-type": "application/json",
           origin: "https://www.soundverse.ai",
-          referer: "https://www.soundverse.ai/"
+          referer: "https://www.soundverse.ai/",
+          ...SpoofHead()
         }
       });
       console.log("Pendaftaran berhasil.");
@@ -128,7 +217,8 @@ class SoundverseAPI {
         headers: {
           "content-type": "application/x-www-form-urlencoded",
           origin: "https://www.soundverse.ai",
-          referer: "https://www.soundverse.ai/"
+          referer: "https://www.soundverse.ai/",
+          ...SpoofHead()
         }
       });
       console.log("Login berhasil, sesi sekarang seharusnya aktif.");
@@ -189,7 +279,8 @@ class SoundverseAPI {
         headers: {
           "content-type": "application/json",
           origin: "https://www.soundverse.ai",
-          referer: "https://www.soundverse.ai/"
+          referer: "https://www.soundverse.ai/",
+          ...SpoofHead()
         }
       });
       const projectId = response.data?.data?._id;
@@ -215,7 +306,8 @@ class SoundverseAPI {
         headers: {
           "content-type": "application/json",
           origin: "https://www.soundverse.ai",
-          referer: "https://www.soundverse.ai/"
+          referer: "https://www.soundverse.ai/",
+          ...SpoofHead()
         }
       });
       console.log("Permintaan pembuatan musik berhasil dikirim.");
@@ -223,29 +315,6 @@ class SoundverseAPI {
     } catch (error) {
       throw new Error("Gagal memulai pembuatan musik.");
     }
-  }
-  async _pollTaskStatus(projectId, messageId) {
-    console.log(`Memantau status untuk messageId: ${messageId}...`);
-    const maxAttempts = 60;
-    let attempt = 0;
-    while (attempt < maxAttempts) {
-      attempt++;
-      try {
-        const response = await this.api.get(`https://api.soundverse.ai/studio/getAllMessages/?projectId=${projectId}`);
-        const message = response.data.data.find(m => m._id === messageId);
-        if (message) {
-          console.log(`[Percobaan ${attempt}/${maxAttempts}] Status saat ini: ${message.status}`);
-          if (message.status === "SUCCESSFUL") {
-            console.log("Pembuatan musik berhasil!");
-            return message;
-          } else if (message.status === "FAILED" || message.status === "REJECTED") {
-            throw new Error(`Pembuatan musik gagal dengan status: ${message.status}`);
-          }
-        }
-      } catch (error) {}
-      if (attempt < maxAttempts) await delay(3e3);
-    }
-    throw new Error("Waktu pemantauan habis, tugas tidak selesai tepat waktu.");
   }
   async _fullAuthFlow() {
     await this._createMail();
@@ -270,16 +339,39 @@ class SoundverseAPI {
   }
 }
 export default async function handler(req, res) {
-  const params = req.method === "GET" ? req.query : req.body;
-  if (!params.prompt) {
+  const {
+    action,
+    ...params
+  } = req.method === "GET" ? req.query : req.body;
+  if (!action) {
     return res.status(400).json({
-      error: "Prompt are required"
+      error: "Action (create or status) is required."
     });
   }
+  const generator = new SoundverseAPI();
   try {
-    const soundverse = new SoundverseAPI();
-    const response = await soundverse.generate(params);
-    return res.status(200).json(response);
+    switch (action) {
+      case "create":
+        if (!params.lyrics) {
+          return res.status(400).json({
+            error: "lyrics is required for 'create' action."
+          });
+        }
+        const createResponse = await generator.create(params);
+        return res.status(200).json(createResponse);
+      case "status":
+        if (!params.task_id) {
+          return res.status(400).json({
+            error: "task_id is required for 'status' action."
+          });
+        }
+        const statusResponse = await generator.status(params);
+        return res.status(200).json(statusResponse);
+      default:
+        return res.status(400).json({
+          error: "Invalid action. Supported actions are 'create' and 'status'."
+        });
+    }
   } catch (error) {
     res.status(500).json({
       error: error.message || "Internal Server Error"

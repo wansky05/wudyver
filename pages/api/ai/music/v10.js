@@ -1,6 +1,6 @@
 import axios from "axios";
 import https from "https";
-import crypto from "crypto";
+import SpoofHead from "@/lib/spoof-head";
 const httpsAgent = new https.Agent({
   keepAlive: true,
   rejectUnauthorized: false
@@ -9,15 +9,7 @@ class MusicMuseAPI {
   constructor() {
     this.baseUrl = "https://www.musicmuse.ai/api";
   }
-  randIP() {
-    return crypto.randomBytes(4).map(b => b % 256).join(".");
-  }
-  randID(len = 16) {
-    return crypto.randomBytes(len).toString("hex");
-  }
   bHeaders(extra = {}) {
-    const ip = this.randIP();
-    const reqId = this.randID(8);
     const headers = {
       "User-Agent": "Mozilla/5.0 (Linux; Android 10; K) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/137.0.0.0 Mobile Safari/537.36",
       Accept: "application/json, text/plain, */*",
@@ -33,13 +25,11 @@ class MusicMuseAPI {
       "sec-fetch-dest": "empty",
       "accept-language": "id-ID,id;q=0.9,en-US;q=0.8,en;q=0.7",
       priority: "u=1, i",
-      "X-Forwarded-For": ip,
-      "X-Real-IP": ip,
-      "X-Request-ID": reqId,
       Referer: "https://www.musicmuse.ai/id/dashboard/apps/muse",
+      ...SpoofHead(),
       ...extra
     };
-    console.log(`[Request ID: ${reqId}] Headers dibangun:`, headers);
+    console.log(`Headers dibangun:`, headers);
     return headers;
   }
   async postReq(ep, data) {

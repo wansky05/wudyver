@@ -1,11 +1,11 @@
 import axios from "axios";
-import crypto from "crypto";
 import {
   CookieJar
 } from "tough-cookie";
 import {
   wrapper
 } from "axios-cookiejar-support";
+import SpoofHead from "@/lib/spoof-head";
 class LyricsToSong {
   constructor() {
     this.baseUrl = "https://cuzi.ai/api/music";
@@ -16,15 +16,7 @@ class LyricsToSong {
       withCredentials: true
     }));
   }
-  randIP() {
-    return crypto.randomBytes(4).map(b => b % 256).join(".");
-  }
-  randID(len = 16) {
-    return crypto.randomBytes(len).toString("hex");
-  }
   bHeaders(extra = {}) {
-    const ip = this.randIP();
-    const reqId = this.randID(8);
     return {
       "User-Agent": "Mozilla/5.0 (Linux; Android 10; K) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/137.0.0.0 Mobile Safari/537.36",
       Accept: "application/json, text/plain, */*",
@@ -40,11 +32,9 @@ class LyricsToSong {
       "sec-fetch-dest": "empty",
       "accept-language": "id-ID,id;q=0.9,en-US;q=0.8,en;q=0.7",
       priority: "u=1, i",
-      "X-Forwarded-For": ip,
-      "X-Real-IP": ip,
-      "X-Request-ID": reqId,
       Referer: "https://cuzi.ai/dashboard/ai-music/ai-music-generator",
       Origin: "https://cuzi.ai",
+      ...SpoofHead(),
       ...extra
     };
   }

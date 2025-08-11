@@ -5,19 +5,10 @@ import {
 } from "formdata-node";
 import apiConfig from "@/configs/apiConfig";
 import Encoder from "@/lib/encoder";
+import SpoofHead from "@/lib/spoof-head";
 class MakeFilm {
   constructor() {
     this.baseURL = "https://makefilm.ai/api";
-    this.userAgents = ["Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/109.0.0.0 Safari/537.36", "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/109.0.0.0 Safari/537.36", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Edge/109.0.1518.78", "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/16.3 Safari/605.1.15", "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/109.0.0.0 Safari/537.36", "Mozilla/5.0 (iPhone; CPU iPhone OS 16_3 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/16.3 Mobile/15E148 Safari/604.1", "Mozilla/5.0 (Linux; Android 10; K) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/135.0.0.0 Mobile Safari/537.36"];
-  }
-  generateRandomIp() {
-    return Array.from({
-      length: 4
-    }, () => Math.floor(Math.random() * 256)).join(".");
-  }
-  getRandomUserAgent() {
-    const randomIndex = Math.floor(Math.random() * this.userAgents.length);
-    return this.userAgents[randomIndex];
   }
   getDynamicHeaders(isFormData = false) {
     const dynamicHeaders = {
@@ -25,10 +16,7 @@ class MakeFilm {
       origin: "https://makefilm.ai",
       referer: "https://makefilm.ai/features/video-generator",
       "accept-language": "id-ID,id;q=0.9",
-      "user-agent": this.getRandomUserAgent(),
-      "x-forwarded-for": this.generateRandomIp(),
-      "x-real-ip": this.generateRandomIp(),
-      via: `1.1 ${this.generateRandomIp()}`
+      ...SpoofHead()
     };
     if (!isFormData) {
       dynamicHeaders["content-type"] = "application/json";

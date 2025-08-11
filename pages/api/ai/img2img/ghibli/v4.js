@@ -1,11 +1,13 @@
 import axios from "axios";
+import SpoofHead from "@/lib/spoof-head";
 class AiGirlfriend {
   constructor() {
     this.url = "https://ai-girlfriend.me/api/generate-companion";
     this.headers = {
       "content-type": "application/json",
       "user-agent": "Mozilla/5.0 (Linux; Android 10; K) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/134.0.0.0 Mobile Safari/537.36",
-      referer: "https://ai-girlfriend.me/"
+      referer: "https://ai-girlfriend.me/",
+      ...SpoofHead()
     };
   }
   async generate({

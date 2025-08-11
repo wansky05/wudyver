@@ -1,5 +1,6 @@
 import axios from "axios";
 import Encoder from "@/lib/encoder";
+import SpoofHead from "@/lib/spoof-head";
 class ApobAutomatedApi {
   constructor(apiKey = atob("QUl6YVN5RFY4REFmQzhiNFh6Y2xOSGQ4VVFBQU84UDV2ZHc0QzZV")) {
     if (!apiKey) {
@@ -23,7 +24,8 @@ class ApobAutomatedApi {
         "user-agent": "Mozilla/5.0 (Linux; Android 10; K) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/135.0.0.0 Mobile Safari/537.36",
         "x-client-data": "CJXdygE=",
         "x-client-version": "Chrome/JsCore/9.23.0/FirebaseCore-web",
-        "x-firebase-gmpid": "1:673850525557:web:4bceaeab78f2ae7dd2753c"
+        "x-firebase-gmpid": "1:673850525557:web:4bceaeab78f2ae7dd2753c",
+        ...SpoofHead()
       }
     });
   }

@@ -1,6 +1,7 @@
 import axios from "axios";
 import apiConfig from "@/configs/apiConfig";
 import Encoder from "@/lib/encoder";
+import SpoofHead from "@/lib/spoof-head";
 import FormData from "form-data";
 class GenZoneAPI {
   constructor() {
@@ -42,7 +43,8 @@ class GenZoneAPI {
       origin: "https://func.genzone.ai",
       referer: "https://func.genzone.ai/",
       "user-agent": "Mozilla/5.0 (Linux; Android 10; K) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/135.0.0.0 Mobile Safari/537.36",
-      "x-request-with": "XMLHttpRequest"
+      "x-request-with": "XMLHttpRequest",
+      ...SpoofHead()
     };
     if (deviceId) headers["x-device-id"] = deviceId;
     if (token) headers["authorization"] = token;

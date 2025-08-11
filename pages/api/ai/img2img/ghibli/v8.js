@@ -1,5 +1,5 @@
 import axios from "axios";
-import crypto from "crypto";
+import SpoofHead from "@/lib/spoof-head";
 class GhibliAI {
   constructor() {
     this.baseUrl = "https://ghibli-ai-generator.net";
@@ -11,15 +11,7 @@ class GhibliAI {
     const randomIndex = Math.floor(Math.random() * this.prompts.length);
     return this.prompts[randomIndex];
   }
-  randomCryptoIP() {
-    const bytes = crypto.randomBytes(4);
-    return Array.from(bytes).map(b => b % 256).join(".");
-  }
-  randomID(length = 16) {
-    return crypto.randomBytes(length).toString("hex");
-  }
   buildHeaders(extra = {}) {
-    const ip = this.randomCryptoIP();
     return {
       accept: "*/*",
       "accept-language": "id-ID,id;q=0.9",
@@ -34,9 +26,7 @@ class GhibliAI {
       "sec-fetch-mode": "cors",
       "sec-fetch-site": "same-origin",
       "user-agent": "Mozilla/5.0 (Linux; Android 10; K) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/135.0.0.0 Mobile Safari/537.36",
-      "x-forwarded-for": ip,
-      "x-real-ip": ip,
-      "x-request-id": this.randomID(8),
+      ...SpoofHead(),
       ...extra
     };
   }

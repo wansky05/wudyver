@@ -1,6 +1,7 @@
 import axios from "axios";
 import apiConfig from "@/configs/apiConfig";
 import Encoder from "@/lib/encoder";
+import SpoofHead from "@/lib/spoof-head";
 class VivagoAPI {
   constructor() {
     this.baseURL = "https://vivago.ai";
@@ -21,7 +22,8 @@ class VivagoAPI {
       "user-agent": "Mozilla/5.0 (Linux; Android 10; K) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/135.0.0.0 Mobile Safari/537.36",
       "x-accept-language": "en",
       "x-client-platform": "web",
-      priority: "u=1, i"
+      priority: "u=1, i",
+      ...SpoofHead()
     };
     this.ticket = null;
     this.refreshToken = null;

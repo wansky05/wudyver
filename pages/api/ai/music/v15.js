@@ -1,6 +1,7 @@
 import axios from "axios";
 import Encoder from "@/lib/encoder";
 import apiConfig from "@/configs/apiConfig";
+import SpoofHead from "@/lib/spoof-head";
 import FormData from "form-data";
 class AIMusicGenerator {
   constructor() {
@@ -23,7 +24,8 @@ class AIMusicGenerator {
         "sec-fetch-mode": "cors",
         "sec-fetch-site": "same-origin",
         origin: this.base_url,
-        priority: "u=1, i"
+        priority: "u=1, i",
+        ...SpoofHead()
       },
       maxRedirects: 20
     });
@@ -233,7 +235,13 @@ class AIMusicGenerator {
     }
     this.auth_token = auth_token;
     this.user_id = user_id;
-    this.cookies = cookie;
+    this.cookies = new Set();
+    if (Array.isArray(cookie)) {
+      cookie.forEach(c => this.cookies.add(c));
+    } else if (typeof cookie === "string") {
+      const cookieArray = cookie.split("; ");
+      cookieArray.forEach(c => this.cookies.add(c));
+    }
     const userIdWithoutHyphens = user_id.replace(/-/g, "");
     try {
       const payload = JSON.stringify([user_id, 1, 999]);
@@ -278,7 +286,7 @@ class AIMusicGenerator {
         user_id: this.user_id,
         auth_token: this.auth_token,
         data: await this.generate_music(params),
-        cookie: this.cookies
+        cookie: Array.from(this.cookies)
       });
       return {
         task_id: task_id,

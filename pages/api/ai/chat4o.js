@@ -1,6 +1,7 @@
 import axios from "axios";
 import apiConfig from "@/configs/apiConfig";
 import Encoder from "@/lib/encoder";
+import SpoofHead from "@/lib/spoof-head";
 class Chat4oClient {
   constructor(options = {}) {
     this.mailApiUrl = `https://${apiConfig.DOMAIN_URL}/api/mails/v9`;
@@ -17,8 +18,7 @@ class Chat4oClient {
     this.bearerToken = null;
     this.sessionId = null;
     this.currentModel = null;
-    this.spoofedIp = this.genRandIP();
-    console.log(`LOG: Init Chat4oClient with spoofed IP: ${this.spoofedIp}`);
+    console.log(`LOG: Init Chat4oClient with spoofed`);
     this.axiosInstance = axios.create({
       headers: {
         "accept-language": this.defaultLang,
@@ -32,8 +32,7 @@ class Chat4oClient {
         "user-agent": this.defaultUA,
         origin: this.origin,
         referer: this.referer,
-        "X-Forwarded-For": this.spoofedIp,
-        "X-Real-IP": this.spoofedIp
+        ...SpoofHead()
       }
     });
     console.log("LOG: Axios instance created.");
@@ -85,12 +84,6 @@ class Chat4oClient {
       result += chars.charAt(Math.floor(Math.random() * chars.length));
     }
     return result;
-  }
-  genRandIP() {
-    const ip = Array.from({
-      length: 4
-    }, (_, i) => i === 0 ? Math.floor(Math.random() * 223) + 1 : Math.floor(Math.random() * 256));
-    return ip.join(".");
   }
   async createEmail() {
     try {

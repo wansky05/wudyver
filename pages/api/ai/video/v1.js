@@ -1,6 +1,7 @@
 import axios from "axios";
 import apiConfig from "@/configs/apiConfig";
 import Encoder from "@/lib/encoder";
+import SpoofHead from "@/lib/spoof-head";
 import {
   CookieJar
 } from "tough-cookie";
@@ -44,7 +45,8 @@ class DigenClient {
         "digen-language": this.defaultLanguage,
         "digen-platform": this.defaultPlatform,
         origin: this.origin,
-        referer: this.referer
+        referer: this.referer,
+        ...SpoofHead()
       },
       jar: this.cookieJar,
       withCredentials: true

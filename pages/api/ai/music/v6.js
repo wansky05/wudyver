@@ -1,4 +1,5 @@
 import axios from "axios";
+import SpoofHead from "@/lib/spoof-head";
 class AiMusicGen {
   constructor() {
     this.apiMusicGen = "https://aimusicgen.ai/api/song";
@@ -6,14 +7,16 @@ class AiMusicGen {
     this.headers = {
       "User-Agent": "Mozilla/5.0 (Linux; Android 10; K) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/133.0.0.0 Mobile Safari/537.36",
       Referer: "https://aimusicgen.ai/create",
-      "Content-Type": "application/json"
+      "Content-Type": "application/json",
+      ...SpoofHead()
     };
     this.supabaseHeaders = {
       Accept: "*/*",
       "accept-profile": "next_auth_aimusicgen",
       apikey: "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImhqZ2VhbXlqb2d3d212anlkYmZtIiwicm9sZSI6ImFub24iLCJpYXQiOjE3MjEzMTA3NjUsImV4cCI6MjAzNjg4Njc2NX0.u0fZNMPMuBjUfgaKvb26d1sadxPCrqyeJWhIn4u16mA",
       Authorization: "Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJhdWQiOiJhdXRoZW50aWNhdGVkIiwiZXhwIjoxNzQ0MjYwNzIzLCJzdWIiOiJjbTZpcDk1a3gwMDB3MTBsMHcybHFjZ3gwIiwiZW1haWwiOiJ3dWR5c29mdEBtYWlsLmNvbSIsInJvbGUiOiJhdXRoZW50aWNhdGVkIiwiaWF0IjoxNzQxNjcwMDcxfQ.tBxgFDXCsgAGF0BYI60h7FLJLfht0hsKN8YuUcTdmvQ",
-      Origin: "https://aimusicgen.ai"
+      Origin: "https://aimusicgen.ai",
+      ...SpoofHead()
     };
     this.defaultGenerateData = {
       lyrics_mode: true,

@@ -1,4 +1,5 @@
 import fetch from "node-fetch";
+import SpoofHead from "@/lib/spoof-head";
 class WsupAiClient {
   constructor() {
     this.apiKey = "AIzaSyA9FrPIX08nAnq-JxQxQhBU7r7CMqiPwWY";
@@ -21,7 +22,8 @@ class WsupAiClient {
       "x-client-data": this._generateRandomClientData(),
       "x-client-version": "Chrome/JsCore/10.14.0/FirebaseCore-web",
       "x-firebase-client": this._generateFirebaseClientHeader(),
-      "x-firebase-gmpid": this.appId
+      "x-firebase-gmpid": this.appId,
+      ...SpoofHead()
     };
   }
   _generateFirebaseClientHeader() {
@@ -91,7 +93,8 @@ class VYourTimeClient {
       "sec-fetch-dest": "empty",
       "sec-fetch-mode": "cors",
       "sec-fetch-site": "cross-site",
-      "user-agent": "Mozilla/5.0 (Linux; Android 10; K) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/135.0.0.0 Mobile Safari/537.36"
+      "user-agent": "Mozilla/5.0 (Linux; Android 10; K) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/135.0.0.0 Mobile Safari/537.36",
+      ...SpoofHead()
     };
   }
   async _ensureApiKey() {

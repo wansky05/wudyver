@@ -3,29 +3,19 @@ import {
   Blob,
   FormData
 } from "formdata-node";
-import crypto from "crypto";
 import apiConfig from "@/configs/apiConfig";
+import SpoofHead from "@/lib/spoof-head";
 class GhibliStyle {
   constructor() {
     this.uploadUrl = `https://${apiConfig.DOMAIN_URL}/api/tools/upload?host=Catbox`;
     this.baseUrl = "https://ghiblichatgpt.org";
   }
-  randomCryptoIP() {
-    const bytes = crypto.randomBytes(4);
-    return Array.from(bytes).map(b => b % 256).join(".");
-  }
-  randomID(length = 16) {
-    return crypto.randomBytes(length).toString("hex");
-  }
   buildHeaders(extra = {}) {
-    const ip = this.randomCryptoIP();
     return {
       origin: this.baseUrl,
       referer: `${this.baseUrl}/`,
       "user-agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64)",
-      "x-forwarded-for": ip,
-      "x-real-ip": ip,
-      "x-request-id": this.randomID(8),
+      ...SpoofHead(),
       ...extra
     };
   }

@@ -1,5 +1,6 @@
 import axios from "axios";
 import * as cheerio from "cheerio";
+import SpoofHead from "@/lib/spoof-head";
 class BuzzFun {
   constructor() {
     this.headers = {
@@ -7,7 +8,8 @@ class BuzzFun {
       "accept-language": "id-ID,id;q=0.9",
       "content-type": "application/x-www-form-urlencoded; charset=UTF-8",
       "user-agent": "Mozilla/5.0 (Linux; Android 10; K) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Mobile Safari/537.36",
-      "x-requested-with": "XMLHttpRequest"
+      "x-requested-with": "XMLHttpRequest",
+      ...SpoofHead()
     };
     this.cookie = "";
     this.listHost = ["buzzfun.me", "quiztest.me"];

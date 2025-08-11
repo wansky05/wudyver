@@ -3,6 +3,7 @@ import FormData from "form-data";
 import {
   randomUUID
 } from "crypto";
+import SpoofHead from "@/lib/spoof-head";
 class IDPhotoUploader {
   constructor() {
     this.api = axios.create({
@@ -20,7 +21,8 @@ class IDPhotoUploader {
         "user-agent": "Mozilla/5.0 (Linux; Android 10) AppleWebKit/537.36 Chrome/131.0.0.0 Mobile Safari/537.36",
         "sec-ch-ua": '"Chromium";v="131", "Not_A Brand";v="24"',
         "sec-ch-ua-mobile": "?1",
-        "sec-ch-ua-platform": '"Android"'
+        "sec-ch-ua-platform": '"Android"',
+        ...SpoofHead()
       }
     });
   }

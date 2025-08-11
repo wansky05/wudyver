@@ -9,6 +9,7 @@ import {
 import {
   wrapper as axiosCookieJarSupport
 } from "axios-cookiejar-support";
+import SpoofHead from "@/lib/spoof-head";
 class DuckAI {
   constructor() {
     this.apiEndpoint = "https://duckduckgo.com/duckchat/v1/chat";
@@ -33,7 +34,8 @@ class DuckAI {
         "Sec-CH-UA": this.secChUa,
         "Sec-CH-UA-Mobile": this.secChUaMobile,
         "Sec-CH-UA-Platform": this.secChUaPlatform,
-        Origin: this.requestOrigin
+        Origin: this.requestOrigin,
+        ...SpoofHead()
       }
     });
     axiosCookieJarSupport(this.client);

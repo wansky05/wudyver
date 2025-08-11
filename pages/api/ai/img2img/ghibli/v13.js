@@ -2,6 +2,7 @@ import axios from "axios";
 import {
   createDecipheriv
 } from "crypto";
+import SpoofHead from "@/lib/spoof-head";
 class GhibliGPTAPI {
   constructor() {
     this.api = {
@@ -21,19 +22,7 @@ class GhibliGPTAPI {
       ciphertextBase64: "2QpqZCkOD/WMHixMqt46AvhdKRYgy5aUMLXi6D0nOPGuDbH4gbNKDV0ZW/+9w9I="
     };
   }
-  randomID(length) {
-    const chars = "abcdefghijklmnopqrstuvwxyz0123456789";
-    let result = "";
-    for (let i = 0; i < length; i++) {
-      result += chars.charAt(Math.floor(Math.random() * chars.length));
-    }
-    return result;
-  }
-  randomCryptoIP() {
-    return Array(4).fill(0).map(() => Math.floor(Math.random() * 255) + 1).join(".");
-  }
   buildHeaders(extra = {}) {
-    const ip = this.randomCryptoIP();
     return {
       accept: "*/*",
       "accept-language": "id-ID,id;q=0.9",
@@ -48,9 +37,7 @@ class GhibliGPTAPI {
       "sec-fetch-mode": "cors",
       "sec-fetch-site": "same-origin",
       "user-agent": "Mozilla/5.0 (Linux; Android 10; K) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/135.0.0.0 Mobile Safari/537.36",
-      "x-forwarded-for": ip,
-      "x-real-ip": ip,
-      "x-request-id": this.randomID(8),
+      ...SpoofHead(),
       ...extra
     };
   }

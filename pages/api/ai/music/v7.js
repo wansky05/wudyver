@@ -1,6 +1,6 @@
 import axios from "axios";
 import https from "https";
-import crypto from "crypto";
+import SpoofHead from "@/lib/spoof-head";
 const httpsAgent = new https.Agent({
   keepAlive: true,
   rejectUnauthorized: false
@@ -14,15 +14,7 @@ class RemusicAI {
     this.pollIntervalMs = pollIntervalMs;
     this.pollTimeoutMs = POLLING_TIMEOUT_MS;
   }
-  randomCryptoIP() {
-    return crypto.randomBytes(4).map(b => b % 256).join(".");
-  }
-  randomID(length = 16) {
-    return crypto.randomBytes(length).toString("hex");
-  }
   buildHeaders(extra = {}) {
-    const ip = this.randomCryptoIP();
-    const requestId = this.randomID(8);
     const headers = {
       "User-Agent": "Mozilla/5.0 (Linux; Android 10; K) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Mobile Safari/537.36",
       Accept: "application/json, text/plain, */*",
@@ -38,12 +30,10 @@ class RemusicAI {
       "sec-fetch-dest": "empty",
       "accept-language": "id-ID,id;q=0.9,en-US;q=0.8,en;q=0.7",
       priority: "u=1, i",
-      "X-Forwarded-For": ip,
-      "X-Real-IP": ip,
-      "X-Request-ID": requestId,
+      ...SpoofHead(),
       ...extra
     };
-    console.log(`[Request ID: ${requestId}] Headers dibangun:`, headers);
+    console.log(`Headers dibangun:`, headers);
     return headers;
   }
   async pollMusicStatus(songId, requestId) {

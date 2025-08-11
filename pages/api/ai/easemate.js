@@ -2,6 +2,7 @@ import fetch from "node-fetch";
 import crypto from "crypto";
 import apiConfig from "@/configs/apiConfig";
 import Encoder from "@/lib/encoder";
+import SpoofHead from "@/lib/spoof-head";
 class EaseMate {
   constructor() {
     this.API_URL_BASE = "https://api.easemate.ai/api2";
@@ -107,15 +108,11 @@ class EaseMate {
       throw error;
     }
   }
-  _generateRandomIP() {
-    return Array(4).fill(0).map(() => Math.floor(Math.random() * 255) + 1).join(".");
-  }
   async _apiCall(path, method, body, s3Upload = false, isStream = false, isAuth = false, token = null) {
     const baseUrl = isAuth ? this.AUTH_URL_BASE : s3Upload ? "" : this.API_URL_BASE;
     const url = s3Upload ? path : `${baseUrl}${path}`;
     try {
       let headers = {};
-      const randomIP = this._generateRandomIP();
       if (!s3Upload && !path.startsWith(this.MAIL_API)) {
         const {
           sign,
@@ -134,8 +131,7 @@ class EaseMate {
           site: this.LOCATION_HOST,
           sign: sign,
           timestamp: timestamp,
-          "X-Forwarded-For": randomIP,
-          "X-Real-IP": randomIP
+          ...SpoofHead()
         };
         if (token) {
           headers.authorization = `Bearer ${token}`;
@@ -167,8 +163,7 @@ class EaseMate {
           "Sec-Fetch-Mode": "cors",
           "Sec-Fetch-Site": "cross-site",
           "User-Agent": "Mozilla/5.0 (Linux; Android 10; K) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/135.0.0.0 Mobile Safari/537.36",
-          "X-Forwarded-For": randomIP,
-          "X-Real-IP": randomIP
+          ...SpoofHead()
         };
         requestBody = body;
       } else if (body) {

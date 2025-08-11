@@ -6,6 +6,7 @@ import {
   FormData,
   Blob
 } from "formdata-node";
+import SpoofHead from "@/lib/spoof-head";
 class GhibliAI {
   constructor() {
     this.uploadId = this.genId(2);
@@ -15,7 +16,8 @@ class GhibliAI {
     this.headers = {
       "User-Agent": "Mozilla/5.0 (Linux; Android 10; K) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Mobile Safari/537.36",
       Origin: "https://azhan77168-easy-gb.hf.space",
-      Referer: "https://azhan77168-easy-gb.hf.space/"
+      Referer: "https://azhan77168-easy-gb.hf.space/",
+      ...SpoofHead()
     };
   }
   genId(parts = 1) {
