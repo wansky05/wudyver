@@ -233,6 +233,7 @@ class SongdioBot {
       const cookieStr = await this.jar.getCookieString(this.baseSongdio);
       const task_id = this.enc({
         taskId: musicResult.data.taskId,
+        userId: this.userUuid,
         cookie: cookieStr
       });
       return {
@@ -249,7 +250,9 @@ class SongdioBot {
     }
   }
   async status({
-    task_id
+    task_id,
+    page = 1,
+    limit = 30
   }) {
     try {
       if (!task_id) {
@@ -258,23 +261,53 @@ class SongdioBot {
       const decryptedData = this.dec(task_id);
       const {
         taskId,
+        userId,
         cookie
       } = decryptedData;
-      if (!taskId || !cookie) {
+      if (!taskId || !userId || !cookie) {
         throw new Error("Invalid task_id: Missing required data after decryption.");
       }
       if (cookie) {
         await this.jar.setCookie(cookie, this.baseSongdio);
       }
-      const {
-        data
-      } = await this.http.post(`${this.baseSongdio}/api/ace-gen-song/task`, {
-        task_ids: [taskId]
+      const songsResponse = await this.http.post(`${this.baseSongdio}/api/get-created-songs`, {
+        page: page,
+        limit: limit
       }, {
         headers: this.buildHeader()
       });
-      log("Data respons status:", data);
-      return data;
+      log("All songs response:", songsResponse.data);
+      if (!songsResponse.data.success || !songsResponse.data.data) {
+        throw new Error("Failed to fetch songs list");
+      }
+      const allApiTaskIds = [...new Set(songsResponse.data.data.filter(song => song.apiTaskId).map(song => song.apiTaskId))];
+      const allTaskStatuses = [];
+      for (const apiTaskId of allApiTaskIds) {
+        try {
+          const {
+            data
+          } = await this.http.post(`${this.baseSongdio}/api/ace-gen-song/task`, {
+            task_ids: [apiTaskId]
+          }, {
+            headers: this.buildHeader()
+          });
+          log(`Status for task ${apiTaskId}:`, data);
+          allTaskStatuses.push({
+            apiTaskId: apiTaskId,
+            status: data
+          });
+        } catch (err) {
+          log(`Error checking status for task ${apiTaskId}:`, err.message);
+          allTaskStatuses.push({
+            apiTaskId: apiTaskId,
+            error: err.message
+          });
+        }
+      }
+      return {
+        allSongs: songsResponse.data.data,
+        allTaskStatuses: allTaskStatuses
+      };
     } catch (err) {
       throw new Error(`status: ${err.message}`);
     }
