@@ -31,8 +31,7 @@ class VeoGenerator {
       } = await axios.get(`https://${apiConfig.DOMAIN_URL}/api/tools/cf-token`, {
         params: {
           sitekey: "0x4AAAAAAAdJZmNxW54o-Gvd",
-          url: "https://lunaai.video/features/v3-fast",
-          accessKey: "5238b8ad01dd627169d9ac2a6c843613d6225e6d77a6753c75dc5d3f23813653"
+          url: "https://lunaai.video/features/v3-fast"
         }
       });
       const uid = crypto.createHash("md5").update(Date.now().toString()).digest("hex");
