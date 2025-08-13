@@ -39,106 +39,221 @@ class Kodepos {
     }
   }
   async search({
-    kode,
-    limit = 1,
-    detail = true
-  }) {
+    kode = null,
+    index = null,
+    detail = null
+  } = {}) {
+    console.log(`Memulai pencarian kode: ${kode}, index: ${index}, detail: ${detail}`);
     try {
-      if (!kode) {
-        throw new Error("Kode POS parameter is required");
-      }
-      console.log(`Searching for postal code: ${kode}`);
-      const search_url = `${this.base_url}?_i=cari-kodepos&jobs=${encodeURIComponent(kode)}`;
-      const html = await this._fetch_with_proxy(search_url);
-      const $ = cheerio.load(html);
-      const result_rows = $('tbody tr[bgcolor="#ccffff"]');
-      if (result_rows.length === 0) {
-        throw new Error(`No results found for postal code: ${kode}`);
-      }
-      console.log(`Found ${result_rows.length} results, processing ${Math.min(limit, result_rows.length)} entries`);
-      const results = [];
-      const processed_limit = Math.min(limit, result_rows.length);
-      for (let i = 0; i < processed_limit; i++) {
-        const row = $(result_rows[i]);
-        const result = this._parse_result_row(row, $);
-        if (result.kodepos) {
-          results.push(result);
-        }
-      }
-      if (results.length === 0) {
-        throw new Error("No valid results could be parsed");
-      }
-      const detailed_results = [];
-      for (const [index, result] of results.entries()) {
-        console.log(`Processing result ${index + 1}/${results.length}`);
-        try {
-          const detailed_result = {
-            info: {
-              ...result
-            },
-            detail: {
-              desa: null,
-              kecamatan: null,
-              kabupaten: null,
-              provinsi: null
-            }
-          };
-          if (detail) {
-            if (result.desa) {
-              try {
-                detailed_result.detail.desa = await this._get_detail(result.desa, result.kecamatan, result.kabupaten, "desa");
-                await this._delay(this.request_delay);
-              } catch (error) {
-                console.warn(`Failed to get desa detail: ${error.message}`);
-              }
-            }
-            if (result.kecamatan && result.kabupaten) {
-              try {
-                detailed_result.detail.kecamatan = await this._get_detail(result.kecamatan, result.kabupaten, null, "kecamatan");
-                await this._delay(this.request_delay);
-              } catch (error) {
-                console.warn(`Failed to get kecamatan detail: ${error.message}`);
-              }
-            }
-            if (result.kabupaten) {
-              try {
-                detailed_result.detail.kabupaten = await this._get_detail(result.kabupaten, null, null, "kabupaten");
-                await this._delay(this.request_delay);
-              } catch (error) {
-                console.warn(`Failed to get kabupaten detail: ${error.message}`);
-              }
-            }
-            if (result.provinsi) {
-              try {
-                detailed_result.detail.provinsi = await this._get_detail(result.provinsi, null, null, "provinsi");
-                await this._delay(this.request_delay);
-              } catch (error) {
-                console.warn(`Failed to get provinsi detail: ${error.message}`);
-              }
-            }
+      if (kode === null && index === null && detail === null) {
+        return {
+          message: "Silakan masukkan kode pos terlebih dahulu",
+          usage: "await kodepos.search({ kode: '12345' }) // untuk mencari kode pos dengan detail lengkap semua hasil",
+          example: {
+            searchWithAllDetails: "await kodepos.search({ kode: '12345' })",
+            selectSpecificIndex: "await kodepos.search({ kode: '12345', index: 1 })",
+            getSpecificDetail: "await kodepos.search({ kode: '12345', index: 1, detail: 1 })"
           }
-          detailed_results.push(detailed_result);
-        } catch (error) {
-          console.error(`Error processing result ${index}:`, error.message);
-          detailed_results.push({
-            info: {
-              ...result
-            },
-            error: error.message
-          });
-        }
+        };
       }
-      return {
-        kode: kode,
-        count: detailed_results.length,
-        list: detailed_results
-      };
+      if (kode !== null && index === null && detail === null) {
+        const searchResults = await this._searchKodepos(kode);
+        const detailedResults = await this._getAllDetailedResults(kode, searchResults);
+        return {
+          kode: kode,
+          count: detailedResults.length,
+          message: "Menampilkan detail lengkap untuk semua hasil",
+          results: detailedResults
+        };
+      }
+      if (kode !== null && index !== null && detail === null) {
+        const selectedResult = await this._getSelectedResult(kode, index);
+        return {
+          ...selectedResult,
+          message: "Pilih detail untuk melihat informasi lengkap",
+          nextUsage: `await kodepos.search({ kode: "${kode}", index: ${index}, detail: 1 })`,
+          example: `await kodepos.search({ kode: "${kode}", index: ${index}, detail: 1 })`
+        };
+      }
+      if (kode !== null && index !== null && detail !== null) {
+        return await this._getDetailedResult(kode, index);
+      }
     } catch (error) {
-      console.error("Error in Kodepos search:", error.message);
+      console.error(`[ERROR] Gagal melakukan pencarian:`, error.message);
       throw error;
+    } finally {
+      console.log(`Pencarian selesai`);
     }
   }
-  _parse_result_row(row, $) {
+  async _getAllDetailedResults(kode, searchResults) {
+    const detailedResults = [];
+    console.log(`Processing detailed results for all ${searchResults.results.length} results`);
+    for (let i = 0; i < searchResults.results.length; i++) {
+      const result = searchResults.results[i];
+      const index = i + 1;
+      try {
+        console.log(`Processing detailed result for index ${index}/${searchResults.results.length}`);
+        const detailed_result = {
+          index: index,
+          info: {
+            ...result
+          },
+          detail: {
+            desa: null,
+            kecamatan: null,
+            kabupaten: null,
+            provinsi: null
+          }
+        };
+        if (result.desa) {
+          try {
+            detailed_result.detail.desa = await this._get_detail(result.desa, result.kecamatan, result.kabupaten, "desa");
+            await this._delay(this.request_delay);
+          } catch (error) {
+            console.warn(`Failed to get desa detail for index ${index}: ${error.message}`);
+          }
+        }
+        if (result.kecamatan && result.kabupaten) {
+          try {
+            detailed_result.detail.kecamatan = await this._get_detail(result.kecamatan, result.kabupaten, null, "kecamatan");
+            await this._delay(this.request_delay);
+          } catch (error) {
+            console.warn(`Failed to get kecamatan detail for index ${index}: ${error.message}`);
+          }
+        }
+        if (result.kabupaten) {
+          try {
+            detailed_result.detail.kabupaten = await this._get_detail(result.kabupaten, null, null, "kabupaten");
+            await this._delay(this.request_delay);
+          } catch (error) {
+            console.warn(`Failed to get kabupaten detail for index ${index}: ${error.message}`);
+          }
+        }
+        if (result.provinsi) {
+          try {
+            detailed_result.detail.provinsi = await this._get_detail(result.provinsi, null, null, "provinsi");
+            await this._delay(this.request_delay);
+          } catch (error) {
+            console.warn(`Failed to get provinsi detail for index ${index}: ${error.message}`);
+          }
+        }
+        detailedResults.push(detailed_result);
+      } catch (error) {
+        console.error(`Error processing detailed result for index ${index}:`, error.message);
+        detailedResults.push({
+          index: index,
+          info: {
+            ...result
+          },
+          detail: {
+            error: `Gagal memproses detail: ${error.message}`
+          }
+        });
+      }
+    }
+    return detailedResults;
+  }
+  async _searchKodepos(kode) {
+    if (!kode) {
+      throw new Error("Kode POS parameter is required");
+    }
+    console.log(`Searching for postal code: ${kode}`);
+    const search_url = `${this.base_url}?_i=cari-kodepos&jobs=${encodeURIComponent(kode)}`;
+    const html = await this._fetch_with_proxy(search_url);
+    const $ = cheerio.load(html);
+    const result_rows = $('tbody tr[bgcolor="#ccffff"]');
+    if (result_rows.length === 0) {
+      throw new Error(`No results found for postal code: ${kode}`);
+    }
+    console.log(`Found ${result_rows.length} results`);
+    const results = [];
+    for (let i = 0; i < result_rows.length; i++) {
+      const row = $(result_rows[i]);
+      const result = this._parse_result_row(row, $, i + 1);
+      if (result.kodepos) {
+        results.push(result);
+      }
+    }
+    if (results.length === 0) {
+      throw new Error("No valid results could be parsed");
+    }
+    return {
+      kode: kode,
+      count: results.length,
+      results: results
+    };
+  }
+  async _getSelectedResult(kode, index) {
+    const searchResults = await this._searchKodepos(kode);
+    if (index < 1 || index > searchResults.results.length) {
+      throw new Error(`Index ${index} tidak valid. Tersedia index 1-${searchResults.results.length}`);
+    }
+    const selectedResult = searchResults.results[index - 1];
+    return {
+      kode: kode,
+      selectedIndex: index,
+      totalResults: searchResults.count,
+      result: selectedResult
+    };
+  }
+  async _getDetailedResult(kode, index) {
+    const selectedData = await this._getSelectedResult(kode, index);
+    const result = selectedData.result;
+    console.log(`Processing detailed result for index ${index}`);
+    try {
+      const detailed_result = {
+        kode: kode,
+        selectedIndex: index,
+        totalResults: selectedData.totalResults,
+        info: {
+          ...result
+        },
+        detail: {
+          desa: null,
+          kecamatan: null,
+          kabupaten: null,
+          provinsi: null
+        }
+      };
+      if (result.desa) {
+        try {
+          detailed_result.detail.desa = await this._get_detail(result.desa, result.kecamatan, result.kabupaten, "desa");
+          await this._delay(this.request_delay);
+        } catch (error) {
+          console.warn(`Failed to get desa detail: ${error.message}`);
+        }
+      }
+      if (result.kecamatan && result.kabupaten) {
+        try {
+          detailed_result.detail.kecamatan = await this._get_detail(result.kecamatan, result.kabupaten, null, "kecamatan");
+          await this._delay(this.request_delay);
+        } catch (error) {
+          console.warn(`Failed to get kecamatan detail: ${error.message}`);
+        }
+      }
+      if (result.kabupaten) {
+        try {
+          detailed_result.detail.kabupaten = await this._get_detail(result.kabupaten, null, null, "kabupaten");
+          await this._delay(this.request_delay);
+        } catch (error) {
+          console.warn(`Failed to get kabupaten detail: ${error.message}`);
+        }
+      }
+      if (result.provinsi) {
+        try {
+          detailed_result.detail.provinsi = await this._get_detail(result.provinsi, null, null, "provinsi");
+          await this._delay(this.request_delay);
+        } catch (error) {
+          console.warn(`Failed to get provinsi detail: ${error.message}`);
+        }
+      }
+      return detailed_result;
+    } catch (error) {
+      console.error(`Error processing detailed result:`, error.message);
+      throw new Error(`Gagal memproses detail untuk index ${index}: ${error.message}`);
+    }
+  }
+  _parse_result_row(row, $, index) {
     const cells = row.find("td");
     const no = $(cells[0]).text().trim();
     const kodepos_link = $(cells[1]).find("a.ktv b");
@@ -151,6 +266,7 @@ class Kodepos {
     const prov_match = detail_text.match(/Prov\.\s*([^•]+)/);
     const kode_wilayah_match = detail_text.match(/Kode Wilayah:\s*([0-9.]+)/);
     return {
+      index: index,
       no: no,
       kodepos: kodepos,
       desa: desa_match ? desa_match[1].trim() : null,
@@ -271,7 +387,7 @@ class Kodepos {
         result.jumlah_desa = extract_number("Jumlah\\s+(?:Desa|Kelurahan)");
         result.luas_wilayah = extract_text_after("Luas\\s+Wilayah");
         result.jumlah_penduduk = extract_text_after("Jumlah\\s+Penduduk");
-        const range_patterns = [/Range\\s+Realita.*?Kode\\s+POS.*?:\\s*([0-9]+)\\s*[―\-–]\\s*([0-9]+)/i, /Range.*?Kode\\s+POS.*?:\\s*([0-9]+)\\s*[―\-–]\\s*([0-9]+)/i, /Kode\\s+POS.*?:\\s*([0-9]+)\\s*[―\-–]\\s*([0-9]+)/i];
+        const range_patterns = [/Range\s+Realita.*?Kode\s+POS.*?:\s*([0-9]+)\s*[―\-–]\s*([0-9]+)/i, /Range.*?Kode\s+POS.*?:\s*([0-9]+)\s*[―\-–]\s*([0-9]+)/i, /Kode\s+POS.*?:\s*([0-9]+)\s*[―\-–]\s*([0-9]+)/i];
         for (const pattern of range_patterns) {
           const match = text.match(pattern);
           if (match) {
@@ -288,7 +404,7 @@ class Kodepos {
         result.jumlah_pulau = extract_number("Pulau.*?punya nama");
         result.luas_wilayah = extract_text_after("Luas\\s+Wilayah");
         result.jumlah_penduduk = extract_text_after("Jumlah\\s+Penduduk");
-        const prov_range_patterns = [/Range\\s+Realita.*?Kode\\s+POS.*?:\\s*([0-9]+)\\s*[‒―\-–]\\s*([0-9]+)\\s+dan\\s+([0-9]+)\\s*[‒―\-–]\\s*([0-9]+)/i, /Kode\\s+POS.*?:\\s*([0-9]+)\\s*[‒―\-–]\\s*([0-9]+)\\s+dan\\s+([0-9]+)\\s*[‒―\-–]\\s*([0-9]+)/i, /([0-9]+)\\s*[‒―\-–]\\s*([0-9]+)\\s+dan\\s+([0-9]+)\\s*[‒―\-–]\\s*([0-9]+)/];
+        const prov_range_patterns = [/Range\s+Realita.*?Kode\s+POS.*?:\s*([0-9]+)\s*[‒―\-–]\s*([0-9]+)\s+dan\s+([0-9]+)\s*[‒―\-–]\s*([0-9]+)/i, /Kode\s+POS.*?:\s*([0-9]+)\s*[‒―\-–]\s*([0-9]+)\s+dan\s+([0-9]+)\s*[‒―\-–]\s*([0-9]+)/i, /([0-9]+)\s*[‒―\-–]\s*([0-9]+)\s+dan\s+([0-9]+)\s*[‒―\-–]\s*([0-9]+)/];
         for (const pattern of prov_range_patterns) {
           const match = text.match(pattern);
           if (match) {
@@ -308,17 +424,20 @@ class Kodepos {
 }
 export default async function handler(req, res) {
   const params = req.method === "GET" ? req.query : req.body;
-  if (!params.kode) {
-    return res.status(400).json({
-      error: "kode are required"
-    });
-  }
+  const kode = params.kode || null;
+  const index = params.index ? parseInt(params.index) : null;
+  const detail = params.detail ? parseInt(params.detail) : null;
   try {
     const kodepos = new Kodepos();
-    const response = await kodepos.search(params);
+    const response = await kodepos.search({
+      kode: kode,
+      index: index,
+      detail: detail
+    });
     return res.status(200).json(response);
   } catch (error) {
-    res.status(500).json({
+    console.error("API Error:", error);
+    return res.status(500).json({
       error: error.message || "Internal Server Error"
     });
   }

@@ -6,46 +6,85 @@ class JadwalNonton {
     this.index = {
       location: {
         description: "Mendapatkan daftar lokasi/kota yang tersedia (indeks dimulai dari 1)",
-        example: 'await jn.search({ type: "location" })'
+        example: "await jn.search({ location: 1 })"
       },
       theater: {
         description: "Mendapatkan daftar bioskop di kota tertentu (indeks dimulai dari 1)",
         params: {
-          kota: "number (indeks) atau string (nama kota), default: 1 (semua kota)"
+          location: "number (indeks) atau string (nama kota), default: 1 (semua kota)",
+          theater: "number (indeks theater yang ingin ditampilkan)"
         },
-        example: 'await jn.search({ type: "theater", kota: 1 }) // Semua kota'
+        example: "await jn.search({ location: 1, theater: 1 })"
       },
       detail: {
         description: "Mendapatkan detail bioskop termasuk jadwal film (indeks dimulai dari 1)",
         params: {
-          lokasi: "number (indeks) atau string (url), default: 1 (bioskop pertama)"
+          location: "number (indeks) atau string (nama kota)",
+          theater: "number (indeks) atau string (url)",
+          detail: "number (indeks detail yang ingin ditampilkan)"
         },
-        example: 'await jn.search({ type: "detail", lokasi: 1 })'
+        example: "await jn.search({ location: 1, theater: 1, detail: 1 })"
       }
     };
   }
   async search({
-    type = "location",
-    kota = 1,
-    lokasi = 1
+    location = null,
+    theater = null,
+    detail = null
   } = {}) {
-    console.log(`Memulai pencarian type: ${type}, kota: ${kota}, lokasi: ${lokasi}`);
+    console.log(`Memulai pencarian location: ${location}, theater: ${theater}, detail: ${detail}`);
     try {
-      switch (type.toLowerCase()) {
-        case "location":
-          return await this._getLocations();
-        case "theater":
-          return await this._getTheaters(kota);
-        case "detail":
-          return await this._getTheaterDetail(lokasi);
-        default:
-          throw new Error(`Type '${type}' tidak valid. Gunakan 'location', 'theater', atau 'detail'`);
+      if (location === null && theater === null && detail === null) {
+        return {
+          message: "Silakan pilih location terlebih dahulu",
+          usage: "await jn.search({ location: 1 }) // untuk melihat daftar lokasi",
+          example: {
+            getAllLocations: "await jn.search({ location: 1 })",
+            getTheaters: "await jn.search({ location: 1, theater: 1 })",
+            getDetail: "await jn.search({ location: 1, theater: 1, detail: 1 })"
+          }
+        };
+      }
+      if (location !== null && theater === null && detail === null) {
+        const locationData = await this._getLocations();
+        return {
+          ...locationData,
+          message: "Pilih theater untuk melihat daftar bioskop",
+          nextUsage: "await jn.search({ location: [location_id], theater: 1 })",
+          example: "await jn.search({ location: 1, theater: 1 })"
+        };
+      }
+      if (location !== null && theater === null) {
+        return {
+          message: "Parameter theater diperlukan untuk melihat daftar bioskop",
+          usage: `await jn.search({ location: ${location}, theater: 1 })`,
+          availableLocations: "Gunakan await jn.search({ location: 1 }) untuk melihat daftar lokasi"
+        };
+      }
+      if (location !== null && theater !== null && detail === null) {
+        const theaterData = await this._getTheaters(location);
+        return {
+          ...theaterData,
+          message: "Pilih detail untuk melihat detail bioskop",
+          nextUsage: `await jn.search({ location: ${location}, theater: [theater_id], detail: 1 })`,
+          example: `await jn.search({ location: ${location}, theater: 1, detail: 1 })`
+        };
+      }
+      if (location !== null && theater !== null && detail === null) {
+        return {
+          message: "Parameter detail diperlukan untuk melihat detail bioskop",
+          usage: `await jn.search({ location: ${location}, theater: ${theater}, detail: 1 })`,
+          availableTheaters: `Gunakan await jn.search({ location: ${location}, theater: 1 }) untuk melihat daftar bioskop`
+        };
+      }
+      if (location !== null && theater !== null && detail !== null) {
+        return await this._getTheaterDetail(theater);
       }
     } catch (error) {
-      console.error(`[ERROR] Gagal melakukan pencarian (type: ${type}):`, error.message);
+      console.error(`[ERROR] Gagal melakukan pencarian:`, error.message);
       throw error;
     } finally {
-      console.log(`Pencarian type: ${type} selesai`);
+      console.log(`Pencarian selesai`);
     }
   }
   async _getLocations() {
@@ -86,34 +125,34 @@ class JadwalNonton {
       throw new Error("Gagal memuat daftar lokasi");
     }
   }
-  async _getTheaters(kota = 1) {
-    console.log(`Memulai proses mendapatkan bioskop untuk kota: ${kota}`);
+  async _getTheaters(location = 1) {
+    console.log(`Memulai proses mendapatkan bioskop untuk location: ${location}`);
     try {
       console.log("Mendapatkan daftar lokasi...");
       const locations = await this._getLocations();
       let url;
-      let kotaName = "";
-      if (typeof kota === "number") {
-        const adjustedIndex = kota - 1;
+      let locationName = "";
+      if (typeof location === "number") {
+        const adjustedIndex = location - 1;
         if (adjustedIndex === -1) {
           url = locations.nearest.url;
-          kotaName = locations.nearest.name;
+          locationName = locations.nearest.name;
         } else if (adjustedIndex >= 0 && adjustedIndex < locations.cities.length) {
           url = locations.cities[adjustedIndex].url;
-          kotaName = locations.cities[adjustedIndex].name;
+          locationName = locations.cities[adjustedIndex].name;
         } else {
           url = locations.allCities.url;
-          kotaName = locations.allCities.name;
+          locationName = locations.allCities.name;
         }
-      } else if (typeof kota === "string") {
-        const found = locations.cities.find(c => c.name.toLowerCase().includes(kota.toLowerCase()));
+      } else if (typeof location === "string") {
+        const found = locations.cities.find(c => c.name.toLowerCase().includes(location.toLowerCase()));
         url = found?.url || locations.allCities.url;
-        kotaName = found?.name || locations.allCities.name;
+        locationName = found?.name || locations.allCities.name;
       } else {
         url = locations.allCities.url;
-        kotaName = locations.allCities.name;
+        locationName = locations.allCities.name;
       }
-      console.log(`Mengambil data bioskop dari URL: ${url} (${kotaName})`);
+      console.log(`Mengambil data bioskop dari URL: ${url} (${locationName})`);
       const response = await axios.get(url);
       const $ = cheerio.load(response.data);
       const theaters = $(".item.theater").map((i, el) => {
@@ -128,38 +167,38 @@ class JadwalNonton {
         };
       }).get();
       const result = {
-        city: kotaName,
+        city: locationName,
         theaters: theaters
       };
-      console.log(`Berhasil mendapatkan ${theaters.length} bioskop di ${kotaName}`);
+      console.log(`Berhasil mendapatkan ${theaters.length} bioskop di ${locationName}`);
       return result;
     } catch (error) {
       console.error("[ERROR] Gagal mendapatkan daftar bioskop:", error.message);
-      throw new Error(`Gagal memuat bioskop untuk kota: ${kota}`);
+      throw new Error(`Gagal memuat bioskop untuk location: ${location}`);
     }
   }
-  async _getTheaterDetail(lokasi = 1) {
-    console.log(`Memulai proses mendapatkan detail bioskop untuk lokasi: ${lokasi}`);
+  async _getTheaterDetail(theater = 1) {
+    console.log(`Memulai proses mendapatkan detail bioskop untuk theater: ${theater}`);
     try {
       let url;
-      let lokasiName = "";
-      if (typeof lokasi === "number") {
+      let theaterName = "";
+      if (typeof theater === "number") {
         console.log("Mendapatkan daftar bioskop...");
         const theaters = await this._getTheaters(1);
-        const adjustedIndex = lokasi - 1;
+        const adjustedIndex = theater - 1;
         if (adjustedIndex >= 0 && adjustedIndex < theaters.theaters.length) {
           url = theaters.theaters[adjustedIndex].url;
-          lokasiName = theaters.theaters[adjustedIndex].name;
+          theaterName = theaters.theaters[adjustedIndex].name;
         } else {
-          throw new Error(`Bioskop dengan indeks ${lokasi} tidak ditemukan`);
+          throw new Error(`Bioskop dengan indeks ${theater} tidak ditemukan`);
         }
-      } else if (typeof lokasi === "string") {
-        url = lokasi.startsWith("http") ? lokasi : `${this.baseUrl}${lokasi.startsWith("/") ? "" : "/"}${lokasi}`;
-        lokasiName = "Custom URL";
+      } else if (typeof theater === "string") {
+        url = theater.startsWith("http") ? theater : `${this.baseUrl}${theater.startsWith("/") ? "" : "/"}${theater}`;
+        theaterName = "Custom URL";
       } else {
-        throw new Error("Parameter lokasi tidak valid");
+        throw new Error("Parameter theater tidak valid");
       }
-      console.log(`Mengambil detail bioskop dari URL: ${url} (${lokasiName})`);
+      console.log(`Mengambil detail bioskop dari URL: ${url} (${theaterName})`);
       const response = await axios.get(url);
       const $ = cheerio.load(response.data);
       const addressText = $(".topdesc").contents().filter((_, el) => el.nodeType === 3).map((_, el) => $(el).text().trim()).get().join(" ").replace(/\s+/g, " ").trim();
@@ -219,62 +258,23 @@ class JadwalNonton {
       return result;
     } catch (error) {
       console.error("[ERROR] Gagal mendapatkan detail bioskop:", error.message);
-      throw new Error(`Gagal memuat detail bioskop untuk lokasi: ${lokasi}`);
+      throw new Error(`Gagal memuat detail bioskop untuk theater: ${theater}`);
     }
   }
 }
 export default async function handler(req, res) {
-  const {
-    action,
-    ...params
-  } = req.method === "GET" ? req.query : req.body;
-  if (!action) {
-    return res.status(400).json({
-      error: "Action parameter is required",
-      available_actions: ["location", "theater", "detail"]
-    });
-  }
+  const params = req.method === "GET" ? req.query : req.body;
+  const location = params.location ? isNaN(params.location) ? params.location : parseInt(params.location) : null;
+  const theater = params.theater ? isNaN(params.theater) ? params.theater : parseInt(params.theater) : null;
+  const detail = params.detail ? isNaN(params.detail) ? params.detail : parseInt(params.detail) : null;
   const jn = new JadwalNonton();
   try {
-    switch (action.toLowerCase()) {
-      case "location":
-        const locations = await jn.search({
-          type: "location"
-        });
-        return res.status(200).json(locations);
-      case "theater":
-        const {
-          kota = 1
-        } = params;
-        const theaters = await jn.search({
-          type: "theater",
-          kota: isNaN(kota) ? kota : parseInt(kota)
-        });
-        return res.status(200).json(theaters);
-      case "detail":
-        const {
-          lokasi = 1,
-            url
-        } = params;
-        if (url) {
-          const detail = await jn.search({
-            type: "detail",
-            lokasi: url
-          });
-          return res.status(200).json(detail);
-        } else {
-          const detail = await jn.search({
-            type: "detail",
-            lokasi: isNaN(lokasi) ? lokasi : parseInt(lokasi)
-          });
-          return res.status(200).json(detail);
-        }
-      default:
-        return res.status(400).json({
-          error: `Invalid action: ${action}`,
-          available_actions: ["location", "theater", "detail"]
-        });
-    }
+    const result = await jn.search({
+      location: location,
+      theater: theater,
+      detail: detail
+    });
+    return res.status(200).json(result);
   } catch (error) {
     console.error("API Error:", error);
     return res.status(500).json({

@@ -196,6 +196,7 @@ export default function handler(req, res) {
     { path: "/api/ai/video/v7", name: "V7", params: [{ "name": "prompt", "in": "query", "required": false }], },
     { path: "/api/ai/video/v8", name: "V8", params: [{ "name": "prompt", "in": "query", "required": false }], },
     { path: "/api/ai/video/v9", name: "V9", params: [{ "name": "prompt", "in": "query", "required": false }], },
+    { path: "/api/ai/video/v10", name: "V10", params: [{ "name": "prompt", "in": "query", "required": false }], },
     { path: "/api/ai/acloud", name: "Acloud", params: [{ "name": "prompt", "in": "query", "required": false }], },
     { path: "/api/ai/ai-hat", name: "Ai-hat", params: [{ "name": "prompt", "in": "query", "required": false }], },
     { path: "/api/ai/ai-image", name: "Ai-image", params: [{ "name": "prompt", "in": "query", "required": false }], },
