@@ -34,7 +34,7 @@ class SunoMusicGenerator {
       } = await axios.get(`https://${apiConfig.DOMAIN_URL}/api/tools/cf-token`, {
         params: {
           sitekey: "0x4AAAAAAAgeJUEUvYlF2CzO",
-          url: "https://songgenerator.io/features/s-45
+          url: "https://songgenerator.io/features/s-45"
         }
       });
       const uid = crypto.createHash("md5").update(Date.now().toString()).digest("hex");
