@@ -2,7 +2,7 @@ import axios from "axios";
 import crypto from "crypto";
 import apiConfig from "@/configs/apiConfig";
 import Encoder from "@/lib/encoder";
-class Veo3Generator {
+class VeoGenerator {
   constructor() {}
   enc(data) {
     const {
@@ -30,10 +30,8 @@ class Veo3Generator {
         data: cf
       } = await axios.get(`https://${apiConfig.DOMAIN_URL}/api/tools/cf-token`, {
         params: {
-          mode: "turnstile-min",
-          siteKey: "0x4AAAAAAANuFg_hYO9YJZqo",
-          url: "https://aivideogenerator.me/features/g-ai-video-generator",
-          accessKey: "e2ddc8d3ce8a8fceb9943e60e722018cb23523499b9ac14a8823242e689eefed"
+          sitekey: "0x4AAAAAAANuFg_hYO9YJZqo",
+          url: "https://aivideogenerator.me/features/g-ai-video-generator"
         }
       });
       const uid = crypto.createHash("md5").update(Date.now().toString()).digest("hex");
@@ -66,20 +64,20 @@ class Veo3Generator {
       }, {
         headers: {
           uniqueid: uid,
-          verify: cf.data.token
+          verify: cf.token
         }
       });
       const task_id = this.enc({
         uid: uid,
-        cfToken: cf.data.token,
+        cfToken: cf.token,
         recordId: task.data.recordId
       });
       return {
         task_id: task_id,
-        message: "Task initiated successfully. Use the /api/veo3?action=status endpoint to check its progress."
+        message: "Task initiated successfully. Use the /api/ai/video/v5?action=status endpoint to check its progress."
       };
     } catch (error) {
-      throw new Error(`Failed to initiate Veo3 video generation: ${error.message}`);
+      throw new Error(`Failed to initiate Veo video generation: ${error.message}`);
     }
   }
   async status({
@@ -124,8 +122,8 @@ class Veo3Generator {
         };
       }
     } catch (error) {
-      console.error("Error in Veo3Generator status check:", error);
-      throw new Error(`Failed to check Veo3 task status: ${error.message}`);
+      console.error("Error in VeoGenerator status check:", error);
+      throw new Error(`Failed to check Veo task status: ${error.message}`);
     }
   }
 }
@@ -139,7 +137,7 @@ export default async function handler(req, res) {
       error: "Action (create or status) is required."
     });
   }
-  const veo3 = new Veo3Generator();
+  const veo = new VeoGenerator();
   try {
     switch (action) {
       case "create":
@@ -148,7 +146,7 @@ export default async function handler(req, res) {
             error: "Prompt is required for 'create' action."
           });
         }
-        const createResponse = await veo3.generate(params);
+        const createResponse = await veo.generate(params);
         return res.status(200).json(createResponse);
       case "status":
         if (!params.task_id) {
@@ -156,7 +154,7 @@ export default async function handler(req, res) {
             error: "task_id is required for 'status' action."
           });
         }
-        const statusResponse = await veo3.status(params);
+        const statusResponse = await veo.status(params);
         return res.status(200).json(statusResponse);
       default:
         return res.status(400).json({

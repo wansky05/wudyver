@@ -1,7 +1,7 @@
 const PASSWORD = process.env.NEXT_PUBLIC_PASSWORD || "";
 const MONGODB_URI = process.env.NEXT_PUBLIC_MONGODB_URI || "";
 const DOMAIN_URL = process.env.NEXT_PUBLIC_DOMAIN_URL || "wudysoft.xyz";
-const DOMAIN_CF = process.env.NEXT_PUBLIC_DOMAIN_CF || "api.nekorinn.my.id";
+const DOMAIN_CF = process.env.NEXT_PUBLIC_DOMAIN_CF || "api.paxsenix.biz.id";
 const DOMAIN_KOYEB = process.env.NEXT_PUBLIC_DOMAIN_KOYEB || "wudysoft.koyeb.app";
 const DOMAIN_VERCEL = process.env.NEXT_PUBLIC_DOMAIN_VERCEL || "koyeb-api-wudy-team.vercel.app";
 const EMAIL = process.env.NEXT_PUBLIC_EMAIL || "wudysoft@mail.com";

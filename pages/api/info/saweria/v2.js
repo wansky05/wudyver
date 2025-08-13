@@ -33,11 +33,11 @@ class Saweria {
   async getCaptchaToken() {
     const siteKey = "0x4AAAAAABdD0SArXy9tgW81";
     const url = "https://saweria.co/login";
-    const captchaApiUrl = `https://${apiConfig.DOMAIN_URL}/api/tools/cf-token?siteKey=${siteKey}&url=${encodeURIComponent(url)}`;
+    const captchaApiUrl = `https://${apiConfig.DOMAIN_URL}/api/tools/cf-token?sitekey=${siteKey}&url=${encodeURIComponent(url)}`;
     try {
       const response = await axios.get(captchaApiUrl);
-      if (response.data && response.data.code === 200 && response.data.data && response.data.data.token) {
-        return response.data.data.token;
+      if (response.data && response.data.code === 200 && response.data.data && response.data.token) {
+        return response.data.token;
       } else {
         return null;
       }

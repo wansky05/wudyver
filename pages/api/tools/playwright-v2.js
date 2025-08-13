@@ -12,8 +12,8 @@ class PlaywrightAPI {
       console.log("🔑 Mendapatkan token...");
       const {
         data
-      } = await axios.get(`${this.tokenApi}?siteKey=${this.siteKey}&url=${this.url}`);
-      const token = data?.data?.token;
+      } = await axios.get(`${this.tokenApi}?sitekey=${this.siteKey}&url=${this.url}`);
+      const token = data?.token;
       console.log("✅ Token:", token?.slice(0, 30) + "...");
       return token;
     } catch (e) {

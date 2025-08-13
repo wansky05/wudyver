@@ -36,10 +36,8 @@ class Text2VideoGenerator {
         data: cf
       } = await axios.get(`https://${apiConfig.DOMAIN_URL}/api/tools/cf-token`, {
         params: {
-          mode: "turnstile-min",
-          siteKey: "0x4AAAAAAATOXAtQtziH-Rwq",
-          url: "https://www.yeschat.ai/features/text-to-video-generator",
-          accessKey: "a40fc14224e8a999aaf0c26739b686abfa4f0b1934cda7fa3b34522b0ed5125d"
+          sitekey: "0x4AAAAAAATOXAtQtziH-Rwq",
+          url: "https://www.yeschat.ai/features/text-to-video-generator"
         }
       });
       const uid = crypto.createHash("md5").update(Date.now().toString()).digest("hex");
@@ -71,12 +69,12 @@ class Text2VideoGenerator {
       }, {
         headers: {
           uniqueid: uid,
-          verify: cf.data.token
+          verify: cf.token
         }
       });
       const task_id = this.enc({
         uid: uid,
-        cfToken: cf.data.token,
+        cfToken: cf.token,
         recordId: task.data.recordId
       });
       return {

@@ -22,11 +22,11 @@ class NbScraper {
         method: "GET",
         url: this.tokenApiUrl,
         params: {
-          siteKey: this.siteKey,
+          sitekey: this.siteKey,
           url: url
         }
       });
-      return response.data.token;
+      return response.token;
     } catch (error) {
       console.error("Failed to get Turnstile token:", error.message);
       throw error;

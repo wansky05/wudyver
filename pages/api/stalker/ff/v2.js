@@ -29,7 +29,7 @@ class FreeFireInfoScraper {
       const resp = await axios.get(`https://${apiConfig.DOMAIN_URL}/api/tools/cf-token`, {
         params: {
           url: targetUrl,
-          siteKey: siteKey
+          sitekey: siteKey
         },
         headers: {
           Accept: "application/json"
@@ -41,7 +41,7 @@ class FreeFireInfoScraper {
       if (!resp.data?.data?.token) {
         throw new Error("Token not found in API response data.");
       }
-      return resp.data.data.token;
+      return resp.data.token;
     } catch (error) {
       console.error(`[ERROR] _getTurnstileToken failed: ${error.message}`);
       throw error;

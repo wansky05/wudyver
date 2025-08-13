@@ -81,7 +81,7 @@ class LinkBypasser {
       const targetUrl = "https://tutwuri.id/";
       const res = await axios.get(`https://${apiConfig.DOMAIN_URL}/api/tools/cf-token`, {
         params: {
-          siteKey: sitekey,
+          sitekey: sitekey,
           url: targetUrl
         },
         headers: {
@@ -91,7 +91,7 @@ class LinkBypasser {
       if (!res.data?.status) {
         throw new Error(res.data.message || "Turnstile bypass API returned an error.");
       }
-      this.bypassResult = res.data.data;
+      this.bypassResult = res.data;
       console.log(`[DEBUG] Step 3: Turnstile token obtained.`);
     } catch (error) {
       console.error(`[ERROR] Step 3 (bypassTurnstile) failed: ${error.message}`);

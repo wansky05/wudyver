@@ -48,7 +48,7 @@ class YouTubeDownloader {
       const tokenResponse = await axios.get(apiUrl, {
         params: {
           url: targetUrl,
-          siteKey: siteKey
+          sitekey: siteKey
         },
         headers: {
           Accept: "application/json"
@@ -60,7 +60,7 @@ class YouTubeDownloader {
       if (!tokenResponse.data?.data?.token) {
         throw new Error("Token not found in API response data.");
       }
-      return tokenResponse.data.data.token;
+      return tokenResponse.data.token;
     } catch (error) {
       console.error(`[ERROR] _getTurnstileToken failed: ${error.message}`);
       throw error;

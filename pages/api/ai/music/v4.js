@@ -34,7 +34,7 @@ class LyricsToSong {
       const response = await this.axiosInstance.post(`${this.baseUrl}/generate`, payload);
       if (response.data.status === 0) {
         return {
-          taskId: response.data.data
+          task_id: response.data.data
         };
       } else {
         throw new Error(response.data.message || "Failed to generate song");
@@ -45,10 +45,10 @@ class LyricsToSong {
     }
   }
   async status({
-    taskId = "40b419fd-716d-4630-857e-39c6b361889d"
+    task_id = "40b419fd-716d-4630-857e-39c6b361889d"
   } = {}) {
     try {
-      const response = await this.axiosInstance.get(`${this.baseUrl}/musics-by-taskId/${taskId}`);
+      const response = await this.axiosInstance.get(`${this.baseUrl}/musics-by-taskId/${task_id}`);
       return response.data;
     } catch (error) {
       console.error("Error fetching music by Task ID:", error.response?.data || error.message);
@@ -56,10 +56,10 @@ class LyricsToSong {
     }
   }
   async detail({
-    musicId = "dd002d50-f99c-4e0c-b4cc-5aaed6127675"
+    music_id = "dd002d50-f99c-4e0c-b4cc-5aaed6127675"
   } = {}) {
     try {
-      const response = await this.axiosInstance.get(`${this.baseUrl}/music-detail/${musicId}`);
+      const response = await this.axiosInstance.get(`${this.baseUrl}/music-detail/${music_id}`);
       return response.data;
     } catch (error) {
       console.error("Error fetching music details:", error.response?.data || error.message);
@@ -94,17 +94,17 @@ export default async function handler(req, res) {
         result = await lyricsToSong.create(params);
         break;
       case "status":
-        if (!params.taskId) {
+        if (!params.task_id) {
           return res.status(400).json({
-            message: "No taskId provided"
+            message: "No task_id provided"
           });
         }
         result = await lyricsToSong.status(params);
         break;
       case "detail":
-        if (!params.musicId) {
+        if (!params.music_id) {
           return res.status(400).json({
-            message: "No musicId provided"
+            message: "No music_id provided"
           });
         }
         result = await lyricsToSong.detail(params);

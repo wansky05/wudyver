@@ -2,7 +2,7 @@ import axios from "axios";
 import crypto from "crypto";
 import apiConfig from "@/configs/apiConfig";
 import Encoder from "@/lib/encoder";
-class LunaVeo3Generator {
+class VeoGenerator {
   constructor() {}
   enc(data) {
     const {
@@ -30,8 +30,7 @@ class LunaVeo3Generator {
         data: cf
       } = await axios.get(`https://${apiConfig.DOMAIN_URL}/api/tools/cf-token`, {
         params: {
-          mode: "turnstile-min",
-          siteKey: "0x4AAAAAAAdJZmNxW54o-Gvd",
+          sitekey: "0x4AAAAAAAdJZmNxW54o-Gvd",
           url: "https://lunaai.video/features/v3-fast",
           accessKey: "5238b8ad01dd627169d9ac2a6c843613d6225e6d77a6753c75dc5d3f23813653"
         }
@@ -66,17 +65,17 @@ class LunaVeo3Generator {
       }, {
         headers: {
           uniqueid: uid,
-          verify: cf.data.token
+          verify: cf.token
         }
       });
       const task_id = this.enc({
         uid: uid,
-        cfToken: cf.data.token,
+        cfToken: cf.token,
         recordId: task.data.recordId
       });
       return {
         task_id: task_id,
-        message: "Task initiated successfully. Use the /api/luna-veo3?action=status endpoint to check its progress."
+        message: "Task initiated successfully. Use the /api/ai/video/v6?action=status endpoint to check its progress."
       };
     } catch (error) {
       throw new Error(`Failed to initiate video generation: ${error.message}`);
@@ -124,8 +123,8 @@ class LunaVeo3Generator {
         };
       }
     } catch (error) {
-      console.error("Error in LunaVeo3Generator status check:", error);
-      throw new Error(`Failed to check LunaVeo3 task status: ${error.message}`);
+      console.error("Error in VeoGenerator status check:", error);
+      throw new Error(`Failed to check Veo task status: ${error.message}`);
     }
   }
 }
@@ -139,7 +138,7 @@ export default async function handler(req, res) {
       error: "Action (create or status) is required."
     });
   }
-  const lunaVeo3 = new LunaVeo3Generator();
+  const veo = new VeoGenerator();
   try {
     switch (action) {
       case "create":
@@ -148,7 +147,7 @@ export default async function handler(req, res) {
             error: "Prompt is required for 'create' action."
           });
         }
-        const createResponse = await lunaVeo3.generate(params);
+        const createResponse = await veo.generate(params);
         return res.status(200).json(createResponse);
       case "status":
         if (!params.task_id) {
@@ -156,7 +155,7 @@ export default async function handler(req, res) {
             error: "task_id is required for 'status' action."
           });
         }
-        const statusResponse = await lunaVeo3.status(params);
+        const statusResponse = await veo.status(params);
         return res.status(200).json(statusResponse);
       default:
         return res.status(400).json({

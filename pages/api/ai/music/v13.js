@@ -33,10 +33,8 @@ class SunoMusicGenerator {
         data: cf
       } = await axios.get(`https://${apiConfig.DOMAIN_URL}/api/tools/cf-token`, {
         params: {
-          mode: "turnstile-min",
-          siteKey: "0x4AAAAAAAgeJUEUvYlF2CzO",
-          url: "https://songgenerator.io/features/s-45",
-          accessKey: "2c9247ce8044d5f87af608a244e10c94c5563b665e5f32a4bb2b2ad17613c1fc"
+          sitekey: "0x4AAAAAAAgeJUEUvYlF2CzO",
+          url: "https://songgenerator.io/features/s-45
         }
       });
       const uid = crypto.createHash("md5").update(Date.now().toString()).digest("hex");
@@ -59,12 +57,12 @@ class SunoMusicGenerator {
       }, {
         headers: {
           uniqueid: uid,
-          verify: cf.data.token
+          verify: cf.token
         }
       });
       const task_id = this.enc({
         uid: uid,
-        cfToken: cf.data.token,
+        cfToken: cf.token,
         recordId: task.data.recordId
       });
       return {
