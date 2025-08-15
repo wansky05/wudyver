@@ -17,8 +17,7 @@ class AiLabs {
       authorization: ""
     };
     this.state = {
-      token: null,
-      tasks: new Map()
+      token: null
     };
     this.setup = {
       cipher: "hbMcgZLlzvghRlLbPcTbCpfcQKM0PcU0zhPcTlOFMxBZ1oLmruzlVp9remPgi0QWP0QW",
@@ -30,35 +29,37 @@ class AiLabs {
   }
   async decrypt() {
     if (this.state.token) return this.state.token;
-    try {
-      const input = this.setup.cipher;
-      const shift = this.setup.shiftValue;
-      const decrypted = this.dec(input, shift);
-      this.state.token = decrypted;
-      this.headers.authorization = decrypted;
-      return decrypted;
-    } catch (error) {
-      console.error("Authentication failed:", error.message);
-      throw new Error("Failed to authenticate with the API");
-    }
+    const input = this.setup.cipher;
+    const shift = this.setup.shiftValue;
+    const decrypted = this.dec(input, shift);
+    this.state.token = decrypted;
+    this.headers.authorization = decrypted;
+    return decrypted;
   }
   deviceId() {
     return Array.from({
       length: 16
     }, () => Math.floor(Math.random() * 16).toString(16)).join("");
   }
-  async text2img(prompt) {
-    if (!prompt?.trim()) {
-      throw new Error("Prompt cannot be empty");
-    }
+  async txt2img({
+    prompt,
+    ...rest
+  }) {
     try {
+      if (!prompt?.trim()) {
+        return {
+          success: false,
+          code: 400,
+          error: "Prompt cannot be empty"
+        };
+      }
+      console.log("Generating image...");
       const token = await this.decrypt();
       const form = new FormData();
       form.append("prompt", prompt);
       form.append("token", token);
-      console.log("[AI Labs] Generating image from text...");
       const url = this.api.base + this.api.endpoints.text2img;
-      const res = await axios.post(url, form, {
+      const response = await axios.post(url, form, {
         headers: {
           ...this.headers,
           ...form.getHeaders()
@@ -67,44 +68,54 @@ class AiLabs {
       const {
         code,
         url: imageUrl
-      } = res.data;
+      } = response.data;
       if (code !== 0 || !imageUrl) {
-        throw new Error("Image generation failed");
-      }
-      console.log("[AI Labs] Image generated successfully");
-      return {
-        url: imageUrl.trim(),
-        prompt: prompt
-      };
-    } catch (error) {
-      console.error("[AI Labs] Image generation error:", error.message);
-      throw error;
-    }
-  }
-  async create({
-    prompt = "",
-    type = "video",
-    isPremium = 1
-  } = {}) {
-    try {
-      if (!prompt?.trim()) {
-        throw new Error("Prompt cannot be empty");
-      }
-      if (!/^(image|video)$/.test(type)) {
-        throw new Error('Type must be either "image" or "video"');
-      }
-      console.log(`[AI Labs] Starting ${type} generation...`);
-      if (type === "image") {
-        const result = await this.text2img(prompt);
-        const taskId = `img_${Date.now()}`;
-        this.state.tasks.set(taskId, {
-          status: "completed",
-          result: result
-        });
+        console.log("Image generation failed");
         return {
-          taskId: taskId
+          success: false,
+          code: response.status,
+          error: "Image generation failed"
         };
       }
+      console.log("Image generated successfully");
+      return {
+        success: true,
+        code: response.status,
+        data: {
+          url: imageUrl.trim(),
+          prompt: prompt
+        }
+      };
+    } catch (error) {
+      console.error("Error in txt2img:", error.message);
+      return {
+        success: false,
+        code: error.response?.status || 500,
+        error: error.message || "Image generation failed"
+      };
+    }
+  }
+  async txt2vid({
+    prompt,
+    isPremium = 1,
+    ...rest
+  }) {
+    try {
+      if (!prompt?.trim()) {
+        return {
+          success: false,
+          code: 400,
+          error: "Prompt cannot be empty"
+        };
+      }
+      if (!/^[a-zA-Z0-9\s.,!?'-]+$/.test(prompt)) {
+        return {
+          success: false,
+          code: 400,
+          error: "Prompt contains invalid characters"
+        };
+      }
+      console.log("Starting video generation...");
       await this.decrypt();
       const payload = {
         deviceID: this.deviceId(),
@@ -113,122 +124,109 @@ class AiLabs {
         used: [],
         versionCode: 59
       };
-      console.log("[AI Labs] Initializing video generation...");
       const url = this.api.base + this.api.endpoints.generate;
-      const res = await axios.post(url, payload, {
+      const response = await axios.post(url, payload, {
         headers: this.headers
       });
       const {
         code,
         key
-      } = res.data;
-      if (code !== 0 || !key) {
-        throw new Error("Failed to start video generation");
+      } = response.data;
+      if (code !== 0 || !key || typeof key !== "string") {
+        console.log("Failed to get video generation key");
+        return {
+          success: false,
+          code: response.status,
+          error: "Failed to get video generation key"
+        };
       }
-      const taskId = `vid_${Date.now()}`;
-      this.state.tasks.set(taskId, {
-        status: "processing",
-        key: key,
-        progress: 0,
-        lastChecked: Date.now()
-      });
+      console.log("Video generation started successfully");
       return {
-        task_id: taskId,
-        key: key
+        success: true,
+        code: response.status,
+        data: {
+          task_id: key,
+          status: "processing",
+          prompt: prompt
+        }
       };
     } catch (error) {
-      console.error("[AI Labs] Generation failed:", error.message);
-      throw error;
+      console.error("Error in txt2vid:", error.message);
+      return {
+        success: false,
+        code: error.response?.status || 500,
+        error: error.message || "Video generation failed"
+      };
     }
   }
   async status({
-    task_id: taskId
+    task_id,
+    ...rest
   }) {
-    if (!this.state.tasks.has(taskId)) {
-      throw new Error("Invalid task ID");
-    }
-    const task = this.state.tasks.get(taskId);
-    if (task.status === "completed") {
-      return {
-        status: "completed",
-        result: task.result
-      };
-    }
-    if (task.status === "failed") {
-      return {
-        status: "failed",
-        error: task.error
-      };
-    }
     try {
+      if (!task_id || typeof task_id !== "string") {
+        return {
+          success: false,
+          code: 400,
+          error: "Invalid task_id provided"
+        };
+      }
       await this.decrypt();
       const payload = {
-        keys: [task.key]
+        keys: [task_id]
       };
       const url = this.api.base + this.api.endpoints.video;
-      const res = await axios.post(url, payload, {
+      const response = await axios.post(url, payload, {
         headers: this.headers,
-        timeout: 1e4
+        timeout: 15e3
       });
       const {
         code,
         datas
-      } = res.data;
-      if (code !== 0 || !datas?.[0]) {
-        throw new Error("Invalid response from server");
-      }
-      const data = datas[0];
-      if (data.url && data.url.trim() !== "") {
-        const result = {
-          url: data.url.trim(),
-          safe: data.safe === "true",
-          key: data.key
-        };
-        this.state.tasks.set(taskId, {
-          status: "completed",
-          result: result
-        });
-        console.log("[AI Labs] Video generation completed");
-        return {
-          status: "completed",
-          result: result
-        };
-      } else {
+      } = response.data;
+      if (code === 0 && Array.isArray(datas) && datas.length > 0) {
+        const data = datas[0];
+        if (data.url && data.url.trim() !== "") {
+          console.log("Video generation completed");
+          return {
+            success: true,
+            code: response.status,
+            data: {
+              url: data.url.trim(),
+              safe: data.safe === "true",
+              key: data.key,
+              status: "completed",
+              progress: "100%"
+            }
+          };
+        }
         const progress = parseFloat(data.progress || 0);
-        this.state.tasks.set(taskId, {
-          ...task,
-          progress: progress,
-          lastChecked: Date.now()
-        });
+        console.log(`Video generation progress: ${Math.round(progress)}%`);
         return {
-          status: "processing",
-          progress: progress,
-          message: this._getProgressMessage(progress)
+          success: true,
+          code: response.status,
+          data: {
+            status: "processing",
+            progress: `${Math.round(progress)}%`,
+            key: data.key
+          }
         };
       }
+      return {
+        success: false,
+        code: response.status,
+        error: "Invalid response from server"
+      };
     } catch (error) {
-      console.error("[AI Labs] Status check failed:", error.message);
-      if (!["ECONNRESET", "ECONNABORTED", "ETIMEDOUT"].includes(error.code)) {
-        this.state.tasks.set(taskId, {
-          status: "failed",
-          error: error.message
-        });
-      }
-      throw error;
+      console.error("Error checking status:", error.message);
+      const isRetryableError = ["ECONNRESET", "ECONNABORTED", "ETIMEDOUT"].includes(error.code);
+      return {
+        success: false,
+        code: error.response?.status || 500,
+        error: error.message || "Status check failed",
+        retryable: isRetryableError
+      };
     }
-  }
-  _getProgressMessage(progress) {
-    if (progress < 30) return "Video processing started";
-    if (progress < 70) return "Video is being generated";
-    return "Finalizing video";
-  }
-  async cancelTask(taskId) {
-    if (this.state.tasks.has(taskId)) {
-      this.state.tasks.delete(taskId);
-      console.log(`[AI Labs] Task ${taskId} cancelled`);
-      return true;
-    }
-    return false;
   }
 }
 export default async function handler(req, res) {
@@ -238,35 +236,45 @@ export default async function handler(req, res) {
   } = req.method === "GET" ? req.query : req.body;
   if (!action) {
     return res.status(400).json({
-      error: "Action (create or status) is required."
+      error: "Action is required."
     });
   }
   const aiLabs = new AiLabs();
   try {
+    let response;
     switch (action) {
-      case "create":
+      case "txt2img":
         if (!params.prompt) {
           return res.status(400).json({
-            error: "Prompt is required for 'create' action."
+            error: "Prompt is required for txt2img."
           });
         }
-        const createResponse = await aiLabs.create(params);
-        return res.status(200).json(createResponse);
+        const txt2img_task = await aiLabs.txt2img(params);
+        return res.status(200).json(txt2img_task);
+      case "txt2vid":
+        if (!params.prompt) {
+          return res.status(400).json({
+            error: "Prompt is required for txt2vid."
+          });
+        }
+        const txt2vid_task = await aiLabs.txt2vid(params);
+        return res.status(200).json(txt2vid_task);
       case "status":
         if (!params.task_id) {
           return res.status(400).json({
-            error: "task_id is required for 'status' action."
+            error: "task_id is required for status."
           });
         }
-        const statusResponse = await aiLabs.status(params);
-        return res.status(200).json(statusResponse);
+        response = await aiLabs.status(params);
+        return res.status(200).json(response);
       default:
         return res.status(400).json({
-          error: "Invalid action. Supported actions are 'create' and 'status'."
+          error: `Invalid action: ${action}. Supported actions are 'txt2img', 'txt2vid', and 'status'.`
         });
     }
   } catch (error) {
-    res.status(500).json({
+    console.error("API Error:", error);
+    return res.status(500).json({
       error: error.message || "Internal Server Error"
     });
   }
