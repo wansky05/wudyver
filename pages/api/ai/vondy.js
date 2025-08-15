@@ -11,72 +11,92 @@ class VondyChat {
       ...SpoofHead()
     };
   }
-  async sendRequest(payload) {
+  async chat({
+    prompt,
+    ...rest
+  }) {
     try {
-      const response = await axios.post(this.apiUrl, payload, {
-        headers: this.headers
+      const payload = this._createPayload({
+        prompt: prompt,
+        ...rest
       });
-      return this.parseResponse(response.data);
+      const response = await axios.post(this.apiUrl, payload, {
+        headers: this.headers,
+        responseType: "text"
+      });
+      return this._parse(response.data);
     } catch (error) {
-      console.error("Error processing request:", error);
-      throw new Error(error.response?.data || error.message || "Request failed");
+      console.error("[VondyChat] Chat error:", error);
+      throw error;
     }
   }
-  createPayload(inputData) {
+  _createPayload({
+    prompt = "Hello",
+    messages,
+    ...opts
+  }) {
     try {
-      const prompt = inputData.prompt ?? "Hello";
-      const messages = prompt ? [{
-        role: "user",
-        content: [{
-          type: "text",
-          text: prompt
-        }]
-      }] : inputData.messages;
       return {
-        messages: messages || [],
+        messages: prompt ? [{
+          role: "user",
+          content: [{
+            type: "text",
+            text: prompt
+          }]
+        }] : messages || [],
         context: {
-          url: inputData?.url ?? "https://www.vondy.com/assistant?chat=SGFp"
+          url: opts?.url || "https://www.vondy.com/assistant?chat=SGFp"
         },
-        mod: inputData?.mod ?? true,
-        useCredit: inputData?.useCredit ?? true,
-        fp: inputData?.fp ?? null,
-        isVision: inputData?.isVision ?? 0,
-        claude: inputData?.claude ?? false,
-        mini: inputData?.mini ?? true
+        mod: opts?.mod ?? true,
+        useCredit: opts?.useCredit ?? true,
+        fp: opts?.fp ?? null,
+        isVision: opts?.isVision ?? 0,
+        claude: opts?.claude ?? false,
+        mini: opts?.mini ?? true,
+        ...opts
       };
     } catch (error) {
-      console.error("Error creating payload:", error);
-      throw new Error("Failed to create payload");
+      console.error("[VondyChat] Payload error:", error);
+      throw error;
     }
   }
-  parseResponse(responseData) {
+  _parse(data) {
     try {
-      const dataChunks = responseData.split("\n").filter(line => line.startsWith("data:"));
-      const combinedData = dataChunks.map(line => line.slice(6)).join("");
+      let result = "";
+      for (const event of data.split("\n")) {
+        if (!event.startsWith("data:")) continue;
+        const content = event.slice(6);
+        if (!content) continue;
+        try {
+          const parsed = JSON.parse(content);
+          if (parsed?.content) result += parsed.content;
+        } catch {
+          result += content;
+        }
+      }
       return {
-        result: combinedData
+        result: result.trim()
       };
     } catch (error) {
-      console.error("Error parsing response data:", error);
-      throw new Error("Failed to parse response");
+      console.error("[VondyChat] Parse error:", error);
+      throw error;
     }
   }
 }
 export default async function handler(req, res) {
-  const inputData = req.method === "POST" ? req.body : req.query;
-  const vondyChat = new VondyChat();
-  try {
-    const payload = vondyChat.createPayload(inputData);
-    const data = await vondyChat.sendRequest(payload);
-    return res.status(200).json({
-      success: true,
-      result: data.result
+  const params = req.method === "GET" ? req.query : req.body;
+  if (!params.prompt) {
+    return res.status(400).json({
+      error: "Prompt are required"
     });
+  }
+  try {
+    const vondy = new VondyChat();
+    const response = await vondy.chat(params);
+    return res.status(200).json(response);
   } catch (error) {
-    console.error("Error in handler:", error);
-    return res.status(500).json({
-      error: "Failed to process the request",
-      details: error.message
+    res.status(500).json({
+      error: error.message || "Internal Server Error"
     });
   }
 }

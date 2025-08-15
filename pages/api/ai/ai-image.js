@@ -8,7 +8,7 @@ const ACTION_REQUIREMENTS = {
 };
 class AIImageGenerator {
   constructor() {
-    this.apiKey = "wudysoft";
+    this.apiKey = apiConfig.PASSWORD;
     this.baseURL = `https://${apiConfig.DOMAIN_VERCEL}/ai-image`;
   }
   async generate({
