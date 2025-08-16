@@ -205,9 +205,6 @@ export const menuItems = [{
     childtitle: "Ludo",
     childlink: "ludo"
   }, {
-    childtitle: "NB Script",
-    childlink: "nb-script"
-  }, {
     childtitle: "OpenAPI",
     childlink: "openapi"
   }, {

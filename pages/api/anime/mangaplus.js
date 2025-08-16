@@ -17,7 +17,9 @@ class MangaPlus {
   }) {
     try {
       const response = await this.request.get(`/title_detailV3?title_id=${id}&format=json`);
-      return response.data;
+      const data = response.data;
+      const results = data.success?.titleDetailView;
+      return results ? results : [];
     } catch (error) {
       console.error(`Error fetching manga details for ID ${id}:`, error);
       return null;
@@ -28,18 +30,24 @@ class MangaPlus {
   }) {
     try {
       const response = await this.request.get(`/title_detailV3?title_id=${id}&format=json`);
-      return response.data;
+      return this.parseChapters(response.data);
     } catch (error) {
       console.error(`Error fetching chapters for manga ID ${id}:`, error);
       return null;
     }
+  }
+  parseChapters(data) {
+    const chapters = [...data.success.titleDetailView.firstChapterList ?? [], ...data.success.titleDetailView.lastChapterList ?? []];
+    return chapters.reverse();
   }
   async chapter_detail({
     id
   }) {
     try {
       const response = await this.request.get(`/manga_viewer?chapter_id=${id}&split=no&img_quality=high&format=json`);
-      return response.data;
+      const data = response.data;
+      const pages = data.success.mangaViewer?.pages.map(page => page.mangaPage).filter(page => page).map(page => page?.encryptionKey ? `${page?.imageUrl}#${page?.encryptionKey}` : "");
+      return pages ? pages : [];
     } catch (error) {
       console.error(`Error fetching chapter details for chapter ID ${id}:`, error);
       return null;
@@ -48,7 +56,9 @@ class MangaPlus {
   async featured() {
     try {
       const response = await this.request.get("/featuredV2?lang=eng&clang=eng&format=json");
-      return response.data;
+      const data = response.data;
+      const results = data.success?.featuredTitlesViewV2?.contents?.find(x => x.titleList && x.titleList.listName == "WEEKLY SHONEN JUMP")?.titleList.featuredTitles;
+      return results ? results : [];
     } catch (error) {
       console.error("Error fetching featured titles:", error);
       return null;
@@ -57,7 +67,9 @@ class MangaPlus {
   async popular() {
     try {
       const response = await this.request.get("/title_list/ranking?format=json");
-      return response.data;
+      const data = response.data;
+      const results = data.success?.titleRankingView;
+      return results ? results : [];
     } catch (error) {
       console.error("Error fetching popular titles:", error);
       return null;
@@ -66,7 +78,9 @@ class MangaPlus {
   async latest() {
     try {
       const response = await this.request.get("/web/web_homeV4?lang=eng&format=json");
-      return response.data;
+      const data = response.data;
+      const results = data.success.webHomeViewV4?.groups.flatMap(ex => ex.titleGroups).flatMap(ex => ex.titles).map(title => title.title);
+      return results ? results : [];
     } catch (error) {
       console.error("Error fetching latest updates:", error);
       return null;
@@ -77,7 +91,10 @@ class MangaPlus {
   }) {
     try {
       const response = await this.request.get(`/title_list/allV2?format=JSON&filter=${encodeURI(query)}&format=json`);
-      return response.data;
+      const data = response.data;
+      const ltitle = query?.toLowerCase() ?? "";
+      const results = data.success?.allTitlesViewV2?.AllTitlesGroup.flatMap(group => group.titles).filter(title => title.author?.toLowerCase().includes(ltitle) || title.name.toLowerCase().includes(ltitle));
+      return results ? results : [];
     } catch (error) {
       console.error(`Error searching for query "${query}":`, error);
       return null;
