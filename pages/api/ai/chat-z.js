@@ -1,8 +1,9 @@
 import axios from "axios";
+import SpoofHead from "@/lib/spoof-head";
 class ChatZAI {
   constructor() {
     this.spoofedIP = this.randomIP();
-    this.axios = axios.create({
+    this.apiClient = axios.create({
       baseURL: "https://chat.z.ai/api",
       headers: {
         Accept: "*/*",
@@ -17,11 +18,7 @@ class ChatZAI {
         "sec-ch-ua": '"Lemur";v="135", "", "", "Microsoft Edge Simulate";v="135"',
         "sec-ch-ua-mobile": "?1",
         "sec-ch-ua-platform": '"Android"',
-        "X-Forwarded-For": this.spoofedIP,
-        "X-Real-IP": this.spoofedIP,
-        "X-Originating-IP": this.spoofedIP,
-        "X-Remote-IP": this.spoofedIP,
-        "X-Remote-Addr": this.spoofedIP
+        ...SpoofHead
       }
     });
     this.token = null;
@@ -100,7 +97,7 @@ class ChatZAI {
   async authenticate() {
     console.log("🔐 Authenticating with spoofed IP:", this.spoofedIP);
     try {
-      const response = await this.axios.get("/v1/auths/", {
+      const response = await this.apiClient.get("/v1/auths/", {
         headers: {
           Cookie: this.getCookieString()
         }
@@ -224,7 +221,7 @@ class ChatZAI {
     };
     try {
       console.log(`💬 Sending chat request from IP: ${this.spoofedIP}`);
-      const response = await this.axios.post("/chat/completions", chatData, {
+      const response = await this.apiClient.post("/chat/completions", chatData, {
         headers: {
           Authorization: `Bearer ${this.token}`,
           Origin: "https://chat.z.ai",

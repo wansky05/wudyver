@@ -1,4 +1,5 @@
 import fetch from "node-fetch";
+import SpoofHead from "@/lib/spoof-head";
 class SnonLyricGenerator {
   constructor() {
     this.baseUrl = "https://www.snonlyric.com/api/lyric";
@@ -7,7 +8,8 @@ class SnonLyricGenerator {
       "Content-Type": "application/json",
       Origin: "https://www.snonlyric.com",
       Referer: "https://www.snonlyric.com/en",
-      "User-Agent": "Postify/1.0.0"
+      "User-Agent": "Postify/1.0.0",
+      ...SpoofHead()
     };
   }
   async generateLyrics({

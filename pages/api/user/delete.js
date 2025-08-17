@@ -2,40 +2,48 @@ import connectMongo from "@/lib/mongoose";
 import User from "@/models/User";
 export default async function handler(req, res) {
   await connectMongo();
-  if (req.method === "POST" || req.method === "GET") {
-    const {
-      email
-    } = req.body;
-    const {
-      email: queryEmail
-    } = req.query;
-    const emailToDelete = email || queryEmail;
-    if (!emailToDelete) {
-      return res.status(400).json({
-        message: "Email is required"
+  const data = req.method === "GET" ? req.query : req.body;
+  const {
+    email,
+    clear
+  } = data;
+  let clearStatus = false;
+  try {
+    if (clear === "true" || clear === true) {
+      const result = await User.deleteMany({});
+      clearStatus = true;
+      return res.status(200).json({
+        message: `${result.deletedCount} users have been deleted successfully.`,
+        clear: clearStatus
       });
-    }
-    try {
+    } else if (email) {
       const deletedUser = await User.findOneAndDelete({
-        email: emailToDelete
+        email: email
       });
       if (!deletedUser) {
         return res.status(404).json({
-          message: "User not found"
+          message: "User not found with the provided email.",
+          clear: clearStatus
         });
       }
+      clearStatus = true;
       return res.status(200).json({
-        message: "User deleted successfully",
-        deletedUser: deletedUser
+        message: "User deleted successfully.",
+        email: deletedUser.email,
+        clear: clearStatus
       });
-    } catch (error) {
-      return res.status(500).json({
-        message: "Error processing the request",
-        error: error.message
+    } else {
+      return res.status(400).json({
+        message: "A valid email or 'clear=true' parameter is required.",
+        clear: clearStatus
       });
     }
-  } else {
-    res.setHeader("Allow", ["POST", "GET"]);
-    return res.status(405).end(`Method ${req.method} Not Allowed`);
+  } catch (error) {
+    console.error("Error processing the request:", error);
+    return res.status(500).json({
+      message: "An error occurred while deleting the user(s).",
+      error: error.message,
+      clear: clearStatus
+    });
   }
 }

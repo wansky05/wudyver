@@ -1,11 +1,13 @@
 import fetch from "node-fetch";
+import SpoofHead from "@/lib/spoof-head";
 class AimusicLyricsGenerator {
   constructor() {
     this.baseUrl = "https://aimusic.one/api/v3/lyrics/generator";
     this.headers = {
       "Content-Type": "application/json",
       "User-Agent": "Mozilla/5.0 (Linux; Android 10; K) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/129.0.0.0 Mobile Safari/537.36",
-      Referer: "https://aimusic.one/ai-lyrics-generator"
+      Referer: "https://aimusic.one/ai-lyrics-generator",
+      ...SpoofHead()
     };
   }
   async generateLyrics(prompt) {

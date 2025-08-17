@@ -1,4 +1,5 @@
 import axios from "axios";
+import SpoofHead from "@/lib/spoof-head";
 class SongGeneratorAI {
   constructor() {
     this.baseUrl = "https://songgeneratorai.org/api/chat-openai";
@@ -15,7 +16,8 @@ class SongGeneratorAI {
       "sec-fetch-dest": "empty",
       "sec-fetch-mode": "cors",
       "sec-fetch-site": "same-origin",
-      "user-agent": "Mozilla/5.0 (Linux; Android 10; K) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/135.0.0.0 Mobile Safari/537.36"
+      "user-agent": "Mozilla/5.0 (Linux; Android 10; K) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/135.0.0.0 Mobile Safari/537.36",
+      ...SpoofHead()
     };
     this.cookies = "utm_tracking=%7B%22utm_source%22%3A%22iuu%22%2C%22referral_url%22%3A%22https%3A%2F%2Fiuu.ai%2F%22%2C%22date%22%3A%222025-08-03%2023%3A17%3A32%22%2C%22device_type%22%3A%22mobile%22%7D; _gcl_au=1.1.1262529247.1754263052";
   }
