@@ -141,6 +141,14 @@ export default async function handler(req, res) {
         }
         const createResponse = await generator.create(params);
         return res.status(200).json(createResponse);
+        case "lyrics":
+        if (!params.prompt) {
+          return res.status(400).json({
+            error: "prompt is required for 'lyrics' action."
+          });
+        }
+        const lyricsResponse = await generator.lyrics(params);
+        return res.status(200).json(lyricsResponse);
       case "status":
         if (!params.task_id) {
           return res.status(400).json({
