@@ -1,5 +1,6 @@
 import CryptoJS from "crypto-js";
 import axios from "axios";
+import crypto from "crypto";
 class AIChat {
   constructor() {
     this.LLM_MARKER = "__LLM_RESPONSE__";
@@ -16,10 +17,10 @@ class AIChat {
   genId(len = 21) {
     try {
       let id = "";
-      const bytes = crypto.getRandomValues(new Uint8Array(len |= 0));
+      const bytes = crypto.randomBytes(len);
       const chars = "useandom-26T198340PX75pxJACKVERYMINDBUSHWOLF_GQZbfghjklqvwyzrict";
-      for (; len--;) {
-        id += chars[63 & bytes[len]];
+      for (let i = 0; i < len; i++) {
+        id += chars[63 & bytes[i]];
       }
       return id;
     } catch (error) {
@@ -180,10 +181,15 @@ class AIChat {
       return await this.limiter(execute);
     } catch (error) {
       console.error("[chat] Error:", error);
+      const errorDetails = {
+        message: error.message,
+        code: error.code,
+        stack: error.stack
+      };
       return {
         success: false,
         error: error.message,
-        details: error.response?.data || null
+        details: errorDetails
       };
     }
   }

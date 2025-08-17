@@ -78,8 +78,7 @@ class Text2VideoGenerator {
         recordId: task.data.recordId
       });
       return {
-        task_id: task_id,
-        message: "Task initiated successfully. Use the /api/text-to-video?action=status endpoint to check its progress."
+        task_id: task_id
       };
     } catch (error) {
       throw new Error(error.message);

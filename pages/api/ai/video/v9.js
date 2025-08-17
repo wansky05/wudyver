@@ -129,8 +129,7 @@ class RTLIT {
         session_hash: this.sessionHash
       });
       return {
-        task_id: task_id,
-        message: "Video generation initiated successfully. Use the /?action=status endpoint to check its progress."
+        task_id: task_id
       };
     } catch (err) {
       console.error(`[IMG2VID] Error:`, err.message);
@@ -165,8 +164,7 @@ class RTLIT {
         session_hash: this.sessionHash
       });
       return {
-        task_id: task_id,
-        message: "Video generation initiated successfully. Use the /?action=status endpoint to check its progress."
+        task_id: task_id
       };
     } catch (err) {
       console.error(`[TXT2VID] Error:`, err.message);

@@ -338,6 +338,7 @@ class AdpexAIClient {
       this.userId = userId;
       this.userEmail = userEmail;
       this.isAuthenticated = isAuthenticated;
+      this.headers["ad-pex-token"] = token;
       await this.ensureAuth();
       console.log("[TaskStatus] Checking status for task:", taskId);
       const payload = {
@@ -493,9 +494,9 @@ export default async function handler(req, res) {
     let response;
     switch (action) {
       case "img2vid":
-        if (!params.prompt || !params.imageUrl) {
+        if (!params.imageUrl) {
           return res.status(400).json({
-            error: "Prompt and imageUrl are required for img2vid."
+            error: "imageUrl are required for img2vid."
           });
         }
         const img2vid_task_id = await client.img2vid(params);

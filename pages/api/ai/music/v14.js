@@ -205,8 +205,7 @@ class AiSongGenerator {
         token: accessToken
       });
       return {
-        task_id: task_id,
-        message: "Music generation task initiated successfully. Use the status endpoint to check its progress."
+        task_id: task_id
       };
     } catch (error) {
       console.error("❌ [Error]: Alur kerja `create` gagal.");

@@ -66,8 +66,7 @@ class SunoMusicGenerator {
         recordId: task.data.recordId
       });
       return {
-        task_id: task_id,
-        message: "Music generation task initiated successfully. Use the status endpoint to check its progress."
+        task_id: task_id
       };
     } catch (error) {
       throw new Error(error.message);

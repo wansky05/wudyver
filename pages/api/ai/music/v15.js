@@ -289,8 +289,7 @@ class AIMusicGenerator {
         cookie: Array.from(this.cookies)
       });
       return {
-        task_id: task_id,
-        message: "Music generation task initiated successfully. Use the status endpoint to check its progress."
+        task_id: task_id
       };
     } catch (error) {
       console.error("-----------------------------------");

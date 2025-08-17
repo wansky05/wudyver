@@ -69,8 +69,7 @@ class Veo5VideoGenerator {
         videoId: data.videoId
       });
       return {
-        task_id: task_id,
-        message: "Video generation initiated successfully. Use the /api/veo5-video?action=status endpoint to check its progress."
+        task_id: task_id
       };
     } catch (error) {
       console.error("Error in Veo5 generate:", error.message);

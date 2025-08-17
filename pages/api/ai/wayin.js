@@ -258,8 +258,7 @@ class WayinAPI {
       });
       console.log("Process: Task initiated successfully!");
       return {
-        task_id: task_id,
-        message: "Wayin video processing task initiated successfully. Use the status endpoint to check its progress."
+        task_id: task_id
       };
     } catch (error) {
       console.error("Process: An error occurred during the automated process:", error.message);

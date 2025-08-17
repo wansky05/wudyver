@@ -73,8 +73,7 @@ class VeoGenerator {
         recordId: task.data.recordId
       });
       return {
-        task_id: task_id,
-        message: "Task initiated successfully. Use the /api/ai/video/v6?action=status endpoint to check its progress."
+        task_id: task_id
       };
     } catch (error) {
       throw new Error(`Failed to initiate video generation: ${error.message}`);

@@ -237,8 +237,7 @@ class SongdioBot {
         cookie: cookieStr
       });
       return {
-        task_id: task_id,
-        message: "Audio generation initiated successfully. Use the /?action=status endpoint to check its progress."
+        task_id: task_id
       };
     } else {
       log("Tidak ada kredit yang tersedia untuk membuat musik.");
