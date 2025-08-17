@@ -68,7 +68,7 @@ class AetheraLyrics {
       });
       return {
         success: true,
-        lyrics: response.data,
+        result: response.data,
         metadata: {
           prompt: prompt,
           genre: genre,
