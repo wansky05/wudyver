@@ -91,8 +91,8 @@ class WayinAPI {
   }
   async getMsgs(email) {
     let attempts = 0;
-    const maxAttempts = 15;
-    const delay = 5e3;
+    const maxAttempts = 60;
+    const delay = 3e3;
     while (attempts < maxAttempts) {
       try {
         console.log(`API Step: Fetching messages (attempt ${attempts + 1}/${maxAttempts})...`);

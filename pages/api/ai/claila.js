@@ -5,6 +5,7 @@ import {
   FormData,
   Blob
 } from "formdata-node";
+import SpoofHead from "@/lib/spoof-head";
 class ClailaChat {
   constructor() {
     this.csrfToken = "";
@@ -42,9 +43,8 @@ class ClailaChat {
       "sec-fetch-dest": "empty",
       "sec-fetch-mode": "cors",
       "sec-fetch-site": "same-origin",
-      "x-forwarded-for": ip,
-      "x-real-ip": ip,
       "x-request-id": this.randomID(8),
+      ...SpoofHead(),
       ...extra
     };
   }

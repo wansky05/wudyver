@@ -2,6 +2,7 @@ import axios from "axios";
 import {
   randomBytes
 } from "crypto";
+import SpoofHead from "@/lib/spoof-head";
 class MonsterAPI {
   constructor(authToken = "trailUser") {
     this.baseURL = "https://eksbackend.monsterapi.ai/v2playground";
@@ -19,15 +20,10 @@ class MonsterAPI {
       }
     };
   }
-  _randomSpoofIP() {
-    const bytes = randomBytes(4);
-    return Array.from(bytes).map(b => b % 255 + 1).join(".");
-  }
   _randomID(length = 16) {
     return randomBytes(Math.ceil(length / 2)).toString("hex").slice(0, length);
   }
   _buildSpoofHeaders(extra = {}) {
-    const ip = this._randomSpoofIP();
     const headers = {
       accept: "application/json, text/plain, */*",
       "accept-language": "id-ID,id;q=0.9",
@@ -44,9 +40,8 @@ class MonsterAPI {
       "sec-fetch-mode": "cors",
       "sec-fetch-site": "same-site",
       "user-agent": "Mozilla/5.0 (Linux; Android 10; K) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/135.0.0.0 Mobile Safari/537.36",
-      "x-forwarded-for": ip,
-      "x-real-ip": ip,
       "x-request-id": this._randomID(8),
+      ...SpoofHead(),
       ...extra
     };
     return headers;

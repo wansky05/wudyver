@@ -8,6 +8,7 @@ import {
 } from "tough-cookie";
 import * as cheerio from "cheerio";
 import * as crypto from "crypto";
+import SpoofHead from "@/lib/spoof-head";
 class IAsk {
   constructor() {
     this.state = {
@@ -28,15 +29,10 @@ class IAsk {
   log(key, data) {
     console.log(`[LOG] ${key}:`, data);
   }
-  randomCryptoIP() {
-    const bytes = crypto.randomBytes(4);
-    return Array.from(bytes).map(b => b % 256).join(".");
-  }
   randomID(length = 16) {
     return crypto.randomBytes(length).toString("hex");
   }
   buildHeaders(extra = {}) {
-    const ip = this.randomCryptoIP();
     const headers = {
       accept: "*/*",
       "accept-language": "id-ID,id;q=0.9",
@@ -49,9 +45,8 @@ class IAsk {
       "sec-fetch-dest": "empty",
       "sec-fetch-mode": "cors",
       "sec-fetch-site": "same-origin",
-      "x-forwarded-for": ip,
-      "x-real-ip": ip,
       "x-request-id": this.randomID(8),
+      ...SpoofHead(),
       ...extra
     };
     this.log("HEADERS_BUILT", headers);

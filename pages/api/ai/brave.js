@@ -22,44 +22,67 @@ class BraveSearchAPI {
   _parse(raw) {
     const texts = [];
     const jsons = {};
-    raw.split("\n").forEach(line => {
+    const lines = raw.split(/\r?\n/);
+    let buffer = [];
+    let inMultiLineString = false;
+    lines.forEach(line => {
       const trimL = line.trim();
+      if (!trimL && inMultiLineString) {
+        buffer.push("");
+        return;
+      }
       if (!trimL) return;
-      try {
-        let parsed;
+      if (trimL.startsWith('"') && !trimL.endsWith('"') || !trimL.startsWith('"') && trimL.endsWith('"')) {
+        inMultiLineString = !inMultiLineString;
+      }
+      buffer.push(trimL);
+      if (!inMultiLineString) {
+        const combinedLine = buffer.join("\n");
+        buffer = [];
         try {
-          parsed = JSON.parse(trimL);
-        } catch (jsonErr) {
-          if (trimL.startsWith('"') && trimL.endsWith('"')) {
-            parsed = JSON.parse(trimL);
+          let parsed = JSON.parse(combinedLine);
+          if (typeof parsed === "object" && parsed !== null) {
+            if (parsed.type?.length > 0) {
+              (jsons[parsed.type] = jsons[parsed.type] || []).push(parsed);
+            } else {
+              texts.push(this.unescapeString(JSON.stringify(parsed, null, 2)));
+            }
+          } else if (typeof parsed === "string") {
+            texts.push(this.unescapeString(parsed));
           } else {
-            throw jsonErr;
+            texts.push(this.unescapeString(String(parsed)));
+          }
+        } catch (e) {
+          if (combinedLine.startsWith('"') && combinedLine.endsWith('"')) {
+            try {
+              texts.push(this.unescapeString(combinedLine.slice(1, -1)));
+            } catch (e2) {
+              texts.push(this.unescapeString(combinedLine));
+            }
+          } else {
+            texts.push(this.unescapeString(combinedLine));
           }
         }
-        if (typeof parsed === "object" && parsed !== null && parsed.type?.length > 0) {
-          (jsons[parsed.type] = jsons[parsed.type] || []).push(parsed);
-        } else if (typeof parsed === "string") {
-          texts.push(this.unescapeString(parsed));
-          console.warn(`[BRAVE] JSON string parsed, added to 'result': ${trimL}`);
-        } else {
-          texts.push(this.unescapeString(String(parsed)));
-          console.warn(`[BRAVE] Unhandled parsed data type, added to 'result': ${trimL}`);
-        }
-      } catch (e) {
-        texts.push(this.unescapeString(trimL));
-        console.warn(`[BRAVE] Line not parsed as JSON, added to 'result': ${trimL}`);
       }
     });
+    if (buffer.length > 0) {
+      texts.push(this.unescapeString(buffer.join("\n")));
+    }
     return {
-      result: texts.join(""),
+      result: texts.join("\n"),
       ...jsons
     };
   }
   unescapeString(str) {
-    str = str.replace(/\\n/g, "\n");
-    str = str.replace(/\\"/g, '"');
-    str = str.replace(/\\\\/g, "\\");
-    return str;
+    if (typeof str !== "string") {
+      str = String(str);
+    }
+    if (str.startsWith('"') && str.endsWith('"')) {
+      try {
+        return JSON.parse(str);
+      } catch (e) {}
+    }
+    return str.replace(/\\n/g, "\n").replace(/\\r/g, "\r").replace(/\\t/g, "\t").replace(/\\b/g, "\b").replace(/\\f/g, "\f").replace(/\\"/g, '"').replace(/\\'/g, "'").replace(/\\\\/g, "\\").replace(/\n+/g, "\n").trim();
   }
   updC(hdrs) {
     try {
@@ -109,12 +132,12 @@ class BraveSearchAPI {
         let area = content.substring(cursor);
         const keyM = area.match(/key:\s*"((?:[^"\\]|\\.)*)"/);
         if (!keyM) continue;
-        const key = keyM[1];
+        const key = this.unescapeString(keyM[1]);
         cursor += keyM.index + keyM[0].length;
         area = content.substring(cursor);
         const queryM = area.match(/query:\s*"((?:[^"\\]|\\.)*)"/);
         if (!queryM) continue;
-        const query = queryM[1];
+        const query = this.unescapeString(queryM[1]);
         cursor += queryM.index + queryM[0].length;
         area = content.substring(cursor);
         const nonceM = area.match(/nonce:\s*"([^"]*)"/);
@@ -166,7 +189,7 @@ class BraveSearchAPI {
           ...rest
         });
         currentConversationId = newConvId;
-        chatllmKey = typeof chatllmData.key === "string" ? chatllmData.key.replace(/\\"/g, '"').replace(/\\\\/g, "\\") : chatllmData.key;
+        chatllmKey = typeof chatllmData.key === "string" ? this.unescapeString(chatllmData.key) : chatllmData.key;
       } else {
         console.warn("[BRAVE] Reusing existing conversationId. Ensure 'key' is handled correctly if not derived from initial search.");
       }
@@ -267,8 +290,8 @@ export default async function handler(req, res) {
     });
   }
   try {
-    const api = new BraveSearchAPI();
-    const response = await api.chat(params);
+    const ai = new BraveSearchAPI();
+    const response = await ai.chat(params);
     return res.status(200).json(response);
   } catch (error) {
     res.status(500).json({

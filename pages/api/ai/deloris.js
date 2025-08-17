@@ -1,5 +1,6 @@
 import crypto from "crypto";
 import axios from "axios";
+import SpoofHead from "@/lib/spoof-head";
 class DelorisAI {
   constructor(baseURL = "https://api.deloris-ai.com") {
     this.baseURL = baseURL;
@@ -7,15 +8,10 @@ class DelorisAI {
     this.templateId = null;
     this.headers = this.buildHeaders();
   }
-  randomCryptoIP() {
-    const bytes = crypto.randomBytes(4);
-    return Array.from(bytes).map(b => b % 256).join(".");
-  }
   randomID(length = 16) {
     return crypto.randomBytes(length).toString("hex");
   }
   buildHeaders(extra = {}) {
-    const ip = this.randomCryptoIP();
     const headers = {
       accept: "*/*",
       "accept-language": "id-ID,id;q=0.9",
@@ -28,9 +24,8 @@ class DelorisAI {
       "sec-fetch-dest": "empty",
       "sec-fetch-mode": "cors",
       "sec-fetch-site": "same-origin",
-      "x-forwarded-for": ip,
-      "x-real-ip": ip,
       "x-request-id": this.randomID(8),
+      ...SpoofHead(),
       ...extra
     };
     console.log("Headers dibangun:", headers);

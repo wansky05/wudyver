@@ -203,9 +203,9 @@ class ViduAPI {
       await this._sendAuthCode(tempEmail);
       let authCode;
       let attempts = 0;
-      const maxAttempts = 10;
+      const maxAttempts = 60;
       while (!authCode && attempts < maxAttempts) {
-        await this.sleep(5e3);
+        await this.sleep(3e3);
         const emailData = await this._getEmailMessages(tempEmail);
         authCode = this._extractAuthCode(emailData);
         attempts++;

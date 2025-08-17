@@ -1,20 +1,16 @@
 import axios from "axios";
 import crypto from "crypto";
+import SpoofHead from "@/lib/spoof-head";
 class PadletImageGenerator {
   constructor() {
     this.padletApiBase = "https://internal.users.n8n.cloud/webhook/ai_image_generator";
     this.baseUrl = "https://n8n.io";
     console.log("[Inisialisasi] Kelas PadletImageGenerator diinisialisasi.");
   }
-  randomCryptoIP() {
-    const bytes = crypto.randomBytes(4);
-    return Array.from(bytes).map(b => b % 256).join(".");
-  }
   randomID(length = 8) {
     return crypto.randomBytes(length).toString("hex");
   }
   buildHeaders() {
-    const ip = this.randomCryptoIP();
     const requestId = this.randomID(8);
     return {
       accept: "application/json",
@@ -32,10 +28,8 @@ class PadletImageGenerator {
       "sec-fetch-mode": "cors",
       "sec-fetch-site": "cross-site",
       "user-agent": "Mozilla/5.0 (Linux; Android 10; K) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/135.0.0.0 Mobile Safari/537.36",
-      "x-client-ip": ip,
-      "x-forwarded-for": ip,
-      "x-real-ip": ip,
-      "x-request-id": requestId
+      "x-request-id": requestId,
+      ...SpoofHead()
     };
   }
   async generate({

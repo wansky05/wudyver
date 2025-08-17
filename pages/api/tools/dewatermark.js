@@ -5,6 +5,7 @@ import {
   Blob
 } from "formdata-node";
 import apiConfig from "@/configs/apiConfig";
+import SpoofHead from "@/lib/spoof-head";
 class Dewatermark {
   constructor() {
     this.apiUrl = "https://api.dewatermark.ai/api/object_removal/v5/erase_watermark";
@@ -16,7 +17,7 @@ class Dewatermark {
       accept: "application/json",
       "content-type": "multipart/form-data",
       "user-agent": `Mozilla/5.0 (Windows NT ${Math.floor(Math.random() * 10) + 6}.0; Win64; x64) AppleWebKit/537.${Math.floor(Math.random() * 50) + 36} (KHTML, like Gecko) Chrome/${Math.floor(Math.random() * 30) + 90}.0.${Math.floor(Math.random() * 4e3) + 2e3}.120 Safari/537.${Math.floor(Math.random() * 50) + 36}`,
-      "x-forwarded-for": `${Math.floor(Math.random() * 255)}.${Math.floor(Math.random() * 255)}.${Math.floor(Math.random() * 255)}.${Math.floor(Math.random() * 255)}`
+      ...SpoofHead()
     };
   }
   async getToken(isPro = false) {

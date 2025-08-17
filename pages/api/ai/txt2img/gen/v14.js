@@ -1,5 +1,6 @@
 import axios from "axios";
 import crypto from "crypto";
+import SpoofHead from "@/lib/spoof-head";
 class PerchanceImageGenerator {
   constructor() {
     this.baseUrl = "https://www.perchanceimagegenerator.tech";
@@ -23,17 +24,6 @@ class PerchanceImageGenerator {
       return Promise.reject(error);
     });
   }
-  randomCryptoIP() {
-    try {
-      const bytes = crypto.randomBytes(4);
-      const ip = Array.from(bytes).map(b => b % 256).join(".");
-      console.log("🌐 Generated random IP:", ip);
-      return ip;
-    } catch (error) {
-      console.error("❌ Error generating random IP:", error.message);
-      return "192.168.1.1";
-    }
-  }
   randomID(length = 16) {
     try {
       const id = crypto.randomBytes(length).toString("hex");
@@ -46,7 +36,6 @@ class PerchanceImageGenerator {
   }
   buildHeaders(extra = {}) {
     try {
-      const ip = this.randomCryptoIP();
       const headers = {
         accept: "*/*",
         "accept-language": "id-ID,id;q=0.9",
@@ -59,12 +48,10 @@ class PerchanceImageGenerator {
         "sec-fetch-dest": "empty",
         "sec-fetch-mode": "cors",
         "sec-fetch-site": "same-origin",
-        "x-forwarded-for": ip,
-        "x-real-ip": ip,
         "x-request-id": this.randomID(8),
+        ...SpoofHead(),
         ...extra
       };
-      console.log("📋 Headers built with IP:", ip);
       return headers;
     } catch (error) {
       console.error("❌ Error building headers:", error.message);

@@ -1,6 +1,7 @@
 import axios from "axios";
 import https from "https";
 import crypto from "crypto";
+import SpoofHead from "@/lib/spoof-head";
 class KKV_AI {
   constructor() {
     console.log("[PROSES] Menginisialisasi instance KKV_AI...");
@@ -33,15 +34,10 @@ class KKV_AI {
     this.isRegistered = true;
     console.log("✅ Registrasi otomatis berhasil. Sesi sekarang aktif.");
   }
-  randomCryptoIP() {
-    const bytes = crypto.randomBytes(4);
-    return Array.from(bytes).map(b => b % 256).join(".");
-  }
   randomID(length = 16) {
     return crypto.randomBytes(length).toString("hex");
   }
   buildHeaders(extra = {}) {
-    const ip = this.randomCryptoIP();
     const headers = {
       accept: "application/json, text/plain, */*",
       "accept-language": "id-ID,id;q=0.9",
@@ -55,9 +51,8 @@ class KKV_AI {
       "sec-fetch-dest": "empty",
       "sec-fetch-mode": "cors",
       "sec-fetch-site": "same-origin",
-      "x-forwarded-for": ip,
-      "x-real-ip": ip,
       "x-request-id": this.randomID(8),
+      ...SpoofHead(),
       ...extra
     };
     console.log("[PROSES] Header dinamis telah dibangun.");

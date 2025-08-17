@@ -11,6 +11,7 @@ import {
 import {
   CookieJar
 } from "tough-cookie";
+import SpoofHead from "@/lib/spoof-head";
 class TotalFreeAIApi {
   constructor() {
     this.baseUrl = "https://totalfreeai.com";
@@ -33,22 +34,16 @@ class TotalFreeAIApi {
       jar: this.jar
     }));
   }
-  randIP() {
-    const bytes = crypto.randomBytes(4);
-    return Array.from(bytes).map(b => b % 256).join(".");
-  }
   randID(len = 16) {
     return crypto.randomBytes(len).toString("hex");
   }
   buildHeaders(extra = {}) {
-    const ip = this.randIP();
     return {
       origin: this.baseUrl,
       referer: `${this.baseUrl}/`,
       "user-agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/135.0.0.0 Safari/537.36",
-      "x-forwarded-for": ip,
-      "x-real-ip": ip,
       "x-request-id": this.randID(8),
+      ...SpoofHead(),
       ...extra
     };
   }

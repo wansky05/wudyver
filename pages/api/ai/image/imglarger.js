@@ -5,20 +5,16 @@ import {
 import {
   randomBytes
 } from "crypto";
+import SpoofHead from "@/lib/spoof-head";
 class ImageProcessor {
   constructor(baseUrl) {
     this.baseUrl = baseUrl;
     this.headers = this.buildHeaders();
   }
-  randomCryptoIP() {
-    const randomIP = Array(4).fill().map(() => Math.floor(Math.random() * 256)).join(".");
-    return randomIP;
-  }
   randomID(length = 8) {
     return randomBytes(length).toString("hex");
   }
   buildHeaders(extra = {}) {
-    const ip = this.randomCryptoIP();
     const headers = {
       accept: "*/*",
       "accept-language": "id-ID,id;q=0.9",
@@ -31,9 +27,8 @@ class ImageProcessor {
       "sec-fetch-dest": "empty",
       "sec-fetch-mode": "cors",
       "sec-fetch-site": "same-origin",
-      "x-forwarded-for": ip,
-      "x-real-ip": ip,
       "x-request-id": this.randomID(8),
+      ...SpoofHead(),
       ...extra
     };
     return headers;
@@ -142,7 +137,7 @@ class ImageProcessor {
     do {
       status = await this.pollStatus(code);
       if (status.data.status === "waiting") {
-        await this.delay(5e3);
+        await this.delay(3e3);
       }
     } while (status.data.status === "waiting");
     if (status.data.status === "success") {

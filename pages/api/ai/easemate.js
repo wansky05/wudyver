@@ -233,17 +233,28 @@ class EaseMate {
     await this._apiCall("/auth/send-email-code", "POST", authPayload1, false, false, true);
     console.log(`✉️ Kode verifikasi dikirim ke: ${email}. Menunggu...`);
     await new Promise(resolve => setTimeout(resolve, 1e4));
-    const getMessageUrl = `${this.MAIL_API}?action=message&email=${email}`;
-    const messageResponse = await fetch(getMessageUrl);
-    const messageData = await messageResponse.json();
-    if (messageData.data.rows.length === 0) {
-      throw new Error("Tidak ada email verifikasi yang ditemukan.");
+    let emailCode = null;
+    let attempts = 0;
+    const maxAttempts = 60;
+    while (!emailCode && attempts < maxAttempts) {
+      const getMessageUrl = `${this.MAIL_API}?action=message&email=${email}`;
+      const messageResponse = await fetch(getMessageUrl);
+      const messageData = await messageResponse.json();
+      if (messageData.data.rows.length === 0) {
+        attempts++;
+        await new Promise(resolve => setTimeout(resolve, 3e3));
+        continue;
+      }
+      const htmlContent = messageData.data.rows[0].html;
+      const match = /<span[^>]*>(\d{4})<\/span>/g.exec(htmlContent);
+      emailCode = match ? match[1] : null;
+      if (!emailCode) {
+        attempts++;
+        await new Promise(resolve => setTimeout(resolve, 3e3));
+      }
     }
-    const htmlContent = messageData.data.rows[0].html;
-    const match = /<span[^>]*>(\d{4})<\/span>/g.exec(htmlContent);
-    const emailCode = match ? match[1] : null;
     if (!emailCode) {
-      throw new Error("Gagal mengekstrak kode verifikasi dari email.");
+      throw new Error("Gagal mendapatkan kode verifikasi setelah beberapa percobaan.");
     }
     const authPayload2 = {
       email: email,

@@ -1,28 +1,23 @@
 import axios from "axios";
 import crypto from "crypto";
+import SpoofHead from "@/lib/spoof-head";
 class PadletImageGenerator {
   constructor() {
     this.padletApiBase = "https://ta.padlet.com/api";
     this.baseUrl = "https://ta.padlet.com";
     console.log("[Inisialisasi] Kelas PadletImageGenerator diinisialisasi.");
   }
-  randomCryptoIP() {
-    const bytes = crypto.randomBytes(4);
-    return Array.from(bytes).map(b => b % 256).join(".");
-  }
   randomID(length = 16) {
     return crypto.randomBytes(length).toString("hex");
   }
   buildHeaders(extra = {}) {
-    const ip = this.randomCryptoIP();
     return {
       "Content-Type": "application/json",
       "User-Agent": "Mozilla/5.0 (Linux; Android 10; K) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/137.0.0.0 Mobile Safari/537.36",
       Referer: `${this.baseUrl}/image-generator/nlp8YbOlKX`,
       Origin: this.baseUrl,
-      "x-forwarded-for": ip,
-      "x-real-ip": ip,
       "x-request-id": this.randomID(8),
+      ...SpoofHead(),
       ...extra
     };
   }

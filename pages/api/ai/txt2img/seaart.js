@@ -3,6 +3,7 @@ import {
   randomUUID,
   randomBytes
 } from "crypto";
+import SpoofHead from "@/lib/spoof-head";
 class SeaArtAI {
   constructor() {
     this.baseURL = "https://www.seaart.ai";
@@ -19,15 +20,10 @@ class SeaArtAI {
       session_id: randomUUID()
     };
   }
-  randomCryptoIP() {
-    const bytes = randomBytes(4);
-    return Array.from(bytes).map(b => b % 256).join(".");
-  }
   randomID(length = 16) {
     return randomBytes(length).toString("hex");
   }
   buildHeaders() {
-    const ip = this.randomCryptoIP();
     const headers = {
       accept: "application/json, text/plain, */*",
       "accept-language": "id-ID,id;q=0.9,en-US;q=0.8,en;q=0.7",
@@ -40,13 +36,12 @@ class SeaArtAI {
       "sec-fetch-dest": "empty",
       "sec-fetch-mode": "cors",
       "sec-fetch-site": "same-origin",
-      "x-forwarded-for": ip,
-      "x-real-ip": ip,
       "x-request-id": this.randomID(8),
       "content-type": "application/json",
       "x-device-id": this.deviceData.device_id,
       "x-browser-id": this.deviceData.browser_id,
-      cookie: `deviceId=${this.deviceData.device_id}; browserId=${this.deviceData.browser_id};`
+      cookie: `deviceId=${this.deviceData.device_id}; browserId=${this.deviceData.browser_id};`,
+      ...SpoofHead()
     };
     if (this.token) {
       headers.token = this.token;

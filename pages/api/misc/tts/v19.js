@@ -2,6 +2,7 @@ import axios from "axios";
 import {
   randomBytes
 } from "crypto";
+import SpoofHead from "@/lib/spoof-head";
 class SpeechifyAPI {
   constructor() {
     this.tokenURL = "https://voiceover-demo-server--us-central1-5hlswwmzra-uc.a.run.app/token";
@@ -36,10 +37,9 @@ class SpeechifyAPI {
       "sec-fetch-mode": "cors",
       "sec-fetch-site": targetSite === "speechify.com" ? "same-site" : "cross-site",
       "user-agent": "Mozilla/5.0 (Linux; Android 10; K) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/135.0.0.0 Mobile Safari/537.36",
-      "x-forwarded-for": ip,
-      "x-real-ip": ip,
       "x-request-id": this._randomID(8),
       "content-type": contentType,
+      ...SpoofHead(),
       ...extra
     };
     if (this.accessToken) {

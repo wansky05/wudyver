@@ -3,6 +3,7 @@ import {
   FormData
 } from "formdata-node";
 import crypto from "crypto";
+import SpoofHead from "@/lib/spoof-head";
 class DeepAI {
   constructor() {
     this.baseURL = "https://api.deepai.org";
@@ -29,7 +30,6 @@ class DeepAI {
       Object.entries(data).forEach(([key, value]) => {
         formData.append(key, typeof value === "object" ? JSON.stringify(value) : value);
       });
-      const ip = crypto.randomBytes(4).map(b => b % 256).join(".");
       const headers = {
         accept: "*/*",
         "accept-language": "en-US,en;q=0.9",
@@ -40,9 +40,8 @@ class DeepAI {
         "sec-fetch-dest": "empty",
         "sec-fetch-mode": "cors",
         "sec-fetch-site": "same-origin",
-        "x-forwarded-for": ip,
-        "x-real-ip": ip,
         "x-request-id": crypto.randomBytes(8).toString("hex"),
+        ...SpoofHead(),
         ...extraHeaders,
         ...formData.headers
       };

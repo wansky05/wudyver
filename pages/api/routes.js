@@ -423,6 +423,7 @@ export default function handler(req, res) {
     { path: "/api/ai/wtbd", name: "Wtbd", params: [{ "name": "prompt", "in": "query", "required": false }], },
     { path: "/api/ai/remaker", name: "Remaker", params: [{ "name": "prompt", "in": "query", "required": false }], },
     { path: "/api/ai/gainai", name: "Gainai", params: [{ "name": "prompt", "in": "query", "required": false }], },
+    { path: "/api/ai/adpexai", name: "Adpexai", params: [{ "name": "prompt", "in": "query", "required": false }], },
     { path: "/api/ai/rubiks", name: "Rubiks", params: [{ "name": "prompt", "in": "query", "required": false }], },
     { path: "/api/ai/runner-ai", name: "Runner-ai", params: [{ "name": "prompt", "in": "query", "required": false }], },
     { path: "/api/ai/sara-study", name: "Sara-study", params: [{ "name": "prompt", "in": "query", "required": false }], },

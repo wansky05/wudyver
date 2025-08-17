@@ -1,4 +1,5 @@
 import fetch from "node-fetch";
+import SpoofHead from "@/lib/spoof-head";
 async function AnshariChat(message) {
   try {
     const url = "https://api.ansari.chat/api/v1/complete";
@@ -7,7 +8,7 @@ async function AnshariChat(message) {
       "User-Agent": "Postify/1.0.0",
       Referer: "https://ansari.chat/",
       Origin: "https://ansari.chat",
-      "x-forwarded-for": new Array(4).fill(0).map(() => Math.floor(Math.random() * 256)).join(".")
+      ...SpoofHead()
     };
     const body = JSON.stringify({
       messages: [{

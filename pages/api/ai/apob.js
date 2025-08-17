@@ -45,15 +45,37 @@ class ApobAutomatedApi {
     });
     return decryptedJson.text;
   }
+  genRandUser(length = 8) {
+    try {
+      const chars = "abcdefghijklmnopqrstuvwxyz0123456789";
+      let user = "user";
+      for (let i = 0; i < length - 4; i++) user += chars.charAt(Math.floor(Math.random() * chars.length));
+      return user;
+    } catch (e) {
+      console.error("Generation Error: genRandUser failed:", e.message);
+      throw e;
+    }
+  }
+  genRandPass(length = 14) {
+    try {
+      const chars = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789";
+      let pass = "";
+      for (let i = 0; i < length; i++) pass += chars.charAt(Math.floor(Math.random() * chars.length));
+      return pass;
+    } catch (e) {
+      console.error("Generation Error: genRandPass failed:", e.message);
+      throw e;
+    }
+  }
   async _authenticate() {
     if (this.idToken && this.privateId) {
       console.log("✅ Otentikasi sudah ada. Menggunakan token yang tersimpan.");
       return;
     }
     console.log("--- Memulai Otentikasi Otomatis ---");
-    const dynamicEmail = `testuser-${Date.now()}@emailhook.site`;
-    const dynamicPassword = "StrongPass123";
-    const dynamicGuestId = "guest-5fca0ccd-95a8-436c-86d9-23989b032579";
+    const dynamicEmail = `${this.genRandUser(4)}-${this.genRandPass(4)}@mail.com`;
+    const dynamicPassword = `${this.genRandPass(12)}`;
+    const dynamicGuestId = `guest-${this.genRandUser(4)}-${this.genRandPass(4)}-${this.genRandUser(4)}-${this.genRandPass(4)}`;
     try {
       console.log("⏳ Langkah 1/4: Mendaftar akun baru...");
       const signUpUrl = `https://identitytoolkit.googleapis.com/v1/accounts:signUp?key=${this.apiKey}`;

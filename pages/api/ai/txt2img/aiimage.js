@@ -1,4 +1,5 @@
 import axios from "axios";
+import SpoofHead from "@/lib/spoof-head";
 class AiImageGenerator {
   constructor() {
     this.apiUrl = "https://aiimagegenerator.io/api/model/v4";
@@ -19,16 +20,8 @@ class AiImageGenerator {
       "sec-fetch-mode": "cors",
       "sec-fetch-site": "same-origin",
       "user-agent": "Mozilla/5.0 (Linux; Android 10; K) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/135.0.0.0 Mobile Safari/537.36",
-      cookie: "_ga_ZGKXEQ9QK7=GS2.1.s1754305128$o1$g0$t1754305128$j60$l0$h0; _ga=GA1.1.985478713.1754305129",
-      "x-forwarded-for": this.randomIp(),
-      "x-real-ip": this.randomIp(),
-      "cf-connecting-ip": this.randomIp()
+      ...SpoofHead()
     };
-  }
-  randomIp() {
-    return Array.from({
-      length: 4
-    }, () => Math.floor(Math.random() * 256)).join(".");
   }
   async generate(params) {
     const body = {

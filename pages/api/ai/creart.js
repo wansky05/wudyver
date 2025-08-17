@@ -6,6 +6,7 @@ import {
 import crypto from "crypto";
 import qs from "qs";
 import apiConfig from "@/configs/apiConfig";
+import SpoofHead from "@/lib/spoof-head";
 class CreartAI {
   constructor() {
     this.apiUrl = "https://api.creartai.com/api/v1/text2image";
@@ -14,22 +15,16 @@ class CreartAI {
     this.allowedStyles = ["anime", "animev2", "animev3", "animev4", "artdeco", "bwcomic", "chromatic", "cinematic", "classiccartoon", "clay", "colorcomic", "coloredsketch", "colorfulsketch", "coloringbook", "creartv1", "cubism", "cyberpunk", "cyberpunkcartoon", "darksurrealism", "dream", "expressionism", "fantasy", "filmnoir", "fluidwatercolor", "game", "gothicfuturism", "grisaille", "illustration", "impressionism", "jewelry", "kawaii", "kidscartoon", "lowpoly", "macrophoto", "mystical", "naiveart", "neon", "nostyle", "origami", "papercut", "pixelart", "pixelarthd", "popart", "popsurrealism", "porcelainfigurine", "poster", "productphoto", "psychedelic", "realistic", "renaissance", "retrofuturism", "sketch", "stainedglass", "sticker", "surrealism", "synthwave", "textile", "ukiyoe", "vangogh", "vectorart", "vividcolors", "watercolor", "woodsculpture", "wool", "neonpunk", "cartoon"];
     this.baseUrl = "https://api.creartai.com";
   }
-  randomCryptoIP() {
-    const bytes = crypto.randomBytes(4);
-    return Array.from(bytes).map(b => b % 256).join(".");
-  }
   randomID(length = 16) {
     return crypto.randomBytes(length).toString("hex");
   }
   buildHeaders(extra = {}) {
-    const ip = this.randomCryptoIP();
     return {
       origin: this.baseUrl,
       referer: `${this.baseUrl}/`,
       "user-agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126.0.0.0 Safari/537.36",
-      "x-forwarded-for": ip,
-      "x-real-ip": ip,
       "x-request-id": this.randomID(8),
+      ...SpoofHead(),
       ...extra
     };
   }

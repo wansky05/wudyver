@@ -1,5 +1,6 @@
 import axios from "axios";
 import FormData from "form-data";
+import SpoofHead from "@/lib/spoof-head";
 class ImageProcessor {
   async upscale({
     imageUrl
@@ -20,7 +21,6 @@ class ImageProcessor {
       form.append("user_id", "undefined");
       form.append("is_public", "true");
       console.log("Form data prepared.");
-      const spoofedIp = this.generateRandomIp();
       const headers = {
         ...form.getHeaders(),
         accept: "*/*",
@@ -37,10 +37,7 @@ class ImageProcessor {
         "sec-fetch-mode": "cors",
         "sec-fetch-site": "same-origin",
         "user-agent": "Mozilla/5.0 (Linux; Android 10; K) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/135.0.0.0 Mobile Safari/537.36",
-        "x-forwarded-for": spoofedIp,
-        "x-real-ip": spoofedIp,
-        "client-ip": spoofedIp,
-        "true-client-ip": spoofedIp
+        ...SpoofHead()
       };
       console.log("Request headers set with multiple spoofed IP headers.");
       const {
@@ -57,10 +54,6 @@ class ImageProcessor {
         message: err.message
       };
     }
-  }
-  generateRandomIp() {
-    const octet = () => Math.floor(Math.random() * 255) + 1;
-    return `${octet()}.${octet()}.${octet()}.${octet()}`;
   }
 }
 export default async function handler(req, res) {

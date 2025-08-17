@@ -8,6 +8,7 @@ import {
 import CryptoJS from "crypto-js";
 import crypto from "crypto";
 import apiConfig from "@/configs/apiConfig";
+import SpoofHead from "@/lib/spoof-head";
 class AkoolAPI {
   constructor() {
     this.cookieJar = new CookieJar();
@@ -62,9 +63,8 @@ class AkoolAPI {
       "sec-fetch-dest": "empty",
       "sec-fetch-mode": "cors",
       "sec-fetch-site": "same-origin",
-      "x-forwarded-for": ip,
-      "x-real-ip": ip,
       "x-request-id": this.randomID(8),
+      ...SpoofHead(),
       ...extra
     };
     console.log("Headers built:", headers);

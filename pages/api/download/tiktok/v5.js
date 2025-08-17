@@ -1,5 +1,6 @@
 import axios from "axios";
 import * as cheerio from "cheerio";
+import SpoofHead from "@/lib/spoof-head";
 class TikDD {
   constructor() {
     this.url = "https://www.tikdd.cc/wp-json/aio-dl/video-data/";
@@ -10,9 +11,7 @@ class TikDD {
       referer: "https://www.tikdd.cc/",
       "user-agent": "Postify/1.0.0",
       cookie: "pll_language=en",
-      "x-forwarded-for": Array.from({
-        length: 4
-      }, () => Math.floor(Math.random() * 256)).join(".")
+      ...SpoofHead()
     };
   }
   async token() {

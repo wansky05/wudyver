@@ -330,7 +330,7 @@ export default async function handler(req, res) {
         result = await botify[action](params);
         break;
       case "search":
-        if (!params.prompt) {
+        if (!params.query) {
           return res.status(400).json({
             error: `Missing required field: query (required for ${action})`
           });

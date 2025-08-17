@@ -227,10 +227,10 @@ class VivagoAPI {
       await this._sendCaptcha();
       let captcha;
       let attempts = 0;
-      const maxAttempts = 10;
+      const maxAttempts = 60;
       console.log("[LOG] Autentikasi: Menunggu email captcha...");
       while (!captcha && attempts < maxAttempts) {
-        await this.sleep(5e3);
+        await this.sleep(3e3);
         const emailData = await this._getEmailMessages();
         captcha = this._extractCaptcha(emailData);
         attempts++;

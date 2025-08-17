@@ -4,6 +4,7 @@ import crypto from "crypto";
 import {
   EventSource
 } from "eventsource";
+import SpoofHead from "@/lib/spoof-head";
 class ChatX {
   constructor() {
     this.baseUrl = "https://chatx.ai";
@@ -58,9 +59,8 @@ class ChatX {
       "sec-fetch-dest": "empty",
       "sec-fetch-mode": "cors",
       "sec-fetch-site": "same-origin",
-      "x-forwarded-for": ip,
-      "x-real-ip": ip,
       "x-request-id": this.chatsId,
+      ...SpoofHead(),
       ...extra
     };
   }

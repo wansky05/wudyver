@@ -88,7 +88,8 @@ class RemakerAI {
       return {
         success: response.data.code === 1e5,
         status: response.data.result?.status,
-        message: response.data.message?.en || "Status check completed"
+        message: response.data.message?.en || "Status check completed",
+        ...response.data
       };
     } catch (error) {
       console.error("Error in img2img_status:", error.message);
@@ -160,7 +161,8 @@ class RemakerAI {
       return {
         success: response.data.code === 1e5,
         status: response.data.result?.status,
-        message: response.data.message?.en || "Status check completed"
+        message: response.data.message?.en || "Status check completed",
+        ...response.data
       };
     } catch (error) {
       console.error("Error in txt2img_status:", error.message);

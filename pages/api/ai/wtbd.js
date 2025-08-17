@@ -1,4 +1,5 @@
 import axios from "axios";
+import SpoofHead from "@/lib/spoof-head";
 const availableModels = [{
   value: "gpt-4o",
   name: "ChatGPT-4o",
@@ -55,13 +56,8 @@ class WhatsTheBigDataChat {
       "sec-fetch-mode": "cors",
       "sec-fetch-site": "same-origin",
       "user-agent": "Mozilla/5.0 (Linux; Android 10; K) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/135.0.0.0 Mobile Safari/537.36",
-      "x-forwarded-for": this.getRandomIP(),
-      "x-real-ip": this.getRandomIP(),
-      "x-client-ip": this.getRandomIP()
+      ...SpoofHead()
     };
-  }
-  getRandomIP() {
-    return `${Math.floor(Math.random() * 255) + 1}.${Math.floor(Math.random() * 255)}.${Math.floor(Math.random() * 255)}.${Math.floor(Math.random() * 255)}`;
   }
   async chat({
     model = "gpt-4o",

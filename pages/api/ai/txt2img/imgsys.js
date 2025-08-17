@@ -1,5 +1,6 @@
 import axios from "axios";
 import crypto from "crypto";
+import SpoofHead from "@/lib/spoof-head";
 class ImgSys {
   constructor() {
     this.baseUrl = "https://imgsys.org/api";
@@ -16,22 +17,16 @@ class ImgSys {
       te: "trailers"
     };
   }
-  randomCryptoIP() {
-    const bytes = crypto.randomBytes(4);
-    return Array.from(bytes).map(b => b % 256).join(".");
-  }
   randomID(length = 16) {
     return crypto.randomBytes(length).toString("hex");
   }
   buildHeaders(extra = {}) {
-    const ip = this.randomCryptoIP();
     return {
       origin: "https://imgsys.org",
       referer: "https://imgsys.org/",
       "user-agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64)",
-      "x-forwarded-for": ip,
-      "x-real-ip": ip,
       "x-request-id": this.randomID(8),
+      ...SpoofHead(),
       ...extra
     };
   }

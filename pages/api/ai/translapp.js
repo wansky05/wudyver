@@ -4,6 +4,7 @@ import {
   randomUUID,
   randomBytes
 } from "crypto";
+import SpoofHead from "@/lib/spoof-head";
 class Translapp {
   constructor() {
     this.api = {
@@ -53,9 +54,8 @@ class Translapp {
       "user-agent": this._rgua(),
       "content-type": "application/json",
       "accept-language": this._rgal(),
-      "x-forwarded-for": this._rcip(),
-      "x-real-ip": this._rcip(),
       "x-request-id": this._rID(8),
+      ...SpoofHead(),
       ...e
     };
   }

@@ -6,6 +6,73 @@ const ACTION_REQUIREMENTS = {
   prompt_url: ["custom"],
   style_url: ["style"]
 };
+const ACTION_EXAMPLES = {
+  canvas: {
+    description: "Generate image from text prompt",
+    example: {
+      action: "canvas",
+      prompt: "a beautiful sunset"
+    }
+  },
+  text2ghibli2: {
+    description: "Convert text to Ghibli-style image",
+    example: {
+      action: "text2ghibli2",
+      prompt: "a forest spirit"
+    }
+  },
+  txt2ghbli: {
+    description: "Alternative Ghibli-style text to image",
+    example: {
+      action: "txt2ghbli",
+      prompt: "a flying castle"
+    }
+  },
+  nsfw: {
+    description: "Generate NSFW content from text",
+    example: {
+      action: "nsfw",
+      prompt: "erotic description"
+    }
+  },
+  hijabkan: {
+    description: "Add hijab to an image",
+    example: {
+      action: "hijabkan",
+      url: "https://example.com/photo.jpg"
+    }
+  },
+  hytam: {
+    description: "Apply Hytam filter to an image",
+    example: {
+      action: "hytam",
+      url: "https://example.com/photo.jpg"
+    }
+  },
+  jadibabi: {
+    description: "Transform image to pig-like appearance",
+    example: {
+      action: "jadibabi",
+      url: "https://example.com/photo.jpg"
+    }
+  },
+  custom: {
+    description: "Custom image generation with prompt and URL",
+    example: {
+      action: "custom",
+      prompt: "a futuristic city",
+      url: "https://example.com/base.jpg"
+    }
+  },
+  style: {
+    description: "Apply style to an image",
+    example: {
+      action: "style",
+      style: "van gogh",
+      url: "https://example.com/photo.jpg"
+    }
+  }
+};
 class AIImageGenerator {
   constructor() {
     this.apiKey = apiConfig.PASSWORD;
@@ -35,35 +102,48 @@ class AIImageGenerator {
       throw new Error("Failed to generate image from external API.");
     }
   }
+  getActionExamples() {
+    let examples = "\nAvailable actions and their requirements:\n";
+    for (const [action, info] of Object.entries(ACTION_EXAMPLES)) {
+      examples += `\n- ${action}: ${info.description}\n  Example: ${JSON.stringify(info.example)}\n`;
+    }
+    return examples;
+  }
   validateParams(action, prompt, url, style) {
     if (!action) {
-      throw new Error('Parameter "action" is required.');
+      throw new Error(`"action" parameter is required.${this.getActionExamples()}`);
+    }
+    const allValidActions = [...ACTION_REQUIREMENTS.prompt, ...ACTION_REQUIREMENTS.url, ...ACTION_REQUIREMENTS.prompt_url, ...ACTION_REQUIREMENTS.style_url];
+    if (!allValidActions.includes(action)) {
+      throw new Error(`Invalid action: "${action}".${this.getActionExamples()}`);
     }
     if (ACTION_REQUIREMENTS.prompt.includes(action) && !prompt) {
-      throw new Error(`Parameter "prompt" is required for action "${action}".`);
+      const example = JSON.stringify(ACTION_EXAMPLES[action]?.example || {});
+      throw new Error(`"prompt" parameter is required for action "${action}". Example usage: ${example}`);
     }
     if (ACTION_REQUIREMENTS.url.includes(action) && !url) {
-      throw new Error(`Parameter "url" is required for action "${action}".`);
+      const example = JSON.stringify(ACTION_EXAMPLES[action]?.example || {});
+      throw new Error(`"url" parameter is required for action "${action}". Example usage: ${example}`);
     }
     if (ACTION_REQUIREMENTS.prompt_url.includes(action)) {
       if (!prompt) {
-        throw new Error(`Parameter "prompt" is required for action "${action}".`);
+        const example = JSON.stringify(ACTION_EXAMPLES[action]?.example || {});
+        throw new Error(`"prompt" parameter is required for action "${action}". Example usage: ${example}`);
       }
       if (!url) {
-        throw new Error(`Parameter "url" is required for action "${action}".`);
+        const example = JSON.stringify(ACTION_EXAMPLES[action]?.example || {});
+        throw new Error(`"url" parameter is required for action "${action}". Example usage: ${example}`);
       }
     }
     if (ACTION_REQUIREMENTS.style_url.includes(action)) {
       if (!style) {
-        throw new Error(`Parameter "style" is required for action "${action}".`);
+        const example = JSON.stringify(ACTION_EXAMPLES[action]?.example || {});
+        throw new Error(`"style" parameter is required for action "${action}". Example usage: ${example}`);
       }
       if (!url) {
-        throw new Error(`Parameter "url" is required for action "${action}".`);
+        const example = JSON.stringify(ACTION_EXAMPLES[action]?.example || {});
+        throw new Error(`"url" parameter is required for action "${action}". Example usage: ${example}`);
       }
-    }
-    const allValidActions = [...ACTION_REQUIREMENTS.prompt, ...ACTION_REQUIREMENTS.url, ...ACTION_REQUIREMENTS.prompt_url, ...ACTION_REQUIREMENTS.style_url];
-    if (!allValidActions.includes(action)) {
-      throw new Error(`Invalid action: "${action}".`);
     }
   }
 }

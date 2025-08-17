@@ -4,6 +4,7 @@ import qs from "qs";
 import {
   FormData
 } from "formdata-node";
+import SpoofHead from "@/lib/spoof-head";
 class JollyAIRequest {
   constructor() {
     this.sessionCookie = "";
@@ -156,20 +157,14 @@ class JollyAIRequest {
       throw new Error("Failed to upload base64 image: " + err.message);
     }
   }
-  randomCryptoIP() {
-    const bytes = crypto.randomBytes(4);
-    return Array.from(bytes).map(b => b % 256).join(".");
-  }
   randomID(length = 16) {
     return crypto.randomBytes(length).toString("hex");
   }
   buildHeaders(extra = {}) {
-    const ip = this.randomCryptoIP();
     return {
-      "x-forwarded-for": ip,
-      "x-real-ip": ip,
       "x-request-id": this.randomID(8),
       "user-agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64)",
+      ...SpoofHead(),
       ...extra
     };
   }

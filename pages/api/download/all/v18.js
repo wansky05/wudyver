@@ -2,6 +2,7 @@ import axios from "axios";
 import * as cheerio from "cheerio";
 import https from "https";
 import crypto from "crypto";
+import SpoofHead from "@/lib/spoof-head";
 class RednoteDownloader {
   constructor() {
     this.baseURL = "https://anydownloader.com";
@@ -34,23 +35,17 @@ class RednoteDownloader {
       "Sec-Fetch-Site": "same-origin"
     };
   }
-  randomCryptoIP() {
-    const bytes = crypto.randomBytes(4);
-    return Array.from(bytes).map(b => b % 256).join(".");
-  }
   randomID(length = 16) {
     return crypto.randomBytes(length).toString("hex");
   }
   buildHeaders(extra = {}) {
-    const ip = this.randomCryptoIP();
     return {
       origin: this.baseURL,
       referer: `${this.baseURL}/en/xiaohongshu-videos-and-photos-downloader`,
       "user-agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36",
-      "x-forwarded-for": ip,
-      "x-real-ip": ip,
       "x-request-id": this.randomID(8),
       "X-Requested-With": "XMLHttpRequest",
+      ...SpoofHead(),
       ...extra
     };
   }

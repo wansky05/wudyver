@@ -1,5 +1,6 @@
 import axios from "axios";
 import crypto from "crypto";
+import SpoofHead from "@/lib/spoof-head";
 class Downloader {
   constructor() {
     this.metadataApi = "https://socialdldr.com/api/download-video";
@@ -21,14 +22,12 @@ class Downloader {
     });
   }
   spoofHeaders() {
-    const ip = Array.from(crypto.randomBytes(4)).map(b => b % 256).join(".");
     return {
       origin: this.baseDownloadUrl,
       referer: `${this.baseDownloadUrl}/en/xiaohongshu-videos-and-photos-downloader`,
-      "x-forwarded-for": ip,
-      "x-real-ip": ip,
       "x-request-id": crypto.randomBytes(4).toString("hex"),
-      "X-Requested-With": "XMLHttpRequest"
+      "X-Requested-With": "XMLHttpRequest",
+      ...SpoofHead()
     };
   }
   slug(str = "") {

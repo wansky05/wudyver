@@ -52,7 +52,7 @@ class MagicLightAPI {
       throw new Error(`Failed to create temp email: ${error.message}`);
     }
   }
-  async getOTPFromEmail(email, maxAttempts = 12) {
+  async getOTPFromEmail(email, maxAttempts = 60) {
     for (let i = 0; i < maxAttempts; i++) {
       try {
         const response = await axios.get(`${this.mailAPI}?action=message&email=${email}`);
@@ -65,7 +65,7 @@ class MagicLightAPI {
           }
         }
         console.log(`[⌛] Waiting for OTP (${i + 1}/${maxAttempts})...`);
-        await new Promise(resolve => setTimeout(resolve, 5e3));
+        await new Promise(resolve => setTimeout(resolve, 3e3));
       } catch (error) {
         console.error(`Error checking email: ${error.message}`);
       }

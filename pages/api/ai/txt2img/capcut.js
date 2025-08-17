@@ -1,5 +1,6 @@
 import crypto from "crypto";
 import axios from "axios";
+import SpoofHead from "@/lib/spoof-head";
 const REQUEST_MAX_RETRIES = 2;
 const REQUEST_RETRY_DELAY_MS = 1500;
 const DEFAULT_POLL_INTERVAL_MS = 2e3;
@@ -89,9 +90,8 @@ class CapcutMagicImageGenerator {
       "sec-fetch-dest": "empty",
       "sec-fetch-mode": "cors",
       "sec-fetch-site": "same-origin",
-      "x-forwarded-for": ip,
-      "x-real-ip": ip,
       "x-request-id": this.randomID(8),
+      ...SpoofHead(),
       ...extra
     };
     if (this.isDebug) {

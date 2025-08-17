@@ -1,5 +1,6 @@
 import axios from "axios";
 import CryptoJS from "crypto-js";
+import SpoofHead from "@/lib/spoof-head";
 class RemovePhotos {
   constructor(apiKey = "0zcCs5xWKy6fb4ZVnRdlhao0YKrQERfL", origin = "https://remove.photos/remove-background") {
     this.apiKey = apiKey;
@@ -12,21 +13,11 @@ class RemovePhotos {
     this.baseUrl = originMatch[0];
     console.log(`RemovePhotos initialized with apiKey: ${apiKey.substring(0, 5)}... and baseUrl: ${this.baseUrl}`);
   }
-  randomCryptoIP() {
-    const randomWords = CryptoJS.lib.WordArray.random(4);
-    const bytes = [];
-    for (let i = 0; i < 4; i++) {
-      const byte = randomWords.words[Math.floor(i / 4)] >>> 24 - i % 4 * 8 & 255;
-      bytes.push(byte);
-    }
-    return bytes.join(".");
-  }
   randomID(length = 16) {
     const randomWords = CryptoJS.lib.WordArray.random(Math.ceil(length / 2));
     return randomWords.toString(CryptoJS.enc.Hex).slice(0, length);
   }
   buildHeaders(extra = {}) {
-    const ip = this.randomCryptoIP();
     const headers = {
       accept: "*/*",
       "accept-language": "id-ID,id;q=0.9,en-US;q=0.8,en;q=0.7",
@@ -39,9 +30,8 @@ class RemovePhotos {
       "sec-fetch-dest": "empty",
       "sec-fetch-mode": "cors",
       "sec-fetch-site": "same-origin",
-      "x-forwarded-for": ip,
-      "x-real-ip": ip,
       "x-request-id": this.randomID(8),
+      ...SpoofHead(),
       ...extra
     };
     return headers;

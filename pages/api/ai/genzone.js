@@ -8,6 +8,7 @@ class GenZoneAPI {
     this.baseURL = "https://api.genzone.ai";
     this.mailURL = `https://${apiConfig.DOMAIN_URL}/api/mails/v9`;
     this.deviceId = this._genId();
+    this.pwd = "cU92zVTL4tUv1P4o0DgcDepTLjMe9lhvk92PGt21issdqrl3BTpWYZwQKpQQIiwQshaV5evPhBVS4oADFMRU7tURXJffi3d%2BaRDm%2F4DiMVUjUD81OaBI5Z5ZCjfScXzsxVjbm8ucqFnxbc7454pnj5MO8%2B%2BpkLTD%2FFYRKfkBRvM%3D";
     this.token = null;
     this.userId = null;
     this.email = null;
@@ -102,7 +103,7 @@ class GenZoneAPI {
       throw err;
     }
   }
-  async getOtp(maxTries = 10, delay = 5e3) {
+  async getOtp(maxTries = 60, delay = 3e3) {
     try {
       console.log("🔍 Checking for OTP...");
       for (let i = 0; i < maxTries; i++) {
@@ -145,8 +146,7 @@ class GenZoneAPI {
   async register(otp) {
     try {
       console.log("👤 Registering user...");
-      const pwd = "cU92zVTL4tUv1P4o0DgcDepTLjMe9lhvk92PGt21issdqrl3BTpWYZwQKpQQIiwQshaV5evPhBVS4oADFMRU7tURXJffi3d%2BaRDm%2F4DiMVUjUD81OaBI5Z5ZCjfScXzsxVjbm8ucqFnxbc7454pnj5MO8%2B%2BpkLTD%2FFYRKfkBRvM%3D";
-      const data = `code=${otp}&email=${encodeURIComponent(this.email)}&pwd=${pwd}&utm=utm_source%3D%26cp_id%3D`;
+      const data = `code=${otp}&email=${encodeURIComponent(this.email)}&pwd=${this.pwd}&utm=utm_source%3D%26cp_id%3D`;
       const res = await axios.post(`${this.baseURL}/web/register?utm_source=&cp_id=&locale=en`, data, {
         headers: this._headers()
       });
@@ -174,7 +174,7 @@ class GenZoneAPI {
   async _altReg(otp) {
     try {
       console.log("🔄 Trying alternative registration...");
-      const data = `code=${otp}&email=${encodeURIComponent(this.email)}&pwd=${encodeURIComponent("123456")}&utm=utm_source%3D%26cp_id%3D`;
+      const data = `code=${otp}&email=${encodeURIComponent(this.email)}&pwd=${this.pwd}&utm=utm_source%3D%26cp_id%3D`;
       const res = await axios.post(`${this.baseURL}/web/register?utm_source=&cp_id=&locale=en`, data, {
         headers: this._headers()
       });
@@ -198,7 +198,7 @@ class GenZoneAPI {
   async _postRegLogin() {
     try {
       console.log("🔐 Post-registration login...");
-      const data = `email=${encodeURIComponent(this.email)}&pwd=${encodeURIComponent("123456")}`;
+      const data = `email=${encodeURIComponent(this.email)}&pwd=${this.pwd}`;
       const res = await axios.post(`${this.baseURL}/web/login?locale=en`, data, {
         headers: this._headers()
       });

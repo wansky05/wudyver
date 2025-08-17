@@ -6,6 +6,7 @@ import {
   Blob
 } from "formdata-node";
 import https from "https";
+import SpoofHead from "@/lib/spoof-head";
 class AyeSoulChat {
   constructor() {
     this.url = "wss://goto.ayesoul.com/";
@@ -16,7 +17,7 @@ class AyeSoulChat {
       referer: `${this.origin}/`,
       accept: "*/*",
       connection: "keep-alive",
-      "x-forwarded-for": this.randomIP()
+      ...SpoofHead()
     };
     this.results = {};
   }
@@ -42,7 +43,7 @@ class AyeSoulChat {
           accept: "*/*",
           origin: this.origin,
           "x-cache-sec": xcs,
-          "x-forwarded-for": this.randomIP()
+          ...SpoofHead()
         },
         httpsAgent: new https.Agent({
           rejectUnauthorized: false,

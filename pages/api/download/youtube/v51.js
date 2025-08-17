@@ -7,6 +7,7 @@ import {
 import {
   URL
 } from "url";
+import SpoofHead from "@/lib/spoof-head";
 class YouTubeDownloader {
   constructor() {
     this.baseURLs = {
@@ -55,22 +56,16 @@ class YouTubeDownloader {
       return Promise.reject(error);
     });
   }
-  randomCryptoIP() {
-    const bytes = crypto.randomBytes(4);
-    return Array.from(bytes).map(b => b % 256).join(".");
-  }
   randomID(length = 8) {
     return crypto.randomBytes(length).toString("hex");
   }
   buildHeaders(currentBaseURL, extra = {}) {
-    const ip = this.randomCryptoIP();
     return {
       origin: currentBaseURL,
       referer: `${currentBaseURL}/`,
       "user-agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/135.0.0.0 Mobile Safari/537.36",
-      "x-forwarded-for": ip,
-      "x-real-ip": ip,
       "x-request-id": this.randomID(),
+      ...SpoofHead(),
       ...extra
     };
   }
