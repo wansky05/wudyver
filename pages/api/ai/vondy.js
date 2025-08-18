@@ -65,7 +65,7 @@ class VondyChat {
       let result = "";
       for (const event of data.split("\n")) {
         if (!event.startsWith("data:")) continue;
-        const content = event.slice(5).trim();
+        const content = event.slice(6);
         if (!content) continue;
         try {
           const parsed = JSON.parse(content);

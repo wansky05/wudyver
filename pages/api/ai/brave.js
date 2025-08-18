@@ -1,11 +1,12 @@
 import axios from "axios";
+import SpoofHead from "@/lib/spoof-head";
 class BraveSearchAPI {
   constructor() {
     this.baseURL = "https://search.brave.com";
     this.cookies = new Map();
     this.api = axios.create({
       baseURL: this.baseURL,
-      timeout: 3e4,
+      timeout: 6e4,
       maxRedirects: 10,
       headers: {
         accept: "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8,application/signed-exchange;v=b3;q=0.7",
@@ -13,7 +14,8 @@ class BraveSearchAPI {
         "sec-ch-ua": '"Lemur";v="135", "", "", "Microsoft Edge Simulate";v="135"',
         "sec-ch-ua-mobile": "?1",
         "sec-ch-ua-platform": '"Android"',
-        "user-agent": "Mozilla/5.0 (Linux; Android 10; K) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/135.0.0.0 Mobile Safari/537.36"
+        "user-agent": "Mozilla/5.0 (Linux; Android 10; K) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/135.0.0.0 Mobile Safari/537.36",
+        ...SpoofHead()
       }
     });
     this.api.interceptors.response.use(r => (r.headers["set-cookie"] && this.updC(r.headers["set-cookie"]), r), e => Promise.reject(e));
@@ -22,7 +24,7 @@ class BraveSearchAPI {
   _parse(raw) {
     const texts = [];
     const jsons = {};
-    const lines = raw.split(/\r?\n/);
+    const lines = raw.split("\n");
     let buffer = [];
     let inMultiLineString = false;
     lines.forEach(line => {
@@ -45,28 +47,28 @@ class BraveSearchAPI {
             if (parsed.type?.length > 0) {
               (jsons[parsed.type] = jsons[parsed.type] || []).push(parsed);
             } else {
-              texts.push(this.unescapeString(JSON.stringify(parsed, null, 2)));
+              texts.push((JSON.stringify(parsed, null, 2)));
             }
           } else if (typeof parsed === "string") {
-            texts.push(this.unescapeString(parsed));
+            texts.push((parsed));
           } else {
-            texts.push(this.unescapeString(String(parsed)));
+            texts.push((String(parsed)));
           }
         } catch (e) {
           if (combinedLine.startsWith('"') && combinedLine.endsWith('"')) {
             try {
-              texts.push(this.unescapeString(combinedLine.slice(1, -1)));
+              texts.push((combinedLine.slice(1, -1)));
             } catch (e2) {
-              texts.push(this.unescapeString(combinedLine));
+              texts.push((combinedLine));
             }
           } else {
-            texts.push(this.unescapeString(combinedLine));
+            texts.push((combinedLine));
           }
         }
       }
     });
     if (buffer.length > 0) {
-      texts.push(this.unescapeString(buffer.join("\n")));
+      texts.push((buffer.join("\n")));
     }
     return {
       result: texts.join(""),
