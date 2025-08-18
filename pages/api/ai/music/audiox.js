@@ -4,6 +4,7 @@ import {
 } from "uuid";
 import apiConfig from "@/configs/apiConfig";
 import Encoder from "@/lib/encoder";
+import SpoofHead from "@/lib/spoof-head";
 class AudioXClient {
   constructor(userId) {
     this.userId = userId || uuidv4();
@@ -13,7 +14,7 @@ class AudioXClient {
     this.supabaseRest = "https://jkdptytqsihuiawmeqsw.supabase.co/rest/v1";
     this.audioxAPI = "https://audiox.app/api";
     this.apiKey = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImprZHB0eXRxc2lodWlhd21lcXN3Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDAxMjA2NjQsImV4cCI6MjA1NTY5NjY2NH0.Vpn_6_SSKPP7vKu6mHsGEtvNjV8tIvmZpg5wKRss-A0";
-    this.axios = axios.create({
+    this.client = axios.create({
       headers: {
         accept: "*/*",
         "accept-language": "id-ID,id;q=0.9",
@@ -24,7 +25,8 @@ class AudioXClient {
         "sec-ch-ua-platform": '"Android"',
         "sec-fetch-dest": "empty",
         "sec-fetch-mode": "cors",
-        "user-agent": "Mozilla/5.0 (Linux; Android 10; K) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/135.0.0.0 Mobile Safari/537.36"
+        "user-agent": "Mozilla/5.0 (Linux; Android 10; K) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/135.0.0.0 Mobile Safari/537.36",
+        ...SpoofHead()
       }
     });
     console.log(`User ID: ${this.userId}`);
@@ -55,7 +57,7 @@ class AudioXClient {
       this.log("Getting temp email...");
       const {
         data
-      } = await this.axios.get(`${this.mailAPI}?action=create`, {
+      } = await this.client.get(`${this.mailAPI}?action=create`, {
         headers: {
           origin: "https://audiox.app",
           referer: "https://audiox.app/"
@@ -71,7 +73,7 @@ class AudioXClient {
   async requestOTP(email) {
     try {
       this.log(`Requesting OTP for: ${email}`);
-      await this.axios.post(`${this.supabaseAuth}/otp?redirect_to=https%3A%2F%2Faudiox.app`, {
+      await this.client.post(`${this.supabaseAuth}/otp?redirect_to=https%3A%2F%2Faudiox.app`, {
         email: email,
         data: {},
         create_user: true
@@ -97,7 +99,7 @@ class AudioXClient {
       try {
         const {
           data
-        } = await this.axios.get(`${this.mailAPI}?action=message&email=${email}`, {
+        } = await this.client.get(`${this.mailAPI}?action=message&email=${email}`, {
           headers: {
             origin: "https://audiox.app",
             referer: "https://audiox.app/"
@@ -122,7 +124,7 @@ class AudioXClient {
   async verify(url) {
     try {
       this.log(`Following verification link: ${url}`);
-      const response = await this.axios.get(url, {
+      const response = await this.client.get(url, {
         headers: {
           origin: "https://audiox.app",
           referer: "https://audiox.app/",
@@ -163,7 +165,7 @@ class AudioXClient {
     }
     this.log("Fetching Supabase user info...");
     try {
-      const response = await this.axios.get(`${this.supabaseAuth}/user`, {
+      const response = await this.client.get(`${this.supabaseAuth}/user`, {
         headers: {
           apikey: this.apiKey,
           authorization: `Bearer ${this.sessionToken}`,
@@ -191,7 +193,7 @@ class AudioXClient {
       this.log("Attempting daily login...");
       const {
         data
-      } = await this.axios.post(`${this.audioxAPI}/points/daily-login`, {
+      } = await this.client.post(`${this.audioxAPI}/points/daily-login`, {
         userId: this.userId,
         singleRowOnly: true
       }, {
@@ -316,11 +318,11 @@ class AudioXClient {
       this.log(`Request headers: ${JSON.stringify(headers)}`);
       let response;
       if (requestMethod === "post") {
-        response = await this.axios.post(endpoint, data, {
+        response = await this.client.post(endpoint, data, {
           headers: headers
         });
       } else {
-        response = await this.axios.get(endpoint, {
+        response = await this.client.get(endpoint, {
           headers: headers
         });
       }

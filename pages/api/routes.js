@@ -1197,6 +1197,7 @@ export default function handler(req, res) {
     { path: "/api/search/wattpad", name: "Wattpad", params: [{ "name": "prompt", "in": "query", "required": false }], },
     { path: "/api/search/wiki", name: "Wiki", params: [{ "name": "prompt", "in": "query", "required": false }], },
     { path: "/api/search/xng", name: "Xng", params: [{ "name": "prompt", "in": "query", "required": false }], },
+    { path: "/api/search/infotourney", name: "Infotourney", params: [{ "name": "prompt", "in": "query", "required": false }], },
     { path: "/api/sound/freesound", name: "Freesound", params: [{ "name": "prompt", "in": "query", "required": false }], },
     { path: "/api/sound/jungle", name: "Jungle", params: [{ "name": "prompt", "in": "query", "required": false }], },
     { path: "/api/sound/ml", name: "Ml", params: [{ "name": "prompt", "in": "query", "required": false }], },
