@@ -1,137 +1,74 @@
-import fetch from "node-fetch";
-import {
-  FormData
-} from "formdata-node";
-class ImagePrompt {
+import axios from "axios";
+import SpoofHead from "@/lib/spoof-head";
+class ImagePromptGenerator {
   constructor() {
     this.baseUrl = "https://imageprompt.org/api/ai/prompts";
-    this.headers = {
-      "Content-Type": "application/json",
-      "User-Agent": "Mozilla/5.0 (Linux; Android 10; K) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Mobile Safari/537.36",
-      Referer: "https://imageprompt.org/image-prompt-generator"
+    this.defaultHeaders = {
+      accept: "*/*",
+      "accept-language": "id-ID,id;q=0.9",
+      "content-type": "application/json",
+      origin: "https://imageprompt.org",
+      priority: "u=1, i",
+      referer: "https://imageprompt.org/image-to-prompt",
+      "sec-ch-ua": '"Lemur";v="135", "", "", "Microsoft Edge Simulate";v="135"',
+      "sec-ch-ua-mobile": "?1",
+      "sec-ch-ua-platform": '"Android"',
+      "sec-fetch-dest": "empty",
+      "sec-fetch-mode": "cors",
+      "sec-fetch-site": "same-origin",
+      "user-agent": "Mozilla/5.0 (Linux; Android 10; K) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/135.0.0.0 Mobile Safari/537.36",
+      ...SpoofHead()
     };
   }
-  async image(url, model = 0, lang = "id") {
+  async getImageBase64(imageUrl) {
     try {
-      const imageResponse = await fetch(url);
-      const buffer = await imageResponse.arrayBuffer();
-      const mimeType = "image/webp";
-      const base64Url = `data:${mimeType};base64,${Buffer.from(buffer).toString("base64")}`;
-      const form = new FormData();
-      form.append("base64Url", base64Url);
-      form.append("imageModelId", model);
-      form.append("language", lang);
-      const response = await fetch(`${this.baseUrl}/image`, {
-        method: "POST",
-        headers: {
-          ...this.headers
-        },
-        body: form
+      const response = await axios.get(imageUrl, {
+        responseType: "arraybuffer"
       });
-      return await response.json();
+      const contentType = response.headers["content-type"] || "image/webp";
+      const base64 = Buffer.from(response.data).toString("base64");
+      return `data:${contentType};base64,${base64}`;
     } catch (error) {
-      throw new Error(`Image prompt failed: ${error.message}`);
+      console.error("Error fetching image:", error);
+      throw error;
     }
   }
-  async text(prompt = "Men") {
+  async generatePrompt({
+    imageUrl: image,
+    language = "en",
+    imageModelId = 0
+  }) {
     try {
-      const body = JSON.stringify({
-        userPrompt: prompt,
-        page: "image-prompt-generator"
+      const base64Url = typeof image === "string" && image.startsWith("http") ? await this.getImageBase64(image) : image;
+      const payload = {
+        base64Url: base64Url,
+        imageModelId: imageModelId,
+        language: language
+      };
+      const response = await axios.post(`${this.baseUrl}/image`, payload, {
+        headers: this.defaultHeaders
       });
-      const response = await fetch(`${this.baseUrl}/magic-enhance`, {
-        method: "POST",
-        headers: this.headers,
-        body: body
-      });
-      return await response.json();
+      return response.data;
     } catch (error) {
-      throw new Error(`Magic prompt failed: ${error.message}`);
-    }
-  }
-  async edit(prompt = "Men", detail = "Very Men") {
-    try {
-      const body = JSON.stringify({
-        userPrompt: prompt,
-        editDetails: detail
-      });
-      const response = await fetch(`${this.baseUrl}/edit-with-ai`, {
-        method: "POST",
-        headers: this.headers,
-        body: body
-      });
-      return await response.json();
-    } catch (error) {
-      throw new Error(`Edit prompt failed: ${error.message}`);
-    }
-  }
-  async translate(prompt = "Men", lang = "id") {
-    try {
-      const body = JSON.stringify({
-        userPrompt: prompt,
-        targetLanguage: lang,
-        page: "image-prompt-generator"
-      });
-      const response = await fetch(`${this.baseUrl}/translate`, {
-        method: "POST",
-        headers: this.headers,
-        body: body
-      });
-      return await response.json();
-    } catch (error) {
-      throw new Error(`Translate prompt failed: ${error.message}`);
+      console.error("Error generating prompt:", error);
+      throw error;
     }
   }
 }
 export default async function handler(req, res) {
-  const {
-    method
-  } = req;
   const params = req.method === "GET" ? req.query : req.body;
-  const {
-    action,
-    url,
-    model,
-    lang,
-    prompt,
-    detail
-  } = params;
-  const imagePrompt = new ImagePrompt();
+  if (!params.imageUrl) {
+    return res.status(400).json({
+      error: "imageUrl are required"
+    });
+  }
   try {
-    let result;
-    switch (method) {
-      case "POST":
-      case "GET": {
-        switch (action) {
-          case "image":
-            result = await imagePrompt.image(url, model, lang);
-            break;
-          case "text":
-            result = await imagePrompt.text(prompt);
-            break;
-          case "edit":
-            result = await imagePrompt.edit(prompt, detail);
-            break;
-          case "translate":
-            result = await imagePrompt.translate(prompt, lang);
-            break;
-          default:
-            return res.status(400).json({
-              error: "Action not supported"
-            });
-        }
-        return res.status(200).json(result);
-      }
-      default:
-        return res.status(405).json({
-          error: "Method not allowed"
-        });
-    }
+    const describer = new ImagePromptGenerator();
+    const response = await describer.generatePrompt(params);
+    return res.status(200).json(response);
   } catch (error) {
-    console.error(error);
-    return res.status(500).json({
-      error: "Internal Server Error",
-      details: error.message
+    res.status(500).json({
+      error: error.message || "Internal Server Error"
     });
   }
 }

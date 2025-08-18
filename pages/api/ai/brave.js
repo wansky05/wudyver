@@ -69,7 +69,7 @@ class BraveSearchAPI {
       texts.push(this.unescapeString(buffer.join("\n")));
     }
     return {
-      result: texts.join("\n"),
+      result: texts.join(""),
       ...jsons
     };
   }

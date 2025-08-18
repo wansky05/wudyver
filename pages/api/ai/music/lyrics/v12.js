@@ -46,7 +46,7 @@ class TypliLyricsGenerator {
       const lyrics = this._parseResponse(response.data);
       return {
         success: true,
-        lyrics: lyrics
+        result: lyrics
       };
     } catch (error) {
       return {

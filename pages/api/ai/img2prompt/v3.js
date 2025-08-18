@@ -1,113 +1,96 @@
 import axios from "axios";
-import {
-  FormData,
-  Blob
-} from "formdata-node";
-class ImageDescriber {
+class AIPromptGenerator {
   constructor() {
-    this.apiUrl = "https://imagedescriber.app/api/freeprompt";
-    this.headers = {
+    this.baseUrl = "https://wabpfqsvdkdjpjjkbnok.supabase.co/functions/v1";
+    this.defaultHeaders = {
       accept: "*/*",
       "accept-language": "id-ID,id;q=0.9",
-      origin: "https://imagedescriber.app",
+      "content-type": "application/json",
+      origin: "https://generateprompt.ai",
       priority: "u=1, i",
-      referer: "https://imagedescriber.app/image-to-prompt",
-      "sec-ch-ua": '"Chromium";v="131", "Not_A Brand";v="24", "Microsoft Edge Simulate";v="131", "Lemur";v="131"',
+      referer: "https://generateprompt.ai/",
+      "sec-ch-ua": '"Lemur";v="135", "", "", "Microsoft Edge Simulate";v="135"',
       "sec-ch-ua-mobile": "?1",
       "sec-ch-ua-platform": '"Android"',
       "sec-fetch-dest": "empty",
       "sec-fetch-mode": "cors",
-      "sec-fetch-site": "same-origin",
-      "user-agent": "Mozilla/5.0 (Linux; Android 10; K) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Mobile Safari/537.36"
+      "sec-fetch-site": "cross-site",
+      "user-agent": "Mozilla/5.0 (Linux; Android 10; K) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/135.0.0.0 Mobile Safari/537.36",
+      authorization: "Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6IndhYnBmcXN2ZGtkanBqamtibm9rIiwicm9sZSI6ImFub24iLCJpYXQiOjE3MzczNjk5MjEsImV4cCI6MjA1Mjk0NTkyMX0.wGGq1SWLIRELdrntLntBz-QH-JxoHUdz8Gq-0ha-4a4"
     };
   }
-  async fetchImageBuffer(imageUrl) {
+  async getImageBase64(imageUrl) {
     try {
-      const res = await axios.get(imageUrl, {
+      const response = await axios.get(imageUrl, {
         responseType: "arraybuffer"
       });
-      if (!res.data) throw new Error("Gagal mengunduh gambar");
-      return res.data;
+      const contentType = response.headers["content-type"] || "image/jpeg";
+      const base64 = Buffer.from(response.data).toString("base64");
+      return `data:${contentType};base64,${base64}`;
     } catch (error) {
-      console.error("Gagal mengambil gambar:", error.message);
-      return null;
+      console.error("Error fetching image:", error);
+      throw error;
     }
   }
-  async describeImage(imageUrl, lang = "en") {
+  _parse(rawData) {
     try {
-      const buffer = await this.fetchImageBuffer(imageUrl);
-      if (!buffer) return null;
-      const blob = new Blob([buffer], {
-        type: "image/jpeg"
-      });
-      const form = new FormData();
-      form.append("file", blob, "image.jpg");
-      form.append("lang", lang);
-      const response = await axios.post(this.apiUrl, form, {
-        headers: {
-          ...this.headers
-        }
-      });
-      return this.parseResponse(response.data);
-    } catch (error) {
-      console.error("Gagal mendapatkan deskripsi:", error.message);
-      return null;
-    }
-  }
-  parseResponse(rawData) {
-    try {
-      const jsonMatches = rawData.match(/\{.*?\}/g);
-      if (!jsonMatches) throw new Error("Format data tidak valid");
-      let imageUrl = null;
-      let sd = "";
-      let mj = "";
-      let ct = "";
-      jsonMatches.forEach(jsonStr => {
+      const lines = rawData.split("\n").filter(line => line.startsWith("data: ") && !line.includes("[DONE]"));
+      let fullResponse = "";
+      for (const line of lines) {
         try {
-          const parsed = JSON.parse(jsonStr);
-          if (parsed.input_image_url) imageUrl = parsed.input_image_url;
-          if (parsed.sd) sd += parsed.sd;
-          if (parsed.mj) mj += parsed.mj;
-          if (parsed.ct) ct += parsed.ct;
+          const jsonStr = line.replace("data: ", "").trim();
+          const data = JSON.parse(jsonStr);
+          const content = data.choices?.[0]?.delta?.content || "";
+          fullResponse += content;
         } catch (e) {
-          console.error("Gagal parse JSON:", jsonStr);
+          console.error("Error parsing chunk:", e);
         }
-      });
+      }
       return {
-        url: imageUrl,
-        sd: sd.trim(),
-        mj: mj.trim(),
-        ct: ct.trim()
+        result: fullResponse.trim()
       };
     } catch (error) {
-      console.error("Gagal memproses output:", error.message);
-      return null;
+      console.error("Error parsing response:", error);
+      return "";
+    }
+  }
+  async generatePrompt({
+    imageUrl: image,
+    prompt,
+    language = "en"
+  }) {
+    try {
+      const imageBase64 = typeof image === "string" && image.startsWith("http") ? await this.getImageBase64(image) : image;
+      const payload = {
+        prompt: prompt || "Generate only a detailed prompt that could be used to recreate this image using AI image generation models. Focus on describing the visual elements, style, composition, lighting, and any notable details. Do not include any comments, explanations, or additional text - only provide the prompt itself.",
+        feature: "image-to-prompt-en",
+        language: language,
+        image: imageBase64
+      };
+      const response = await axios.post(`${this.baseUrl}/unified-prompt`, payload, {
+        headers: this.defaultHeaders
+      });
+      return this._parse(response.data);
+    } catch (error) {
+      console.error("Error generating prompt:", error);
+      throw error;
     }
   }
 }
 export default async function handler(req, res) {
-  const {
-    url: imageUrl,
-    lang = "en"
-  } = req.method === "GET" ? req.query : req.body;
-  if (!imageUrl) {
-    console.log("⛔ URL gambar tidak ditemukan.");
+  const params = req.method === "GET" ? req.query : req.body;
+  if (!params.imageUrl) {
     return res.status(400).json({
-      error: "Parameter url harus diisi!"
+      error: "imageUrl are required"
     });
   }
-  const describer = new ImageDescriber();
   try {
-    console.log("🚀 Memulai proses deskripsi gambar...");
-    const result = await describer.describeImage(imageUrl, lang);
-    console.log("✅ Proses deskripsi selesai.");
-    return res.status(200).json({
-      result: result
-    });
+    const describer = new AIPromptGenerator();
+    const response = await describer.generatePrompt(params);
+    return res.status(200).json(response);
   } catch (error) {
-    console.error("❌ Terjadi kesalahan saat memproses deskripsi gambar:", error);
-    return res.status(500).json({
-      error: "Terjadi kesalahan dalam proses deskripsi gambar."
+    res.status(500).json({
+      error: error.message || "Internal Server Error"
     });
   }
 }

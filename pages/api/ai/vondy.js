@@ -65,13 +65,15 @@ class VondyChat {
       let result = "";
       for (const event of data.split("\n")) {
         if (!event.startsWith("data:")) continue;
-        const content = event.slice(6);
+        const content = event.slice(5).trim();
         if (!content) continue;
         try {
           const parsed = JSON.parse(content);
-          if (parsed?.content) result += parsed.content;
+          if (parsed?.content) {
+            result += parsed.content.replace(/\\n/g, "\n");
+          }
         } catch {
-          result += content;
+          result += content.replace(/\\n/g, "\n");
         }
       }
       return {

@@ -1,4 +1,5 @@
 import axios from "axios";
+import SpoofHead from "@/lib/spoof-head";
 class ImageDescriber {
   constructor() {
     this.apiUrl = "https://www.chat-mentor.com/api/ai/image-to-text/";
@@ -15,7 +16,8 @@ class ImageDescriber {
           "content-type": "application/json",
           origin: "https://www.chat-mentor.com",
           referer: "https://www.chat-mentor.com/features/image-to-prompt/",
-          "user-agent": "Mozilla/5.0 (Linux; Android 10; K) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Mobile Safari/537.36"
+          "user-agent": "Mozilla/5.0 (Linux; Android 10; K) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Mobile Safari/537.36",
+          ...SpoofHead()
         }
       });
       return response.data;

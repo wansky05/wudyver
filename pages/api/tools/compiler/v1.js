@@ -59,7 +59,7 @@ class Rextester {
       clojure: 47
     };
   }
-  async runCode({
+  async run({
     code = 'print("Hello, world!")',
     lang = "python3"
   }) {
@@ -94,9 +94,14 @@ class Rextester {
 }
 export default async function handler(req, res) {
   const params = req.method === "GET" ? req.query : req.body;
+  if (!params.code) {
+    return res.status(400).json({
+      error: `Missing required field: code (required for action)`
+    });
+  }
   const rextester = new Rextester();
   try {
-    const data = await rextester.runCode(params);
+    const data = await rextester.run(params);
     return res.status(200).json(data);
   } catch (error) {
     res.status(500).json({

@@ -95,6 +95,11 @@ export default async function handler(req, res) {
       lang: language = "javascript",
       service = "2"
   } = method === "POST" ? req.body : req.query;
+  if (!code) {
+    return res.status(400).json({
+      error: `Missing required field: code (required for action)`
+    });
+  }
   const compiler = new CodeCompiler();
   try {
     const result = service === "1" ? await compiler.runoob(code, language) : service === "2" ? await compiler.leez(code) : res.status(400).json({

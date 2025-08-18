@@ -48,11 +48,11 @@ class Kodepos {
       if (kode === null && index === null && detail === null) {
         return {
           message: "Silakan masukkan kode pos terlebih dahulu",
-          usage: "await kodepos.search({ kode: '12345' }) // untuk mencari kode pos dengan detail lengkap semua hasil",
+          usage: "/api/kodepos?kode=12345 // untuk mencari kode pos dengan detail lengkap semua hasil",
           example: {
-            searchWithAllDetails: "await kodepos.search({ kode: '12345' })",
-            selectSpecificIndex: "await kodepos.search({ kode: '12345', index: 1 })",
-            getSpecificDetail: "await kodepos.search({ kode: '12345', index: 1, detail: 1 })"
+            searchWithAllDetails: "/api/kodepos?kode=12345",
+            selectSpecificIndex: "/api/kodepos?kode=12345&index=1",
+            getSpecificDetail: "/api/kodepos?kode=12345&index=1&detail=1"
           }
         };
       }
@@ -71,8 +71,8 @@ class Kodepos {
         return {
           ...selectedResult,
           message: "Pilih detail untuk melihat informasi lengkap",
-          nextUsage: `await kodepos.search({ kode: "${kode}", index: ${index}, detail: 1 })`,
-          example: `await kodepos.search({ kode: "${kode}", index: ${index}, detail: 1 })`
+          nextUsage: `/api/kodepos?kode=${kode}&index=${index}&detail=1`,
+          example: `/api/kodepos?kode=${kode}&index=${index}&detail=1`
         };
       }
       if (kode !== null && index !== null && detail !== null) {
@@ -260,20 +260,41 @@ class Kodepos {
     const kodepos = kodepos_link.text().trim();
     const detail_cell = $(cells[2]);
     const detail_text = detail_cell.text();
-    const desa_match = detail_text.match(/Ds\.\s*([^•]+)/);
-    const kec_match = detail_text.match(/Kec\.\s*([^•]+)/);
-    const kab_match = detail_text.match(/Kab\.\s*([^•]+)/);
-    const prov_match = detail_text.match(/Prov\.\s*([^•]+)/);
-    const kode_wilayah_match = detail_text.match(/Kode Wilayah:\s*([0-9.]+)/);
+    let desa = null,
+      kecamatan = null,
+      kabupaten = null,
+      provinsi = null;
+    const desaIndex = detail_text.indexOf("Ds.");
+    if (desaIndex !== -1) {
+      const endIndex = detail_text.indexOf("•", desaIndex);
+      desa = endIndex !== -1 ? detail_text.substring(desaIndex + 3, endIndex).trim() : detail_text.substring(desaIndex + 3).trim();
+    }
+    const kecIndex = detail_text.indexOf("Kec.");
+    if (kecIndex !== -1) {
+      const endIndex = detail_text.indexOf("•", kecIndex);
+      kecamatan = endIndex !== -1 ? detail_text.substring(kecIndex + 4, endIndex).trim() : detail_text.substring(kecIndex + 4).trim();
+    }
+    const kabIndex = detail_text.indexOf("Kab.");
+    if (kabIndex !== -1) {
+      const endIndex = detail_text.indexOf("•", kabIndex);
+      kabupaten = endIndex !== -1 ? detail_text.substring(kabIndex + 4, endIndex).trim() : detail_text.substring(kabIndex + 4).trim();
+    }
+    const provIndex = detail_text.indexOf("Prov.");
+    if (provIndex !== -1) {
+      const endIndex = detail_text.indexOf("•", provIndex);
+      provinsi = endIndex !== -1 ? detail_text.substring(provIndex + 5, endIndex).trim().replace(/\s+/g, " ") : detail_text.substring(provIndex + 5).trim().replace(/\s+/g, " ");
+    }
+    const kodeWilayahMatch = detail_text.match(/Kode Wilayah:\s*([0-9.]+)/);
+    const kode_wilayah = kodeWilayahMatch ? kodeWilayahMatch[1].trim() : null;
     return {
       index: index,
       no: no,
       kodepos: kodepos,
-      desa: desa_match ? desa_match[1].trim() : null,
-      kecamatan: kec_match ? kec_match[1].trim() : null,
-      kabupaten: kab_match ? kab_match[1].trim() : null,
-      provinsi: prov_match ? prov_match[1].trim().replace(/\s+/g, " ") : null,
-      kode_wilayah: kode_wilayah_match ? kode_wilayah_match[1].trim() : null
+      desa: desa,
+      kecamatan: kecamatan,
+      kabupaten: kabupaten,
+      provinsi: provinsi,
+      kode_wilayah: kode_wilayah
     };
   }
   async _get_detail(name, parent_name = null, grandparent_name = null, type) {
@@ -318,7 +339,7 @@ class Kodepos {
       for (let i = 0; i < tables.length; i++) {
         const table = $(tables[i]);
         const text = table.text();
-        if (text.includes("Kode POS") && text.includes("Kode Wilayah")) {
+        if (text.indexOf("Kode POS") !== -1 && text.indexOf("Kode Wilayah") !== -1) {
           info_table = table;
           break;
         }
@@ -331,7 +352,7 @@ class Kodepos {
       for (let i = 0; i < tables.length; i++) {
         const table = $(tables[i]);
         const text = table.text();
-        if (text.length > largestSize && (text.includes(name) || text.includes("Kode POS"))) {
+        if (text.length > largestSize && (text.indexOf(name) !== -1 || text.indexOf("Kode POS") !== -1)) {
           largest = table;
           largestSize = text.length;
         }
@@ -346,20 +367,57 @@ class Kodepos {
   _parse_detail_table(table, $, type) {
     const text = table.text();
     const extract_text_after = pattern => {
-      const match = text.match(new RegExp(pattern + "\\s*:?\\s*([^•\\n]+)", "i"));
-      return match ? match[1].trim().replace(/\s+/g, " ") : null;
+      const index = text.indexOf(pattern);
+      if (index === -1) return null;
+      let start = index + pattern.length;
+      while (start < text.length && (text[start] === ":" || text[start] === " ")) {
+        start++;
+      }
+      let end = text.indexOf("\n", start);
+      if (end === -1) end = text.indexOf("•", start);
+      if (end === -1) end = text.length;
+      return text.substring(start, end).trim().replace(/\s+/g, " ");
     };
     const extract_number = pattern => {
-      const match = text.match(new RegExp(pattern + "\\s*:?\\s*([0-9.,]+)", "i"));
-      return match ? match[1].replace(/[^0-9]/g, "") : null;
+      const index = text.indexOf(pattern);
+      if (index === -1) return null;
+      let start = index + pattern.length;
+      while (start < text.length && (text[start] === ":" || text[start] === " ")) {
+        start++;
+      }
+      let end = start;
+      while (end < text.length && /\d|\.|,/.test(text[end])) {
+        end++;
+      }
+      const numStr = text.substring(start, end).replace(/[^0-9]/g, "");
+      return numStr || null;
     };
     let nama = table.find("a.ktv font, a.ktv").first().text().trim();
     if (!nama) {
-      const title_patterns = [new RegExp(`(?:Kelurahan|Desa)\\s*:\\s*([^\\n•]+)`, "i"), new RegExp(`Kecamatan\\s+([^\\n•]+)`, "i"), new RegExp(`Kabupaten\\s+([^\\n•]+)`, "i"), new RegExp(`Provinsi\\s+([^\\n•]+)`, "i")];
-      for (const pattern of title_patterns) {
-        const match = text.match(pattern);
-        if (match) {
-          nama = match[1].trim();
+      const patterns = [{
+        prefix: "Kelurahan:",
+        offset: 10
+      }, {
+        prefix: "Desa:",
+        offset: 5
+      }, {
+        prefix: "Kecamatan",
+        offset: 10
+      }, {
+        prefix: "Kabupaten",
+        offset: 10
+      }, {
+        prefix: "Provinsi",
+        offset: 9
+      }];
+      for (const pattern of patterns) {
+        const index = text.indexOf(pattern.prefix);
+        if (index !== -1) {
+          let start = index + pattern.offset;
+          let end = text.indexOf("\n", start);
+          if (end === -1) end = text.indexOf("•", start);
+          if (end === -1) end = text.length;
+          nama = text.substring(start, end).trim();
           break;
         }
       }
@@ -368,48 +426,58 @@ class Kodepos {
       jenis: type,
       nama: nama,
       kodepos: table.find("a.ktv").filter((i, el) => /^\d+$/.test($(el).text().trim())).first().text().trim(),
-      kode_wilayah: extract_text_after("Kode Wilayah(?:\\s+Administrasi)?")
+      kode_wilayah: extract_text_after("Kode Wilayah Administrasi") || extract_text_after("Kode Wilayah")
     };
     switch (type) {
       case "desa":
         result.kecamatan = extract_text_after("Kecamatan");
-        result.kabupaten = extract_text_after("Kab\\.");
+        result.kabupaten = extract_text_after("Kab.");
         result.provinsi = extract_text_after("Provinsi");
         break;
       case "kecamatan":
         result.kabupaten = extract_text_after("Kabupaten");
         result.provinsi = extract_text_after("Provinsi");
-        result.jumlah_desa = extract_number("Jumlah\\s+(?:Desa|Kelurahan)");
+        result.jumlah_desa = extract_number("Jumlah Desa") || extract_number("Jumlah Kelurahan");
         break;
       case "kabupaten":
         result.provinsi = extract_text_after("di Provinsi");
-        result.jumlah_kecamatan = extract_number("Jumlah\\s+Kecamatan");
-        result.jumlah_desa = extract_number("Jumlah\\s+(?:Desa|Kelurahan)");
-        result.luas_wilayah = extract_text_after("Luas\\s+Wilayah");
-        result.jumlah_penduduk = extract_text_after("Jumlah\\s+Penduduk");
-        const range_patterns = [/Range\s+Realita.*?Kode\s+POS.*?:\s*([0-9]+)\s*[―\-–]\s*([0-9]+)/i, /Range.*?Kode\s+POS.*?:\s*([0-9]+)\s*[―\-–]\s*([0-9]+)/i, /Kode\s+POS.*?:\s*([0-9]+)\s*[―\-–]\s*([0-9]+)/i];
-        for (const pattern of range_patterns) {
-          const match = text.match(pattern);
-          if (match) {
-            result.range_kodepos = `${match[1]} - ${match[2]}`;
-            break;
+        result.jumlah_kecamatan = extract_number("Jumlah Kecamatan");
+        result.jumlah_desa = extract_number("Jumlah Desa") || extract_number("Jumlah Kelurahan");
+        result.luas_wilayah = extract_text_after("Luas Wilayah");
+        result.jumlah_penduduk = extract_text_after("Jumlah Penduduk");
+        const rangePrefix = "Range Realita Kode POS:";
+        const rangeIndex = text.indexOf(rangePrefix);
+        if (rangeIndex !== -1) {
+          const rangeStart = rangeIndex + rangePrefix.length;
+          const rangeEnd = text.indexOf("\n", rangeStart);
+          const rangeText = rangeEnd !== -1 ? text.substring(rangeStart, rangeEnd).trim() : text.substring(rangeStart).trim();
+          const rangeMatch = rangeText.match(/(\d+)\s*[―\-–]\s*(\d+)/);
+          if (rangeMatch) {
+            result.range_kodepos = `${rangeMatch[1]} - ${rangeMatch[2]}`;
           }
         }
         break;
       case "provinsi":
         result.ibukota = extract_text_after("Ibukota");
-        result.jumlah_kab_kota = extract_number("Jumlah\\s+(?:Kota|Kabupaten)");
-        result.jumlah_kecamatan = extract_number("Jumlah\\s+Kecamatan");
-        result.jumlah_desa = extract_number("Jumlah\\s+(?:Desa|Kelurahan)");
-        result.jumlah_pulau = extract_number("Pulau.*?punya nama");
-        result.luas_wilayah = extract_text_after("Luas\\s+Wilayah");
-        result.jumlah_penduduk = extract_text_after("Jumlah\\s+Penduduk");
-        const prov_range_patterns = [/Range\s+Realita.*?Kode\s+POS.*?:\s*([0-9]+)\s*[‒―\-–]\s*([0-9]+)\s+dan\s+([0-9]+)\s*[‒―\-–]\s*([0-9]+)/i, /Kode\s+POS.*?:\s*([0-9]+)\s*[‒―\-–]\s*([0-9]+)\s+dan\s+([0-9]+)\s*[‒―\-–]\s*([0-9]+)/i, /([0-9]+)\s*[‒―\-–]\s*([0-9]+)\s+dan\s+([0-9]+)\s*[‒―\-–]\s*([0-9]+)/];
-        for (const pattern of prov_range_patterns) {
-          const match = text.match(pattern);
-          if (match) {
-            result.range_kodepos = `${match[1]} - ${match[2]} dan ${match[3]} - ${match[4]}`;
-            break;
+        result.jumlah_kab_kota = extract_number("Jumlah Kota") || extract_number("Jumlah Kabupaten");
+        result.jumlah_kecamatan = extract_number("Jumlah Kecamatan");
+        result.jumlah_desa = extract_number("Jumlah Desa") || extract_number("Jumlah Kelurahan");
+        result.jumlah_pulau = extract_number("Pulau punya nama");
+        result.luas_wilayah = extract_text_after("Luas Wilayah");
+        result.jumlah_penduduk = extract_text_after("Jumlah Penduduk");
+        const provRangePrefix = "Range Realita Kode POS:";
+        const provRangeIndex = text.indexOf(provRangePrefix);
+        if (provRangeIndex !== -1) {
+          const provRangeStart = provRangeIndex + provRangePrefix.length;
+          const provRangeEnd = text.indexOf("\n", provRangeStart);
+          const provRangeText = provRangeEnd !== -1 ? text.substring(provRangeStart, provRangeEnd).trim() : text.substring(provRangeStart).trim();
+          const rangeParts = provRangeText.split(/\s+dan\s+/);
+          if (rangeParts.length === 2) {
+            const range1 = rangeParts[0].match(/(\d+)\s*[‒―\-–]\s*(\d+)/);
+            const range2 = rangeParts[1].match(/(\d+)\s*[‒―\-–]\s*(\d+)/);
+            if (range1 && range2) {
+              result.range_kodepos = `${range1[1]} - ${range1[2]} dan ${range2[1]} - ${range2[2]}`;
+            }
           }
         }
         break;

@@ -22,7 +22,7 @@ class Compiler {
       length: 10
     }, () => chars.charAt(Math.floor(Math.random() * chars.length))).join("");
   }
-  async compile({
+  async run({
     code = jsCode,
     lang = "javascript"
   }) {
@@ -67,9 +67,14 @@ code: code
 }
 export default async function handler(req, res) {
   const params = req.method === "GET" ? req.query : req.body;
+  if (!params.code) {
+    return res.status(400).json({
+      error: `Missing required field: code (required for action)`
+    });
+  }
   const myCompiler = new Compiler();
   try {
-    const data = await myCompiler.compile(params);
+    const data = await myCompiler.run(params);
     return res.status(200).json({
       result: data
     });
