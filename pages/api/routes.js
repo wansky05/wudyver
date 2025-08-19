@@ -466,6 +466,7 @@ export default function handler(req, res) {
     { path: "/api/ai/textie", name: "Textie", params: [{ "name": "prompt", "in": "query", "required": false }], },
     { path: "/api/ai/h2o", name: "H2o", params: [{ "name": "prompt", "in": "query", "required": false }], },
     { path: "/api/ai/uncovr", name: "Uncovr", params: [{ "name": "prompt", "in": "query", "required": false }], },
+    { path: "/api/ai/pixverse", name: "Pixverse", params: [{ "name": "prompt", "in": "query", "required": false }], },
     { path: "/api/anime/baca-komik/v1", name: "V1", params: [{ "name": "prompt", "in": "query", "required": false }], },
     { path: "/api/anime/baca-komik/v2", name: "V2", params: [{ "name": "prompt", "in": "query", "required": false }], },
     { path: "/api/anime/kiryuu/v1", name: "V1", params: [{ "name": "prompt", "in": "query", "required": false }], },

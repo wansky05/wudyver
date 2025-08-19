@@ -68,6 +68,7 @@
     "awesome-phonenumber": "latest",
     "axios": "^1.8.4",
     "axios-cookiejar-support": "^5.0.5",
+    "ali-oss": "latest",
     "cainode": "latest",
     "canvafy": "latest",
     "chalk": "latest",

@@ -22,9 +22,9 @@ class PaxsenixBypass {
           "Content-Type": "application/json"
         }
       });
-      if (response.data.turnstile_result) {
+      if (response.data.solution_token) {
         return {
-          token: response.data.turnstile_result
+          token: response.data.solution_token
         };
       }
       throw new Error("Tidak ada turnstile_result dalam response");
