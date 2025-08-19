@@ -1,19 +1,19 @@
-const PASSWORD = process.env.NEXT_PUBLIC_PASSWORD || "";
-const MONGODB_URI = process.env.NEXT_PUBLIC_MONGODB_URI || "";
-const DOMAIN_URL = process.env.NEXT_PUBLIC_DOMAIN_URL || "wudysoft.xyz";
-const DOMAIN_CF = process.env.NEXT_PUBLIC_DOMAIN_CF || "api.paxsenix.biz.id";
-const DOMAIN_KOYEB = process.env.NEXT_PUBLIC_DOMAIN_KOYEB || "wudysoft.koyeb.app";
-const DOMAIN_VERCEL = process.env.NEXT_PUBLIC_DOMAIN_VERCEL || "koyeb-api-wudy-team.vercel.app";
-const EMAIL = process.env.NEXT_PUBLIC_EMAIL || "wudysoft@mail.com";
-const LIMIT_POINTS = process.env.NEXT_PUBLIC_LIMIT_POINTS || 30;
-const LIMIT_DURATION = process.env.NEXT_PUBLIC_LIMIT_DURATION || 60;
-const JWT_SECRET = process.env.NEXTAUTH_SECRET || "";
-const GOOGLE_CLIENT_ID = process.env.GOOGLE_CLIENT_ID || "";
-const GOOGLE_CLIENT_SECRET = process.env.GOOGLE_CLIENT_SECRET || "";
-const GITHUB_ID = process.env.GITHUB_ID || "";
-const GITHUB_SECRET = process.env.GITHUB_SECRET || "";
-const SONIVA_KEY = process.env.NEXT_PUBLIC_SONIVA_KEY || "";
-const SUNOAPI_KEY = process.env.NEXT_PUBLIC_SUNOAPI_KEY || "";
+const PASSWORD = process.env.MY_PASSWORD || "";
+const MONGODB_URI = process.env.MY_MONGODB_URI || "";
+const DOMAIN_URL = process.env.MY_DOMAIN_URL || "wudysoft.xyz";
+const DOMAIN_CF = process.env.MY_DOMAIN_CF || "api.paxsenix.biz.id";
+const DOMAIN_KOYEB = process.env.MY_DOMAIN_KOYEB || "wudysoft.koyeb.app";
+const DOMAIN_VERCEL = process.env.MY_DOMAIN_VERCEL || "koyeb-api-wudy-team.vercel.app";
+const EMAIL = process.env.MY_EMAIL || "wudysoft@mail.com";
+const LIMIT_POINTS = process.env.MY_LIMIT_POINTS || 30;
+const LIMIT_DURATION = process.env.MY_LIMIT_DURATION || 60;
+const JWT_SECRET = process.env.MY_NEXTAUTH_SECRET || "";
+const GOOGLE_CLIENT_ID = process.env.MY_GOOGLE_CLIENT_ID || "";
+const GOOGLE_CLIENT_SECRET = process.env.MY_GOOGLE_CLIENT_SECRET || "";
+const GITHUB_ID = process.env.MY_GITHUB_ID || "";
+const GITHUB_SECRET = process.env.MY_GITHUB_SECRET || "";
+const SONIVA_KEY = process.env.MY_SONIVA_KEY || "";
+const SUNOAPI_KEY = process.env.MY_SUNOAPI_KEY || "";
 const apiConfig = {
   PASSWORD: PASSWORD,
   MONGODB_URI: MONGODB_URI,
@@ -36,7 +36,7 @@ const validateAllConfig = () => {
   let hasError = false;
   for (const key in apiConfig) {
     if (typeof apiConfig[key] === "string" && apiConfig[key].trim() === "") {
-      console.error(`FATAL CONFIG ERROR: ${key} is not defined. Please set it in your environment variables.`);
+      console.info(`FATAL CONFIG ERROR: ${key} is not defined. Please set it in your environment variables.`);
       hasError = true;
     }
   }

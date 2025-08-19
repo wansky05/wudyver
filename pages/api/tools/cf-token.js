@@ -4,68 +4,53 @@ class PaxsenixBypass {
   constructor(apiUrl) {
     this.apiUrl = apiUrl || `https://${apiConfig.DOMAIN_CF}/tools/`;
   }
-  getSolverEndpoint(type) {
-    const solvers = {
-      turnstile: "cf-turnstile-solver",
-      hcaptcha: "hcaptcha-invisible-solver",
-      recaptchav3: "recaptchav3-invis-solver"
-    };
-    return solvers[type] || "cf-turnstile-solver";
-  }
-  async run(params) {
+  async run({
+    url,
+    sitekey,
+    type = "turnstile",
+    ...rest
+  }) {
     try {
-      const {
-        url,
-        sitekey,
-        type = "turnstile",
-        ...rest
-      } = params;
-      const endpoint = this.getSolverEndpoint(type);
-      const fullUrl = `${this.apiUrl}${endpoint}`;
-      const queryParams = new URLSearchParams({
-        url: url,
-        sitekey: sitekey,
-        ...rest
-      });
-      const response = await axios.get(`${fullUrl}?${queryParams.toString()}`, {
+      const endpoint = {
+        turnstile: "cf-turnstile-solver",
+        hcaptcha: "hcaptcha-invisible-solver",
+        recaptchav3: "recaptchav3-invis-solver"
+      } [type] || "cf-turnstile-solver";
+      const response = await axios.get(`${this.apiUrl}${endpoint}?${new URLSearchParams({
+url: url,
+sitekey: sitekey,
+...rest
+})}`, {
         headers: {
           Authorization: "Bearer YOUR_API_KEY",
           "Content-Type": "application/json"
         }
       });
-      if (response.data.solution_token) {
-        return {
-          token: response.data.solution_token,
-          type: type
-        };
-      }
-      throw new Error("No solution_token found in response");
+      if (!response.data.solution_token) throw new Error("No solution_token found");
+      return {
+        token: response.data.solution_token,
+        type: type
+      };
     } catch (error) {
-      console.error("Failed to bypass CAPTCHA:", error.message);
-      throw new Error(`Failed to bypass ${type} CAPTCHA.`);
+      console.error(`Failed to bypass ${type} CAPTCHA:`, error.message);
+      throw new Error(`Failed to bypass ${type} CAPTCHA`);
     }
   }
 }
 export default async function handler(req, res) {
   const params = req.method === "GET" ? req.query : req.body;
-  if (!params.url) {
+  if (!params.url || !params.sitekey) {
     return res.status(400).json({
-      error: "Parameter 'url' is required."
-    });
-  }
-  if (!params.sitekey) {
-    return res.status(400).json({
-      error: "Parameter 'sitekey' is required."
+      error: "Parameters 'url' and 'sitekey' are required"
     });
   }
   try {
-    const bypasser = new PaxsenixBypass();
-    const response = await bypasser.run(params);
-    return res.status(200).json(response);
+    const response = await new PaxsenixBypass().run(params);
+    res.status(200).json(response);
   } catch (error) {
     console.error("Bypasser API Error:", error.message);
     res.status(500).json({
-      error: error.message || "Internal server error while processing CAPTCHA bypass."
+      error: error.message
     });
   }
 }
