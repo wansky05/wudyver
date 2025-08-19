@@ -69,35 +69,40 @@ export default async function handler(req, res) {
   } = req.method === "GET" ? req.query : req.body;
   const musix = new Musix();
   try {
-    if (action === "search") {
-      if (!query) return res.status(400).json({
-        error: "Query parameter is required for search."
-      });
-      const track = await musix.searchTrack(query);
-      return res.status(200).json({
-        result: track
-      });
+    switch (action) {
+      case "search":
+        if (!query) {
+          return res.status(400).json({
+            error: "Query parameter is required for search."
+          });
+        }
+        const track = await musix.searchTrack(query);
+        return res.status(200).json({
+          result: track
+        });
+      case "lyrics":
+        if (!id) {
+          return res.status(400).json({
+            error: "ID parameter is required for lyrics."
+          });
+        }
+        const lyrics = await musix.getLyrics(id);
+        return res.status(200).json({
+          result: lyrics
+        });
+      default:
+        if (query) {
+          const trackResult = await musix.searchTrack(query);
+          const lyricsResult = await musix.getLyrics(trackResult.id);
+          return res.status(200).json({
+            track: trackResult,
+            lyrics: lyricsResult
+          });
+        }
+        return res.status(400).json({
+          error: "Invalid request. Provide an action, query, or ID."
+        });
     }
-    if (action === "lyrics") {
-      if (!id) return res.status(400).json({
-        error: "ID parameter is required for lyrics."
-      });
-      const lyrics = await musix.getLyrics(id);
-      return res.status(200).json({
-        result: lyrics
-      });
-    }
-    if (query) {
-      const track = await musix.searchTrack(query);
-      const lyrics = await musix.getLyrics(track.id);
-      return res.status(200).json({
-        track: track,
-        lyrics: lyrics
-      });
-    }
-    return res.status(400).json({
-      error: "Invalid request. Provide an action, query, or ID."
-    });
   } catch (error) {
     console.error("Error handling request:", error.message);
     res.status(500).json({

@@ -54,38 +54,45 @@ export default async function handler(req, res) {
   } = req.method === "GET" ? req.query : req.body;
   const lirik = new Lirik();
   try {
-    if (action === "search") {
-      if (!query) return res.status(400).json({
-        error: "Query parameter is required for search."
-      });
-      const songs = await lirik.search(query);
-      return res.status(200).json({
-        result: songs
-      });
+    switch (action) {
+      case "search":
+        if (!query) {
+          return res.status(400).json({
+            error: "Query parameter is required for search."
+          });
+        }
+        const songs = await lirik.search(query);
+        return res.status(200).json({
+          result: songs
+        });
+      case "lyrics":
+        if (!url) {
+          return res.status(400).json({
+            error: "URL parameter is required for lyrics."
+          });
+        }
+        const lyrics = await lirik.lyrics(url);
+        return res.status(200).json({
+          result: lyrics
+        });
+      default:
+        if (query) {
+          const searchResults = await lirik.search(query);
+          if (searchResults.length === 0) {
+            return res.status(404).json({
+              error: "No songs found."
+            });
+          }
+          const songLyrics = await lirik.lyrics(searchResults[0].url);
+          return res.status(200).json({
+            song: searchResults[0],
+            lyrics: songLyrics
+          });
+        }
+        return res.status(400).json({
+          error: "Invalid request. Provide an action, query, or URL."
+        });
     }
-    if (action === "lyrics") {
-      if (!url) return res.status(400).json({
-        error: "URL parameter is required for lyrics."
-      });
-      const lyrics = await lirik.lyrics(url);
-      return res.status(200).json({
-        result: lyrics
-      });
-    }
-    if (query) {
-      const songs = await lirik.search(query);
-      if (songs.length === 0) return res.status(404).json({
-        error: "No songs found."
-      });
-      const lyrics = await lirik.lyrics(songs[0].url);
-      return res.status(200).json({
-        song: songs[0],
-        lyrics: lyrics
-      });
-    }
-    return res.status(400).json({
-      error: "Invalid request. Provide an action, query, or URL."
-    });
   } catch (error) {
     console.error("Error handling request:", error);
     res.status(500).json({

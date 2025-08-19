@@ -52,38 +52,46 @@ export default async function handler(req, res) {
   } = req.method === "GET" ? req.query : req.body;
   const lirik = new Lyrics();
   try {
-    if (action === "search") {
-      if (!query) return res.status(400).json({
-        error: "Query parameter is required for search."
-      });
-      const songs = await lirik.search(query);
-      return res.status(200).json({
-        result: songs
-      });
+    switch (action) {
+      case "search":
+        if (!query) {
+          return res.status(400).json({
+            error: "Query parameter is required for search."
+          });
+        }
+        const songs = await lirik.search(query);
+        return res.status(200).json({
+          result: songs
+        });
+      case "lyrics":
+        if (!(artist && title)) {
+          return res.status(400).json({
+            error: "Artist and title parameters are required for lyrics."
+          });
+        }
+        const lyrics = await lirik.lyrics(artist, title);
+        return res.status(200).json({
+          result: lyrics
+        });
+      default:
+        if (query) {
+          const searchResults = await lirik.search(query);
+          if (searchResults.length === 0) {
+            return res.status(404).json({
+              error: "No songs found."
+            });
+          }
+          const firstSong = searchResults[0];
+          const songLyrics = await lirik.lyrics(firstSong?.artist?.name, firstSong?.title);
+          return res.status(200).json({
+            song: firstSong,
+            lyrics: songLyrics
+          });
+        }
+        return res.status(400).json({
+          error: "Invalid request. Provide an action, query, or valid parameters."
+        });
     }
-    if (action === "lyrics") {
-      if (!(artist && title)) return res.status(400).json({
-        error: "Artist and title parameters are required for lyrics."
-      });
-      const lyrics = await lirik.lyrics(artist, title);
-      return res.status(200).json({
-        result: lyrics
-      });
-    }
-    if (query) {
-      const songs = await lirik.search(query);
-      if (songs.length === 0) return res.status(404).json({
-        error: "No songs found."
-      });
-      const lyrics = await lirik.lyrics(songs[0]?.artist?.name, songs[0]?.title);
-      return res.status(200).json({
-        song: songs[0],
-        lyrics: lyrics
-      });
-    }
-    return res.status(400).json({
-      error: "Invalid request. Provide an action, query, or valid parameters."
-    });
   } catch (error) {
     console.error("Error handling request:", error);
     return res.status(500).json({

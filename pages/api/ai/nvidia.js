@@ -27,7 +27,8 @@ class NvidiaChat {
       } = await axios.get(this.captchaUrl, {
         params: {
           url: "https://api.ngc.nvidia.com",
-          sitekey: this.siteKey
+          sitekey: this.siteKey,
+          type: "hcaptcha"
         }
       });
       this.captcha = data?.token;

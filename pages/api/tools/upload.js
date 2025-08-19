@@ -50,7 +50,7 @@ const createSpinner = text => ora({
   text: text,
   spinner: "moon"
 });
-const Provider = ["Catbox", "Doodstream", "Fexnet", "FileDitch", "Filebin", "Fileio", "Filezone", "FreeImage", "Gofile", "Gozic", "Hostfile", "Imgbb", "Kitc", "Kraken", "MediaUpload", "Eax", "Nullbyte", "Vello", "Lusia", "Pomf2", "Sazumi", "Sohu", "Gizai", "Sojib", "Instantiated", "BltokProject", "Maricon", "Nauval", "Supa", "Knowee", "Puticu", "Stylar", "Telegraph", "Tmpfiles", "Cloudmini", "Babup", "Transfersh", "Ucarecdn", "Uguu", "UploadEE", "Uploadify", "Videy", "ZippyShare", "Quax"];
+const Provider = ["Catbox", "Doodstream", "Fexnet", "FileDitch", "Filebin", "Fileio", "Filezone", "FreeImage", "Gofile", "Gozic", "Hostfile", "Imgbb", "Kitc", "Kraken", "MediaUpload", "Eax", "Nullbyte", "Vello", "Lusia", "Pomf2", "Sazumi", "Sohu", "Gizai", "Sojib", "Instantiated", "Exonity", "Zcy", "BltokProject", "Maricon", "Nauval", "Supa", "Knowee", "Puticu", "Stylar", "Telegraph", "Tmpfiles", "Cloudmini", "Babup", "Transfersh", "Ucarecdn", "Uguu", "UploadEE", "Uploadify", "Videy", "ZippyShare", "Quax"];
 class Uploader {
   constructor() {
     this.Provider = Provider;
@@ -794,6 +794,46 @@ class Uploader {
       spinner.succeed(chalk.green("Uploaded to Instantiated"));
       const result = await response.json();
       return result.url;
+    } catch (error) {
+      handleError(error, spinner);
+    }
+  }
+  async Exonity(content) {
+    const spinner = createSpinner("Uploading to Exonity").start();
+    try {
+      const {
+        formData
+      } = await createFormData(content, "file"), response = await fetch("https://exonity.tech/upload", {
+        method: "POST",
+        body: formData,
+        headers: {
+          "User-Agent": fakeUa()
+        }
+      });
+      spinner.succeed(chalk.green("Uploaded to Exonity"));
+      const result = await response.json();
+      return result.media_url || result.github_raw;
+    } catch (error) {
+      handleError(error, spinner);
+    }
+  }
+  async Zcy(content) {
+    const spinner = createSpinner("Uploading to Zcy").start();
+    try {
+      const {
+        formData
+      } = await createFormData(content, "c");
+      formData.append("e", "7d");
+      const response = await fetch("https://p.zcy.moe/", {
+        method: "POST",
+        body: formData,
+        headers: {
+          "User-Agent": fakeUa()
+        }
+      });
+      spinner.succeed(chalk.green("Uploaded to Zcy"));
+      const files = await response.json();
+      return files?.url || files?.admin;
     } catch (error) {
       handleError(error, spinner);
     }
