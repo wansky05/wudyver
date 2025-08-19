@@ -164,7 +164,7 @@ class PixVerseImg2Vid {
       }
       this.token = response.data.Resp.Result.Token;
       this.accountId = response.data.Resp.Result.AccountId;
-      this.headers["Token"] = this.token;<
+      this.headers["Token"] = this.token;
       this.log("REGISTER", "Account successfully registered", {
         accountId: this.accountId,
         username: this.username,
