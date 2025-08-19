@@ -106,7 +106,7 @@ export default async function handler(req, res) {
   try {
     const gemini = new Gemini();
     const response = await gemini.chat(params);
-    return res.status(200).json(result);
+    return res.status(200).json(response);
   } catch (error) {
     res.status(500).json({
       error: error.message || "Internal Server Error"

@@ -3,94 +3,115 @@ import * as cheerio from "cheerio";
 class InDown {
   constructor() {
     this.baseUrl = "https://indown.io";
+    this.headers = {
+      accept: "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8,application/signed-exchange;v=b3;q=0.7",
+      "accept-language": "id-ID,id;q=0.9",
+      "cache-control": "max-age=0",
+      "content-type": "application/x-www-form-urlencoded",
+      origin: this.baseUrl,
+      priority: "u=0, i",
+      "sec-ch-ua": '"Lemur";v="135", "", "", "Microsoft Edge Simulate";v="135"',
+      "sec-ch-ua-mobile": "?1",
+      "sec-ch-ua-platform": '"Android"',
+      "sec-fetch-dest": "document",
+      "sec-fetch-mode": "navigate",
+      "sec-fetch-site": "same-origin",
+      "sec-fetch-user": "?1",
+      "upgrade-insecure-requests": "1",
+      "user-agent": "Mozilla/5.0 (Linux; Android 10; K) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/135.0.0.0 Mobile Safari/537.36"
+    };
   }
-  async download(instagramLink) {
+  async download({
+    url
+  }) {
     try {
+      if (!url) {
+        throw new Error("URL parameter is required");
+      }
+      const endpoint = this.determineEndpoint(url);
+      const refererUrl = `${this.baseUrl}${endpoint}`;
       const {
         data: html,
         headers
-      } = await axios.get(`${this.baseUrl}/id`, {
+      } = await axios.get(refererUrl, {
+        headers: this.headers,
         withCredentials: true
       });
       const cookies = headers["set-cookie"].join("; ");
       const $ = cheerio.load(html);
-      const formAction = $("form#downloadForm").attr("action");
-      const inputValues = Object.fromEntries($("form#downloadForm input[name]").get().map(el => [$(el).attr("name"), $(el).val() || ""]));
-      inputValues.link = instagramLink;
+      const _token = $('input[name="_token"]').val();
+      const formData = new URLSearchParams();
+      formData.append("referer", refererUrl);
+      formData.append("locale", "id");
+      formData.append("_token", _token);
+      formData.append("link", url);
+      formData.append("t", this.getUrlType(url));
       const {
         data: responseData
-      } = await axios.post(formAction, new URLSearchParams(inputValues), {
+      } = await axios.post(`${this.baseUrl}/download`, formData, {
         headers: {
-          "Content-Type": "application/x-www-form-urlencoded",
-          Cookie: cookies
+          ...this.headers,
+          cookie: cookies,
+          referer: refererUrl
         },
         withCredentials: true
       });
       return this.extractMedia(responseData);
     } catch (error) {
-      console.error("Error on indown.io/id:", error);
-      console.log("Attempting to fetch from indown.io/es...");
-      return await this.downloadFallback(instagramLink);
-    }
-  }
-  async downloadFallback(instagramLink) {
-    try {
-      const res = await axios.get(`${this.baseUrl}/es`, {
-        headers: {
-          "sec-ch-ua": '"Chromium";v="128", "Not;A=Brand";v="24", "Google Chrome";v="128"',
-          "sec-ch-ua-mobile": "?0",
-          "sec-ch-ua-platform": '"Windows"',
-          "upgrade-insecure-requests": "1",
-          Referer: `${this.baseUrl}/es`,
-          "Referrer-Policy": "strict-origin-when-cross-origin"
-        }
-      });
-      const cookies = res.headers["set-cookie"]?.map(cookie => cookie.split(";")[0]).join("; ") || "";
-      const $ = cheerio.load(res.data);
-      const _token = $('input[name="_token"]').val();
-      const p = $('input[name="p"]').val();
-      const {
-        data: dlhtml
-      } = await axios.post(`${this.baseUrl}/download`, new URLSearchParams({
-        referer: `${this.baseUrl}/es`,
-        locale: "es",
-        p: p,
-        _token: _token,
-        link: instagramLink
-      }).toString(), {
-        headers: {
-          Accept: "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8",
-          "Content-Type": "application/x-www-form-urlencoded",
-          cookie: cookies,
-          Referer: `${this.baseUrl}/es`
-        }
-      });
-      return this.extractMedia(dlhtml);
-    } catch (error) {
-      console.error("Error on indown.io/es:", error);
+      console.error("Error on indown.io:", error);
       return {
         status: false,
         msg: error.message
       };
     }
   }
+  determineEndpoint(url) {
+    if (/\/stories\/[^/]+\/\d+/.test(url)) {
+      return "/insta-stories-download/id";
+    } else if (/\/(reels?\/[^/]+)/.test(url)) {
+      return "/reels/id";
+    } else if (/\/(p|tv)\/[^/]+/.test(url)) {
+      return "/id";
+    } else if (/\/highlights\/\d+/.test(url)) {
+      return "/instagram-highlights-download/id";
+    } else if (/\.(jpg|jpeg|png|mp4|mov)/i.test(url) || /scontent/.test(url)) {
+      return "/photo/id";
+    } else if (/\/\w+$/.test(url) && !url.includes("/p/") && !url.includes("/reel/")) {
+      return "/insta-dp-viewer/id";
+    } else {
+      return "/id";
+    }
+  }
+  getUrlType(url) {
+    if (/\/stories\/[^/]+\/\d+/.test(url)) return "i";
+    if (/\/(reels?\/[^/]+)/.test(url)) return "r";
+    if (/\/(p|tv)\/[^/]+/.test(url)) return "p";
+    if (/\/highlights\/\d+/.test(url)) return "h";
+    return "p";
+  }
   extractMedia(html) {
     const $ = cheerio.load(html);
-    const media = [];
-    $("div.mt-2.mb-2, div.mt-3").each((_, el) => {
-      const buttonTitle = $(el).find(".btn.btn-outline-primary").first().text().trim().replace(/\s+/g, " ");
-      const type = buttonTitle === "Descargar" ? "image" : buttonTitle.includes("Servidor") ? "video" : "";
-      const href = $(el).find("a").first().attr("href");
-      if (href) media.push({
-        type: type,
-        url: href
+    const result = [];
+    $("#result .col-md-4").each((_, el) => {
+      const container = $(el);
+      const isVideo = container.find("video").length > 0;
+      const type = isVideo ? "video" : "image";
+      const preview = isVideo ? container.find("video").attr("poster") : container.find("img").attr("src");
+      const media = [];
+      container.find(".btn-group-vertical a").each((_, btn) => {
+        media.push($(btn).attr("href"));
       });
-    });
-    return media.length > 0 ? {
-      status: true,
-      result: {
-        media: media
+      if (media.length > 0) {
+        result.push({
+          type: type,
+          preview: preview,
+          media: media
+        });
       }
+    });
+    return result.length > 0 ? {
+      status: true,
+      result: result
     } : {
       status: false,
       msg: "No results found."
@@ -98,16 +119,14 @@ class InDown {
   }
 }
 export default async function handler(req, res) {
-  const {
-    url
-  } = req.method === "GET" ? req.query : req.body;
-  if (!url) return res.status(400).json({
+  const params = req.method === "GET" ? req.query : req.body;
+  if (!params.url) return res.status(400).json({
     message: "No url provided"
   });
-  const inDown = new InDown();
+  const indown = new InDown();
   try {
-    const result = await inDown.download(url);
-    return res.status(200).json(typeof result === "object" ? result : result);
+    const result = await indown.download(params);
+    return res.status(200).json(result);
   } catch (error) {
     console.error("Error during media download:", error);
     return res.status(500).json({

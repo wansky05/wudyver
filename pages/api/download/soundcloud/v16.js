@@ -112,33 +112,6 @@ class SCloud {
       throw e;
     }
   }
-  async upload(buffer, filename = "file.bin") {
-    try {
-      const form = new FormData();
-      form.append("file", buffer, filename);
-      form.append("expireAfter", "24");
-      form.append("burn", "false");
-      const {
-        data: token
-      } = await axios.get("https://litter.lusia.moe/post/token", {
-        headers: {
-          "User-Agent": "Mozilla/5.0"
-        }
-      });
-      const {
-        data: res
-      } = await axios.post(`https://litter.lusia.moe/post/upload?token=${token?.token}`, form, {
-        headers: {
-          ...form.getHeaders(),
-          "User-Agent": "Mozilla/5.0"
-        }
-      });
-      return `https://litter.lusia.moe/${res.path}`;
-    } catch (e) {
-      console.error("upload error:", e.message);
-      throw e;
-    }
-  }
   async download({
     url
   }) {
@@ -146,14 +119,14 @@ class SCloud {
       console.log("processing:", url);
       const info = await this.submitUrl(url);
       const file = await this.getLink(info);
-      const mediaUrl = await this.upload(file.data, "sc.html");
+      const mediaUrl = file.data;
       return {
         meta: {
           title: info.title,
           artist: this.artist(info.title),
           image: info.image
         },
-        downloads: mediaUrl
+        downloads: mediaUrl.toString("base64")
       };
     } catch (e) {
       console.error("download error:", e.message);
@@ -162,7 +135,7 @@ class SCloud {
   }
   artist(title) {
     const parts = title.split("-").map(s => s.trim());
-    return parts[1] || "Unknown Artist";
+    return parts[1] || "-";
   }
 }
 export default async function handler(req, res) {

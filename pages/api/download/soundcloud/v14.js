@@ -109,9 +109,9 @@ class SoundCloudMP3 {
       console.log("Parsing result from HTML...");
       const info = $(".info.clearfix").eq(1);
       const pElements = info.find("p");
-      let title = "Unknown";
-      let duration = "00:00";
-      let quality = "Unknown";
+      let title = "-";
+      let duration = "-:-";
+      let quality = "-";
       pElements.each((i, el) => {
         const text = $(el).text();
         if (text.includes("Title:")) title = text.replace("Title:", "").trim();

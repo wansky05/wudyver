@@ -49,12 +49,34 @@ class InfotourneyScraper {
   cleanContent(content) {
     return content?.replace(/You need JavaScript enabled to view it\./g, "")?.replace(/document\.getElementById\(.*?\).*?;/g, "")?.replace(/\s+/g, " ")?.trim() || "";
   }
+  async getMenu() {
+    try {
+      const url = `${this.baseUrl}/`;
+      const {
+        menu
+      } = await this.fetchAndParse(url, {
+        Referer: `${this.baseUrl}/`
+      });
+      return {
+        success: true,
+        menu: menu || [],
+      };
+    } catch (error) {
+      console.error("Menu failed:", error.message);
+      return {
+        success: false,
+        error: error.message,
+        menu: [],
+        type: "menu_error"
+      };
+    }
+  }
   async search(params = {}) {
     try {
       const {
         query: searchword = "mobile legend",
         ordering = "newest",
-        searchphrase = "all",
+        phrase: searchphrase = "all",
         limit = 20,
         ...rest
       } = params;
