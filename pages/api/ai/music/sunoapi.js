@@ -6,17 +6,17 @@ class SunoAPI {
     this.baseUrl = "https://api.sunoapi.org/api/v1";
     this.token = apiConfig.SUNOAPI_KEY;
   }
-  enc(data) {
+  async enc(data) {
     const {
       uuid: jsonUuid
-    } = Encoder.enc({
+    } = await Encoder.enc({
       data: data,
       method: "combined"
     });
     return jsonUuid;
   }
-  dec(uuid) {
-    const decryptedJson = Encoder.dec({
+  async dec(uuid) {
+    const decryptedJson = await Encoder.dec({
       uuid: uuid,
       method: "combined"
     });
@@ -49,7 +49,7 @@ class SunoAPI {
         }
       });
       if (res.data.code !== 200) throw new Error(res.data.msg || "Failed to create task.");
-      const task_id = this.enc({
+      const task_id = await this.enc({
         token: this.token,
         taskId: res.data.data.taskId
       });
@@ -69,7 +69,7 @@ class SunoAPI {
       const {
         token,
         taskId
-      } = this.dec(task_id);
+      } = await this.dec(task_id);
       const res = await axios.get(`${this.baseUrl}/generate/record-info`, {
         headers: {
           Authorization: `Bearer ${token}`,

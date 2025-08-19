@@ -28,17 +28,17 @@ class Sonu {
     this.userId = null;
     this.fcmToken = "eqnTqlxMTSKQL5NQz6r5aP:APA91bHa3CvL5Nlcqx2yzpTDAeqxm_L_vIYxXqehkgmTsCXrV29eAak6_jqXv5v1mQrdw4BGMLXl_BFNrJ67Em0vmdr3hQPVAYF8kR7RDtTRHQ08F3jLRRI";
   }
-  enc(data) {
+  async enc(data) {
     const {
       uuid: jsonUuid
-    } = Encoder.enc({
+    } = await Encoder.enc({
       data: data,
       method: "combined"
     });
     return jsonUuid;
   }
-  dec(uuid) {
-    const decryptedJson = Encoder.dec({
+  async dec(uuid) {
+    const decryptedJson = await Encoder.dec({
       uuid: uuid,
       method: "combined"
     });
@@ -146,7 +146,7 @@ class Sonu {
         headers: header
       });
       const songId = response.data.id;
-      const task_id = this.enc({
+      const task_id = await this.enc({
         songId: songId,
         userId: this.userId
       });
@@ -173,7 +173,7 @@ class Sonu {
     await this._ensureRegistered();
     let decryptedData;
     try {
-      decryptedData = this.dec(task_id);
+      decryptedData = await this.dec(task_id);
     } catch (error) {
       return {
         success: false,

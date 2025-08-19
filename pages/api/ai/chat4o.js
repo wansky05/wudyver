@@ -54,17 +54,17 @@ class Chat4oClient {
       return Promise.reject(error);
     });
   }
-  enc(data) {
+  async enc(data) {
     const {
       uuid: jsonUuid
-    } = Encoder.enc({
+    } = await Encoder.enc({
       data: data,
       method: "combined"
     });
     return jsonUuid;
   }
-  dec(uuid) {
-    const decryptedJson = Encoder.dec({
+  async dec(uuid) {
+    const decryptedJson = await Encoder.dec({
       uuid: uuid,
       method: "combined"
     });
@@ -387,7 +387,7 @@ class Chat4oClient {
         sessionId: this.sessionId,
         token: this.bearerToken
       };
-      const encrypted_task_id = this.enc(textToEncrypt);
+      const encrypted_task_id = await this.enc(textToEncrypt);
       console.log("LOG: Task ID encrypted.");
       return {
         status: true,
@@ -404,7 +404,7 @@ class Chat4oClient {
     console.log(`LOG: Attempting to retrieve image result for encrypted task ID.`);
     let decryptedData;
     try {
-      const json = this.dec(encrypted_task_id);
+      const json = await this.dec(encrypted_task_id);
       if (!json) throw new Error("Failed to decrypt task_id (empty result).");
       decryptedData = json;
       console.log("LOG: Decrypted task data:", decryptedData);

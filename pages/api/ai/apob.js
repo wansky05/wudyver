@@ -29,17 +29,17 @@ class ApobAutomatedApi {
       }
     });
   }
-  enc(data) {
+  async enc(data) {
     const {
       uuid: jsonUuid
-    } = Encoder.enc({
+    } = await Encoder.enc({
       data: data,
       method: "combined"
     });
     return jsonUuid;
   }
-  dec(uuid) {
-    const decryptedJson = Encoder.dec({
+  async dec(uuid) {
+    const decryptedJson = await Encoder.dec({
       uuid: uuid,
       method: "combined"
     });
@@ -161,7 +161,7 @@ class ApobAutomatedApi {
         privateId: this.privateId,
         taskId: taskId
       };
-      const encryptedId = this.enc(encryptedData);
+      const encryptedId = await this.enc(encryptedData);
       return encryptedId;
     } catch (error) {
       const errorMessage = error.response?.data ? JSON.stringify(error.response.data, null, 2) : error.message;
@@ -176,7 +176,7 @@ class ApobAutomatedApi {
     previousMediaId = null
   } = {}) {
     console.log(`[LOG] Memeriksa status untuk ID tugas terenkripsi: ${task_id}`);
-    const decryptedData = this.dec(task_id);
+    const decryptedData = await this.dec(task_id);
     const {
       privateId,
       taskId

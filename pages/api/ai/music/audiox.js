@@ -36,17 +36,17 @@ class AudioXClient {
     const prefix = type === "error" ? "ERROR" : "INFO";
     console.log(`[${time}] [${prefix}] ${msg}`);
   }
-  enc(data) {
+  async enc(data) {
     const {
       uuid: jsonUuid
-    } = Encoder.enc({
+    } = await Encoder.enc({
       data: data,
       method: "combined"
     });
     return jsonUuid;
   }
-  dec(uuid) {
-    const decryptedJson = Encoder.dec({
+  async dec(uuid) {
+    const decryptedJson = await Encoder.dec({
       uuid: uuid,
       method: "combined"
     });
@@ -270,7 +270,7 @@ class AudioXClient {
           let currentSessionToken = this.sessionToken;
           if (rest.encryptedAuthInfo) {
             try {
-              const decryptedAuth = this.dec(rest.encryptedAuthInfo);
+              const decryptedAuth = await this.dec(rest.encryptedAuthInfo);
               if (decryptedAuth.userId && decryptedAuth.sessionToken) {
                 currentUserId = decryptedAuth.userId;
                 currentSessionToken = decryptedAuth.sessionToken;
@@ -329,7 +329,7 @@ class AudioXClient {
       this.log(`Request successful for type: ${action}`);
       this.log(`Response status: ${response.status}`);
       this.log(`Response data: ${JSON.stringify(response.data, null, 2)}`);
-      const task_id = this.enc(response.data);
+      const task_id = await this.enc(response.data);
       this.log(`Task created with ID (or data encrypted): ${task_id.substring(0, 20)}...`);
       return {
         task_id: task_id,
@@ -350,7 +350,7 @@ class AudioXClient {
   }) {
     try {
       this.log(`Checking status for task: ${task_id.substring(0, 20)}...`);
-      const decryptedData = this.dec(task_id);
+      const decryptedData = await this.dec(task_id);
       this.log("Task status retrieved successfully");
       return {
         task_id: task_id,

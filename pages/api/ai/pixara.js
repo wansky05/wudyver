@@ -31,17 +31,17 @@ class PixaraAPI {
       return config;
     }, error => Promise.reject(error));
   }
-  enc(data) {
+  async enc(data) {
     const {
       uuid: jsonUuid
-    } = Encoder.enc({
+    } = await Encoder.enc({
       data: data,
       method: "combined"
     });
     return jsonUuid;
   }
-  dec(uuid) {
-    const decryptedJson = Encoder.dec({
+  async dec(uuid) {
+    const decryptedJson = await Encoder.dec({
       uuid: uuid,
       method: "combined"
     });
@@ -250,7 +250,7 @@ class PixaraAPI {
             type: "txt2img"
           }
         };
-        const task_id = this.enc(taskData);
+        const task_id = await this.enc(taskData);
         const models = await this.models({
           type: "txt2img"
         });
@@ -431,7 +431,7 @@ class PixaraAPI {
           type: "img2vid"
         }
       };
-      const task_id = this.enc(taskData);
+      const task_id = await this.enc(taskData);
       const models = await this.models({
         type: "img2vid"
       });
@@ -505,7 +505,7 @@ class PixaraAPI {
           type: "txt2vid"
         }
       };
-      const task_id = this.enc(taskData);
+      const task_id = await this.enc(taskData);
       const models = await this.models({
         type: "txt2vid"
       });
@@ -534,7 +534,7 @@ class PixaraAPI {
   }) {
     try {
       if (!task_id) throw new Error("task_id required");
-      const taskData = this.dec(task_id);
+      const taskData = await this.dec(task_id);
       const {
         generationId,
         cookies,

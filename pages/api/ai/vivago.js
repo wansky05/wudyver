@@ -91,17 +91,17 @@ class VivagoAPI {
       return config;
     });
   }
-  enc(data) {
+  async enc(data) {
     const {
       uuid: jsonUuid
-    } = Encoder.enc({
+    } = await Encoder.enc({
       data: data,
       method: "combined"
     });
     return jsonUuid;
   }
-  dec(uuid) {
-    const decryptedJson = Encoder.dec({
+  async dec(uuid) {
+    const decryptedJson = await Encoder.dec({
       uuid: uuid,
       method: "combined"
     });
@@ -420,8 +420,8 @@ class VivagoAPI {
         deviceId: this.deviceId,
         id: task_id
       };
-      console.log(`[LOG] Txt2vid: Tugas video berhasil dibuat. ID terenkripsi: ${this.enc(encryptedData)}`);
-      return this.enc(encryptedData);
+      console.log(`[LOG] Txt2vid: Tugas video berhasil dibuat. ID terenkripsi: ${await this.enc(encryptedData)}`);
+      return await this.enc(encryptedData);
     } catch (error) {
       throw new Error(`Failed to create txt2vid task: ${error.message}`);
     }
@@ -493,8 +493,8 @@ class VivagoAPI {
         deviceId: this.deviceId,
         id: task_id
       };
-      console.log(`[LOG] Img2vid: Tugas video berhasil dibuat. ID terenkripsi: ${this.enc(encryptedData)}`);
-      return this.enc(encryptedData);
+      console.log(`[LOG] Img2vid: Tugas video berhasil dibuat. ID terenkripsi: ${await this.enc(encryptedData)}`);
+      return await this.enc(encryptedData);
     } catch (error) {
       throw new Error(`Failed to create img2vid task: ${error.message}`);
     }
@@ -504,7 +504,7 @@ class VivagoAPI {
   }) {
     console.log(`[LOG] Status: Memeriksa status untuk ID tugas terenkripsi: ${task_id}.`);
     try {
-      const decryptedData = this.dec(task_id);
+      const decryptedData = await this.dec(task_id);
       const {
         id,
         deviceId,

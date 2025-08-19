@@ -139,17 +139,17 @@ class MagicLightAPI {
     await this.loginUser(email, otp);
     console.log("[✅] Authentication successful");
   }
-  enc(data) {
+  async enc(data) {
     const {
       uuid: jsonUuid
-    } = Encoder.enc({
+    } = await Encoder.enc({
       data: data,
       method: "combined"
     });
     return jsonUuid;
   }
-  dec(uuid) {
-    const decryptedJson = Encoder.dec({
+  async dec(uuid) {
+    const decryptedJson = await Encoder.dec({
       uuid: uuid,
       method: "combined"
     });
@@ -216,7 +216,7 @@ class MagicLightAPI {
         token: this.token,
         loraGroupId: loraGroupId
       };
-      const encryptedTaskId = this.enc(taskInfo);
+      const encryptedTaskId = await this.enc(taskInfo);
       return {
         success: true,
         task_id: encryptedTaskId,
@@ -284,7 +284,7 @@ class MagicLightAPI {
         sessionId: this.sessionId,
         token: this.token
       };
-      const encryptedTaskId = this.enc(taskInfo);
+      const encryptedTaskId = await this.enc(taskInfo);
       return {
         success: true,
         task_id: encryptedTaskId,
@@ -303,7 +303,7 @@ class MagicLightAPI {
   }) {
     try {
       console.log("[🔍] Checking status for task:", encryptedTaskId);
-      const taskData = this.dec(encryptedTaskId);
+      const taskData = await this.dec(encryptedTaskId);
       const tempApi = axios.create({
         baseURL: this.baseURL,
         headers: {

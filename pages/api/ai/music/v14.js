@@ -30,17 +30,17 @@ class AiSongGenerator {
       }
     });
   }
-  enc(data) {
+  async enc(data) {
     const {
       uuid: jsonUuid
-    } = Encoder.enc({
+    } = await Encoder.enc({
       data: data,
       method: "combined"
     });
     return jsonUuid;
   }
-  dec(uuid) {
-    const decryptedJson = Encoder.dec({
+  async dec(uuid) {
+    const decryptedJson = await Encoder.dec({
       uuid: uuid,
       method: "combined"
     });
@@ -200,7 +200,7 @@ class AiSongGenerator {
       if (!responseData) {
         throw new Error("Gagal mendapatkan task_id dan music_id dari respons pembuatan lagu.");
       }
-      const task_id = this.enc({
+      const task_id = await this.enc({
         data: responseData.data,
         token: accessToken
       });
@@ -222,7 +222,7 @@ class AiSongGenerator {
       if (!taskId) {
         throw new Error("task_id is required to check status.");
       }
-      const decryptedData = this.dec(taskId);
+      const decryptedData = await this.dec(taskId);
       const {
         data,
         token

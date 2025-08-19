@@ -7,17 +7,17 @@ class Veo5VideoGenerator {
   constructor() {
     this.availableRatios = ["16:9", "9:16", "1:1", "4:3", "3:4"];
   }
-  enc(data) {
+  async enc(data) {
     const {
       uuid: jsonUuid
-    } = Encoder.enc({
+    } = await Encoder.enc({
       data: data,
       method: "combined"
     });
     return jsonUuid;
   }
-  dec(uuid) {
-    const decryptedJson = Encoder.dec({
+  async dec(uuid) {
+    const decryptedJson = await Encoder.dec({
       uuid: uuid,
       method: "combined"
     });
@@ -65,7 +65,7 @@ class Veo5VideoGenerator {
       if (!data.success) {
         throw new Error(data.message || "Failed to initiate video generation.");
       }
-      const task_id = this.enc({
+      const task_id = await this.enc({
         videoId: data.videoId
       });
       return {
@@ -83,7 +83,7 @@ class Veo5VideoGenerator {
       if (!task_id) {
         throw new Error("task_id is required to check status.");
       }
-      const decryptedData = this.dec(task_id);
+      const decryptedData = await this.dec(task_id);
       const {
         videoId
       } = decryptedData;

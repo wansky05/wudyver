@@ -6,17 +6,17 @@ class Text2VideoGenerator {
   constructor() {
     this.availableRatios = ["16:9", "9:16", "1:1", "4:3", "3:4"];
   }
-  enc(data) {
+  async enc(data) {
     const {
       uuid: jsonUuid
-    } = Encoder.enc({
+    } = await Encoder.enc({
       data: data,
       method: "combined"
     });
     return jsonUuid;
   }
-  dec(uuid) {
-    const decryptedJson = Encoder.dec({
+  async dec(uuid) {
+    const decryptedJson = await Encoder.dec({
       uuid: uuid,
       method: "combined"
     });
@@ -72,7 +72,7 @@ class Text2VideoGenerator {
           verify: cf.token
         }
       });
-      const task_id = this.enc({
+      const task_id = await this.enc({
         uid: uid,
         cfToken: cf.token,
         recordId: task.data.recordId
@@ -91,7 +91,7 @@ class Text2VideoGenerator {
       if (!task_id) {
         throw new Error("task_id is required to check status.");
       }
-      const decryptedData = this.dec(task_id);
+      const decryptedData = await this.dec(task_id);
       const {
         uid,
         cfToken,

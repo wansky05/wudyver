@@ -28,17 +28,17 @@ class YtDownloader {
       return Promise.reject(error);
     });
   }
-  enc(data) {
+  async enc(data) {
     const {
       uuid: jsonUuid
-    } = Encoder.enc({
+    } = await Encoder.enc({
       data: data,
       method: "combined"
     });
     return jsonUuid;
   }
-  dec(uuid) {
-    const decryptedJson = Encoder.dec({
+  async dec(uuid) {
+    const decryptedJson = await Encoder.dec({
       uuid: uuid,
       method: "combined"
     });
@@ -93,7 +93,7 @@ class YtDownloader {
         ...res.data,
         format: format
       };
-      const task_id = this.enc(initData);
+      const task_id = await this.enc(initData);
       console.log("✅ [TASK ID DIBUAT]");
       return {
         task_id: task_id
@@ -108,7 +108,7 @@ class YtDownloader {
   }) {
     console.log("📡 [STATUS] Memeriksa status...");
     try {
-      const data = this.dec(task_id);
+      const data = await this.dec(task_id);
       const h1 = this.randomHex(32),
         h2 = this.randomHex(32);
       const url = `${h1}/status/${data.i}/${h2}/`;

@@ -174,17 +174,17 @@ class VidflyAPI {
     }
     throw new Error("Gagal mendapatkan sesi atau token sesi dari Vidfly (cookie 'next_source_state' tidak ditemukan atau tidak valid).");
   }
-  enc(data) {
+  async enc(data) {
     const {
       uuid: jsonUuid
-    } = Encoder.enc({
+    } = await Encoder.enc({
       data: data,
       method: "combined"
     });
     return jsonUuid;
   }
-  dec(uuid) {
-    const decryptedJson = Encoder.dec({
+  async dec(uuid) {
+    const decryptedJson = await Encoder.dec({
       uuid: uuid,
       method: "combined"
     });
@@ -262,7 +262,7 @@ class VidflyAPI {
       if (videoRes && videoRes.code === 0 && videoRes.data && videoRes.data.videoIds && videoRes.data.videoIds.length > 0) {
         const taskIdsToEncrypt = videoRes.data.videoIds;
         console.log(`Pembuatan video berhasil dimulai. Menggunakan Video ID Mentah: ${taskIdsToEncrypt.join(", ")}`);
-        const encTaskIds = this.enc({
+        const encTaskIds = await this.enc({
           task_ids: taskIdsToEncrypt,
           bearer: bearer
         });
@@ -287,7 +287,7 @@ class VidflyAPI {
     console.log("--- Memeriksa Status Video Vidfly ---");
     let decData;
     try {
-      decData = this.dec(task_id);
+      decData = await this.dec(task_id);
     } catch (err) {
       console.error("Dekripsi gagal:", err.message);
       throw new Error(`Gagal mendekripsi task_id: ${err.message}`);

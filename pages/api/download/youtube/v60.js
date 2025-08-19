@@ -6,17 +6,17 @@ class Ytmp3Converter {
     this.baseUrl = "https://ytmp3.as/";
     console.log("[LOG] Ytmp3Converter initialized.");
   }
-  enc(data) {
+  async enc(data) {
     const {
       uuid: jsonUuid
-    } = Encoder.enc({
+    } = await Encoder.enc({
       data: data,
       method: "combined"
     });
     return jsonUuid;
   }
-  dec(uuid) {
-    const decryptedJson = Encoder.dec({
+  async dec(uuid) {
+    const decryptedJson = await Encoder.dec({
       uuid: uuid,
       method: "combined"
     });
@@ -383,7 +383,7 @@ class Ytmp3Converter {
         format: format,
         identifier: identifier
       };
-      const task_id = this.enc(taskData);
+      const task_id = await this.enc(taskData);
       console.log(`[LOG] Task initiated. Task ID: ${task_id}`);
       return {
         task_id: task_id
@@ -400,7 +400,7 @@ class Ytmp3Converter {
     try {
       console.log(`[LOG] Checking status for Task ID: ${task_id}`);
       this.validateString(`task_id`, task_id);
-      const taskData = this.dec(task_id);
+      const taskData = await this.dec(task_id);
       const {
         youtubeId,
         format,

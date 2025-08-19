@@ -23,17 +23,17 @@ class MakeFilm {
     }
     return dynamicHeaders;
   }
-  enc(data) {
+  async enc(data) {
     const {
       uuid: jsonUuid
-    } = Encoder.enc({
+    } = await Encoder.enc({
       data: data,
       method: "combined"
     });
     return jsonUuid;
   }
-  dec(uuid) {
-    const decryptedJson = Encoder.dec({
+  async dec(uuid) {
+    const decryptedJson = await Encoder.dec({
       uuid: uuid,
       method: "combined"
     });
@@ -83,7 +83,7 @@ class MakeFilm {
       });
       if (data?.content?.mid) {
         return {
-          task_id: this.enc({
+          task_id: await this.enc({
             mid: data.content.mid
           }),
           ...data
@@ -131,7 +131,7 @@ class MakeFilm {
       });
       if (data?.content?.mid) {
         return {
-          task_id: this.enc({
+          task_id: await this.enc({
             mid: data.content.mid
           }),
           ...data
@@ -152,7 +152,7 @@ class MakeFilm {
       if (!task_id) throw new Error("task_id wajib diisi");
       const {
         mid
-      } = this.dec(task_id);
+      } = await this.dec(task_id);
       const requestHeaders = this.getDynamicHeaders(false);
       const {
         data

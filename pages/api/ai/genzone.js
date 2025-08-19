@@ -13,17 +13,17 @@ class GenZoneAPI {
     this.userId = null;
     this.email = null;
   }
-  enc(data) {
+  async enc(data) {
     const {
       uuid: jsonUuid
-    } = Encoder.enc({
+    } = await Encoder.enc({
       data: data,
       method: "combined"
     });
     return jsonUuid;
   }
-  dec(uuid) {
-    const decryptedJson = Encoder.dec({
+  async dec(uuid) {
+    const decryptedJson = await Encoder.dec({
       uuid: uuid,
       method: "combined"
     });
@@ -328,7 +328,7 @@ class GenZoneAPI {
           userId: this.userId,
           taskId: taskId
         };
-        const encryptedTaskId = this.enc(taskData);
+        const encryptedTaskId = await this.enc(taskData);
         res.data.data.task_id = encryptedTaskId;
         return res.data;
       }
@@ -366,7 +366,7 @@ class GenZoneAPI {
           userId: this.userId,
           taskId: taskId
         };
-        const encryptedTaskId = this.enc(taskData);
+        const encryptedTaskId = await this.enc(taskData);
         res.data.data.task_id = encryptedTaskId;
         console.log("🎉 txt2vid task submitted!");
         return res.data;
@@ -421,7 +421,7 @@ class GenZoneAPI {
           userId: this.userId,
           taskId: taskId
         };
-        const encryptedTaskId = this.enc(taskData);
+        const encryptedTaskId = await this.enc(taskData);
         res.data.data.task_id = encryptedTaskId;
         console.log("🎉 talk2vid task submitted!");
         return res.data;
@@ -463,7 +463,7 @@ class GenZoneAPI {
           userId: this.userId,
           taskId: taskId
         };
-        const encryptedTaskId = this.enc(taskData);
+        const encryptedTaskId = await this.enc(taskData);
         res.data.data.task_id = encryptedTaskId;
         console.log("🎉 txt2img task submitted!");
         return res.data;
@@ -516,7 +516,7 @@ class GenZoneAPI {
   }) {
     try {
       console.log("🔍 Checking status...");
-      const taskData = this.dec(task_id);
+      const taskData = await this.dec(task_id);
       const {
         token,
         deviceId,

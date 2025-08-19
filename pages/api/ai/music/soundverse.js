@@ -29,17 +29,17 @@ class SoundverseAPI {
     this.api.defaults.headers.common["User-Agent"] = "Mozilla/5.0 (Linux; Android 10; K) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/135.0.0.0 Mobile Safari/537.36";
     this.setupInterceptors();
   }
-  enc(data) {
+  async enc(data) {
     const {
       uuid: jsonUuid
-    } = Encoder.enc({
+    } = await Encoder.enc({
       data: data,
       method: "combined"
     });
     return jsonUuid;
   }
-  dec(uuid) {
-    const decryptedJson = Encoder.dec({
+  async dec(uuid) {
+    const decryptedJson = await Encoder.dec({
       uuid: uuid,
       method: "combined"
     });
@@ -76,7 +76,7 @@ class SoundverseAPI {
         throw new Error("Gagal mendapatkan messageId dari respons /generate.");
       }
       const cookieStoreString = JSON.stringify(this.jar.toJSON());
-      const taskId = this.enc({
+      const taskId = await this.enc({
         projectId: projectId,
         messageId: messageId,
         csrfToken: this.csrfToken,
@@ -105,7 +105,7 @@ class SoundverseAPI {
         cookieStoreString,
         csrfToken,
         userId
-      } = this.dec(task_id);
+      } = await this.dec(task_id);
       await this.restoreSession({
         cookieStoreString: cookieStoreString,
         csrfToken: csrfToken,

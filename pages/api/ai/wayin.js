@@ -25,17 +25,17 @@ class WayinAPI {
       }
     });
   }
-  enc(data) {
+  async enc(data) {
     const {
       uuid: jsonUuid
-    } = Encoder.enc({
+    } = await Encoder.enc({
       data: data,
       method: "combined"
     });
     return jsonUuid;
   }
-  dec(uuid) {
-    const decryptedJson = Encoder.dec({
+  async dec(uuid) {
+    const decryptedJson = await Encoder.dec({
       uuid: uuid,
       method: "combined"
     });
@@ -249,7 +249,7 @@ class WayinAPI {
       const videoMetaRes = await this.getVidMeta(url, accessToken);
       const startTaskRes = await this.startTask(videoMetaRes.data, accessToken);
       wayinTaskId = startTaskRes.data.id;
-      const task_id = this.enc({
+      const task_id = await this.enc({
         wayinTaskId: wayinTaskId,
         accessToken: accessToken,
         username: username,
@@ -272,7 +272,7 @@ class WayinAPI {
       if (!task_id) {
         throw new Error("task_id is required to check status.");
       }
-      const decryptedData = this.dec(task_id);
+      const decryptedData = await this.dec(task_id);
       const {
         wayinTaskId,
         accessToken

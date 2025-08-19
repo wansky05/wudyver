@@ -17,17 +17,17 @@ class RTLIT {
     this.uploadId = Math.random().toString(36).slice(2);
     this.sessionHash = "s" + Math.random().toString(36).slice(2);
   }
-  enc(data) {
+  async enc(data) {
     const {
       uuid: jsonUuid
-    } = Encoder.enc({
+    } = await Encoder.enc({
       data: data,
       method: "combined"
     });
     return jsonUuid;
   }
-  dec(uuid) {
-    const decryptedJson = Encoder.dec({
+  async dec(uuid) {
+    const decryptedJson = await Encoder.dec({
       uuid: uuid,
       method: "combined"
     });
@@ -125,7 +125,7 @@ class RTLIT {
       await axios.post(`${this.baseURL}/queue/join?__theme=system`, payload, {
         headers: this.headers
       });
-      const task_id = this.enc({
+      const task_id = await this.enc({
         session_hash: this.sessionHash
       });
       return {
@@ -160,7 +160,7 @@ class RTLIT {
       await axios.post(`${this.baseURL}/queue/join?__theme=system`, payload, {
         headers: this.headers
       });
-      const task_id = this.enc({
+      const task_id = await this.enc({
         session_hash: this.sessionHash
       });
       return {
@@ -177,7 +177,7 @@ class RTLIT {
     if (!task_id) {
       throw new Error("task_id is required to check status.");
     }
-    const decryptedData = this.dec(task_id);
+    const decryptedData = await this.dec(task_id);
     const {
       session_hash
     } = decryptedData;

@@ -30,17 +30,17 @@ class AdpexAIClient {
     this.userPassword = btoa("IniAdalahContohPasswordKuat123");
     this.isAuthenticated = false;
   }
-  enc(data) {
+  async enc(data) {
     const {
       uuid: jsonUuid
-    } = Encoder.enc({
+    } = await Encoder.enc({
       data: data,
       method: "combined"
     });
     return jsonUuid;
   }
-  dec(uuid) {
-    const decryptedJson = Encoder.dec({
+  async dec(uuid) {
+    const decryptedJson = await Encoder.dec({
       uuid: uuid,
       method: "combined"
     });
@@ -300,7 +300,7 @@ class AdpexAIClient {
       const taskId = response?.data?.data;
       if (!taskId) throw new Error("No task ID in response");
       console.log("[Img2Vid] Conversion started, task ID:", taskId);
-      const task_id = this.enc({
+      const task_id = await this.enc({
         taskId: taskId,
         token: this.token,
         userId: this.userId,
@@ -323,7 +323,7 @@ class AdpexAIClient {
       if (!task_id) {
         throw new Error("task_id is required to check status.");
       }
-      const decryptedData = this.dec(task_id);
+      const decryptedData = await this.dec(task_id);
       const {
         taskId,
         token,
@@ -411,7 +411,7 @@ class AdpexAIClient {
       const taskId = response?.data?.data;
       if (!taskId) throw new Error("No task ID in response");
       console.log("[Img2Vid] Conversion started, task ID:", taskId);
-      const task_id = this.enc({
+      const task_id = await this.enc({
         taskId: taskId,
         token: this.token,
         userId: this.userId,
@@ -463,7 +463,7 @@ class AdpexAIClient {
       const taskId = response?.data?.data;
       if (!taskId) throw new Error("No task ID in response");
       console.log("[Img2Vid] Conversion started, task ID:", taskId);
-      const task_id = this.enc({
+      const task_id = await this.enc({
         taskId: taskId,
         token: this.token,
         userId: this.userId,

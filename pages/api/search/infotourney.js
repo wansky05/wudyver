@@ -59,7 +59,7 @@ class InfotourneyScraper {
       });
       return {
         success: true,
-        menu: menu || [],
+        menu: menu || []
       };
     } catch (error) {
       console.error("Menu failed:", error.message);

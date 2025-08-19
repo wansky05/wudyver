@@ -19,17 +19,17 @@ class Y2MateDownloader {
       "content-type": "application/x-www-form-urlencoded; charset=UTF-8"
     };
   }
-  enc(data) {
+  async enc(data) {
     const {
       uuid: jsonUuid
-    } = Encoder.enc({
+    } = await Encoder.enc({
       data: data,
       method: "combined"
     });
     return jsonUuid;
   }
-  dec(uuid) {
-    const decryptedJson = Encoder.dec({
+  async dec(uuid) {
+    const decryptedJson = await Encoder.dec({
       uuid: uuid,
       method: "combined"
     });
@@ -97,7 +97,7 @@ class Y2MateDownloader {
         vid: videoId,
         b_id: b_id
       };
-      const task_id = this.enc(text);
+      const task_id = await this.enc(text);
       return {
         status: true,
         task_id: task_id
@@ -114,7 +114,7 @@ class Y2MateDownloader {
     task_id
   }) {
     try {
-      const json = this.dec(task_id);
+      const json = await this.dec(task_id);
       if (!json) throw new Error("Gagal decrypt task_id (hasil kosong)");
       const parsed = json;
       const {

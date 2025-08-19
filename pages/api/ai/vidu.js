@@ -29,17 +29,17 @@ class ViduAPI {
     this.userId = null;
     this.wafToken = null;
   }
-  enc(data) {
+  async enc(data) {
     const {
       uuid: jsonUuid
-    } = Encoder.enc({
+    } = await Encoder.enc({
       data: data,
       method: "combined"
     });
     return jsonUuid;
   }
-  dec(uuid) {
-    const decryptedJson = Encoder.dec({
+  async dec(uuid) {
+    const decryptedJson = await Encoder.dec({
       uuid: uuid,
       method: "combined"
     });
@@ -330,7 +330,7 @@ class ViduAPI {
         userId: this.userId,
         id: task_id
       };
-      const encryptedId = this.enc(encryptedData);
+      const encryptedId = await this.enc(encryptedData);
       console.log(`[LOG] Tugas video ${taskType} berhasil dibuat. ID terenkripsi: ${encryptedId}`);
       return encryptedId;
     } catch (error) {
@@ -440,7 +440,7 @@ class ViduAPI {
   }) {
     try {
       console.log(`[LOG] Memeriksa status untuk ID tugas terenkripsi: ${task_id}`);
-      const decryptedData = this.dec(task_id);
+      const decryptedData = await this.dec(task_id);
       const {
         jwt,
         userId,

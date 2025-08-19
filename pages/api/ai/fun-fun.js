@@ -35,17 +35,17 @@ class FunFunArt {
     };
     console.log("[INIT] FunFunArt instance created.");
   }
-  enc(data) {
+  async enc(data) {
     const {
       uuid: jsonUuid
-    } = Encoder.enc({
+    } = await Encoder.enc({
       data: data,
       method: "combined"
     });
     return jsonUuid;
   }
-  dec(uuid) {
-    const decryptedJson = Encoder.dec({
+  async dec(uuid) {
+    const decryptedJson = await Encoder.dec({
       uuid: uuid,
       method: "combined"
     });
@@ -323,7 +323,7 @@ class FunFunArt {
         id: response.data.id,
         session: this.sessionToken
       };
-      const encryptedTaskId = this.enc(dataToEncrypt);
+      const encryptedTaskId = await this.enc(dataToEncrypt);
       console.log(`[TXT2IMG] Request sent, API ID: ${response.data.id}, Encrypted task_id generated.`);
       return {
         task_id: encryptedTaskId,
@@ -405,7 +405,7 @@ class FunFunArt {
         id: response.data.id,
         session: this.sessionToken
       };
-      const encryptedTaskId = this.enc(dataToEncrypt);
+      const encryptedTaskId = await this.enc(dataToEncrypt);
       console.log(`[IMG2IMG] Request sent, API ID: ${response.data.id}, Encrypted task_id generated.`);
       return {
         task_id: encryptedTaskId,
@@ -421,7 +421,7 @@ class FunFunArt {
   }) {
     console.log(`[STATUS] Checking job status for encrypted task_id: ${task_id.substring(0, 30)}...`);
     try {
-      const decryptedData = this.dec(task_id);
+      const decryptedData = await this.dec(task_id);
       const originalTaskId = decryptedData.id;
       const associatedSessionToken = decryptedData.session;
       const currentSessionToken = this.getSessionTokenFromCookies();

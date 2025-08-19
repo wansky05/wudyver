@@ -44,17 +44,17 @@ class AimageClient {
       return Promise.reject(error);
     });
   }
-  enc(data) {
+  async enc(data) {
     const {
       uuid: jsonUuid
-    } = Encoder.enc({
+    } = await Encoder.enc({
       data: data,
       method: "combined"
     });
     return jsonUuid;
   }
-  dec(uuid) {
-    const decryptedJson = Encoder.dec({
+  async dec(uuid) {
+    const decryptedJson = await Encoder.dec({
       uuid: uuid,
       method: "combined"
     });
@@ -181,7 +181,7 @@ class AimageClient {
         api_response: responseData,
         cookies: this.cookies
       };
-      const task_id = this.enc(dataToEncrypt);
+      const task_id = await this.enc(dataToEncrypt);
       console.log(`✓ Permintaan pembuatan gambar berhasil. Task ID: ${task_id}`);
       return {
         task_id: task_id,
@@ -199,7 +199,7 @@ class AimageClient {
     let decryptedData;
     let apiTaskId;
     try {
-      decryptedData = this.dec(task_id);
+      decryptedData = await this.dec(task_id);
       apiTaskId = decryptedData.api_response?.taskId;
       if (!apiTaskId) {
         throw new Error("Task ID API tidak ditemukan dalam data terdekripsi.");

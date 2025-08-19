@@ -15,17 +15,17 @@ class EaseMate {
     this.LANGUAGE = "en-US";
     this.MODEL_ID = 3;
   }
-  enc(data) {
+  async enc(data) {
     const {
       uuid: jsonUuid
-    } = Encoder.enc({
+    } = await Encoder.enc({
       data: data,
       method: "combined"
     });
     return jsonUuid;
   }
-  dec(uuid) {
-    const decryptedJson = Encoder.dec({
+  async dec(uuid) {
+    const decryptedJson = await Encoder.dec({
       uuid: uuid,
       method: "combined"
     });
@@ -500,7 +500,7 @@ class EaseMate {
         taskId
       } = createResponse;
       console.log(`ℹ️ Tugas video dibuat dengan ID: ${taskId}`);
-      const task_id = this.enc({
+      const task_id = await this.enc({
         taskId: taskId,
         token: token
       });
@@ -520,7 +520,7 @@ class EaseMate {
         throw new Error("task_id is required to check status.");
       }
       console.log(`⏳ Memeriksa status tugas video dengan ID: ${_taskId}`);
-      const decryptedData = this.dec(_taskId);
+      const decryptedData = await this.dec(_taskId);
       const {
         taskId,
         token

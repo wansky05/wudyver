@@ -25,17 +25,17 @@ class GenapeAPI {
     });
     this.token = null;
   }
-  enc(data) {
+  async enc(data) {
     const {
       uuid: jsonUuid
-    } = Encoder.enc({
+    } = await Encoder.enc({
       data: data,
       method: "combined"
     });
     return jsonUuid;
   }
-  dec(uuid) {
-    const decryptedJson = Encoder.dec({
+  async dec(uuid) {
+    const decryptedJson = await Encoder.dec({
       uuid: uuid,
       method: "combined"
     });
@@ -267,7 +267,7 @@ class GenapeAPI {
       const textToEncrypt = {
         token: accessToken
       };
-      const encrypted_task_id = this.enc(textToEncrypt);
+      const encrypted_task_id = await this.enc(textToEncrypt);
       return {
         status: true,
         task_id: encrypted_task_id,
@@ -286,7 +286,7 @@ class GenapeAPI {
     } = params;
     let decryptedData;
     try {
-      const json = this.dec(task_id);
+      const json = await this.dec(task_id);
       if (!json) throw new Error("Failed to decrypt task_id (empty result).");
       decryptedData = json;
       this.token = decryptedData.token;

@@ -223,7 +223,7 @@ class AIMusicGenerator {
     if (!taskId) {
       throw new Error("task_id is required to check status.");
     }
-    const decryptedData = this.dec(taskId);
+    const decryptedData = await this.dec(taskId);
     const {
       user_id,
       auth_token,
@@ -282,7 +282,7 @@ class AIMusicGenerator {
       }
       await this._login_with_pkce_flow(links.verifyLink);
       console.log("✅ Login otomatis berhasil.");
-      const task_id = this.enc({
+      const task_id = await this.enc({
         user_id: this.user_id,
         auth_token: this.auth_token,
         data: await this.generate_music(params),
@@ -316,17 +316,17 @@ class AIMusicGenerator {
     }
     return albumsData;
   }
-  enc(data) {
+  async enc(data) {
     const {
       uuid: jsonUuid
-    } = Encoder.enc({
+    } = await Encoder.enc({
       data: data,
       method: "combined"
     });
     return jsonUuid;
   }
-  dec(uuid) {
-    const decryptedJson = Encoder.dec({
+  async dec(uuid) {
+    const decryptedJson = await Encoder.dec({
       uuid: uuid,
       method: "combined"
     });

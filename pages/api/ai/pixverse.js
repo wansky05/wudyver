@@ -181,17 +181,17 @@ class PixVerseImg2Vid {
       throw new Error(`Registration error: ${error.message}`);
     }
   }
-  enc(data) {
+  async enc(data) {
     const {
       uuid: jsonUuid
-    } = Encoder.enc({
+    } = await Encoder.enc({
       data: data,
       method: "combined"
     });
     return jsonUuid;
   }
-  dec(uuid) {
-    const decryptedJson = Encoder.dec({
+  async dec(uuid) {
+    const decryptedJson = await Encoder.dec({
       uuid: uuid,
       method: "combined"
     });
@@ -202,7 +202,7 @@ class PixVerseImg2Vid {
       const data = await this.registerAccount();
       this.cleanup();
       return {
-        token: this.enc(data)
+        token: await this.enc(data)
       };
     } catch (error) {
       this.log("REGISTER", "Account registration failed", error.message);
@@ -215,7 +215,7 @@ class PixVerseImg2Vid {
         const registration = await this.register();
         options.token = registration.token;
       }
-      const data = this.dec(options.token);
+      const data = await this.dec(options.token);
       this.token = data.token;
       const result = await this.createVideoFromImage(options);
       this.cleanup();
@@ -231,7 +231,7 @@ class PixVerseImg2Vid {
         const registration = await this.register();
         options.token = registration.token;
       }
-      const data = this.dec(options.token);
+      const data = await this.dec(options.token);
       this.token = data.token;
       const result = await this.getVideoList();
       this.cleanup();

@@ -12,17 +12,17 @@ class TempMail {
       headers: this.headers
     });
   }
-  enc(data) {
+  async enc(data) {
     const {
       uuid: jsonUuid
-    } = Encoder.enc({
+    } = await Encoder.enc({
       data: data,
       method: "combined"
     });
     return jsonUuid;
   }
-  dec(uuid) {
-    const decryptedJson = Encoder.dec({
+  async dec(uuid) {
+    const decryptedJson = await Encoder.dec({
       uuid: uuid,
       method: "combined"
     });
@@ -46,7 +46,7 @@ class TempMail {
         token: data.token,
         expiresAt: expiresAt.toISOString()
       };
-      const taskId = this.enc(taskData);
+      const taskId = await this.enc(taskData);
       return {
         success: true,
         code: 200,
@@ -69,7 +69,7 @@ class TempMail {
     task_id
   }) {
     try {
-      const decryptedTaskData = this.dec(task_id);
+      const decryptedTaskData = await this.dec(task_id);
       const {
         token,
         expiresAt

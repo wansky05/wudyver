@@ -47,28 +47,28 @@ class BraveSearchAPI {
             if (parsed.type?.length > 0) {
               (jsons[parsed.type] = jsons[parsed.type] || []).push(parsed);
             } else {
-              texts.push((JSON.stringify(parsed, null, 2)));
+              texts.push(JSON.stringify(parsed, null, 2));
             }
           } else if (typeof parsed === "string") {
-            texts.push((parsed));
+            texts.push(parsed);
           } else {
-            texts.push((String(parsed)));
+            texts.push(String(parsed));
           }
         } catch (e) {
           if (combinedLine.startsWith('"') && combinedLine.endsWith('"')) {
             try {
-              texts.push((combinedLine.slice(1, -1)));
+              texts.push(combinedLine.slice(1, -1));
             } catch (e2) {
-              texts.push((combinedLine));
+              texts.push(combinedLine);
             }
           } else {
-            texts.push((combinedLine));
+            texts.push(combinedLine);
           }
         }
       }
     });
     if (buffer.length > 0) {
-      texts.push((buffer.join("\n")));
+      texts.push(buffer.join("\n"));
     }
     return {
       result: texts.join(""),
