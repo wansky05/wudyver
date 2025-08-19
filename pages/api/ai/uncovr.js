@@ -154,46 +154,35 @@ class UncoverAPI {
     console.log("Starting to parse stream response...");
     return new Promise((resolve, reject) => {
       let fullResponse = "";
-      let messageData = {};
+      let messageData = {
+        stream: {},
+        chunks: []
+      };
       stream.on("data", chunk => {
         try {
+          const chunkStr = chunk.toString();
           console.log("Received data chunk from stream");
-          const lines = chunk.toString().split("\n");
+          const lines = chunkStr.split("\n");
           for (const line of lines) {
             if (line.startsWith("data: ") && line !== "data: [DONE]") {
               try {
                 const data = JSON.parse(line.substring(6));
                 console.log("Parsed stream data:", data);
-                switch (data.type) {
-                  case "start":
-                    messageData.messageId = data.messageId;
-                    break;
-                  case "message-metadata":
-                    messageData.metadata = {
-                      ...messageData.metadata,
-                      ...data.messageMetadata
-                    };
-                    break;
-                  case "data-init":
-                    messageData.threadId = data.data.threadId;
-                    messageData.leafId = data.data.leafId;
-                    break;
-                  case "data-user-credit-status":
-                    messageData.credits = data.data;
-                    break;
-                  case "data-thread-title":
-                    messageData.threadTitle = data.data;
-                    break;
-                  case "text-delta":
-                    if (data.id === "0") {
-                      fullResponse += data.delta;
-                    }
-                    break;
-                  case "finish":
-                    messageData.response = fullResponse;
-                    console.log("Stream parsing completed successfully");
-                    resolve(messageData);
-                    return;
+                messageData.chunks.push(data);
+                if (data.type) {
+                  if (!messageData.stream[data.type]) {
+                    messageData.stream[data.type] = [];
+                  }
+                  messageData.stream[data.type].push(data);
+                }
+                if (data.type === "text-delta" && data.id === "0") {
+                  fullResponse += data.delta;
+                }
+                if (data.type === "finish") {
+                  messageData.response = fullResponse;
+                  console.log("Stream parsing completed successfully");
+                  resolve(messageData);
+                  return;
                 }
               } catch (parseError) {
                 console.error("Error parsing stream data line:", {

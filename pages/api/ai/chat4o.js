@@ -101,7 +101,7 @@ class Chat4oClient {
       throw error;
     }
   }
-  async checkOTP(maxRetries = 20, delay = 3e3) {
+  async checkOTP(maxRetries = 60, delay = 3e3) {
     console.log("LOG: Starting OTP check...");
     for (let i = 0; i < maxRetries; i++) {
       console.log(`LOG: Attempt ${i + 1}/${maxRetries} for OTP for ${this.email}`);

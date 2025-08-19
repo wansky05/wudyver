@@ -164,7 +164,7 @@ class PixVerseImg2Vid {
       }
       this.token = response.data.Resp.Result.Token;
       this.accountId = response.data.Resp.Result.AccountId;
-      this.headers["Token"] = this.token;
+      this.headers["Token"] = this.token;<
       this.log("REGISTER", "Account successfully registered", {
         accountId: this.accountId,
         username: this.username,
@@ -217,6 +217,8 @@ class PixVerseImg2Vid {
       }
       const data = await this.dec(options.token);
       this.token = data.token;
+      this.headers["Token"] = data.token;
+      this.accountId = data.accountId;
       const result = await this.createVideoFromImage(options);
       this.cleanup();
       return result;
@@ -233,6 +235,8 @@ class PixVerseImg2Vid {
       }
       const data = await this.dec(options.token);
       this.token = data.token;
+      this.headers["Token"] = data.token;
+      this.accountId = data.accountId;
       const result = await this.getVideoList();
       this.cleanup();
       return result;
