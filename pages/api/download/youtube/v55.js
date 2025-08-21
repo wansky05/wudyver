@@ -191,20 +191,19 @@ class YoutubeDownloader {
   }
 }
 export default async function handler(req, res) {
+  const params = req.method === "GET" ? req.query : req.body;
+  if (!params.url) {
+    return res.status(400).json({
+      error: "Url are required"
+    });
+  }
   try {
-    const params = req.method === "GET" ? req.query : req.body;
-    if (!params.url) {
-      return res.status(400).json({
-        error: "No URL"
-      });
-    }
-    res.setHeader("Accept-Encoding", "gzip, deflate, br, zstd");
-    const yt = new YoutubeDownloader();
-    const result = await yt.download(params);
+    const downloader = new YoutubeDownloader();
+    const result = await downloader.download(params);
     return res.status(200).json(result);
   } catch (error) {
     res.status(500).json({
-      error: error.message
+      error: error.message || "Internal Server Error"
     });
   }
 }

@@ -1,107 +1,135 @@
-import apiConfig from "@/configs/apiConfig";
 import axios from "axios";
-class PlaywrightAPI {
+import * as cheerio from "cheerio";
+class CekPengirimanScraper {
   constructor() {
-    this.url = `https://${apiConfig.DOMAIN_URL}/api/tools/playwright`;
-    this.headers = {
-      "Content-Type": "application/json",
-      "User-Agent": "Mozilla/5.0 (Linux; Android 10; K) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/134.0.0.0 Mobile Safari/537.36"
+    this.baseURL = "https://www.cekpengiriman.com";
+    this.defaultHeaders = {
+      accept: "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8,application/signed-exchange;v=b3;q=0.7",
+      "accept-language": "id-ID,id;q=0.9",
+      "cache-control": "no-cache",
+      pragma: "no-cache",
+      priority: "u=0, i",
+      "sec-ch-ua": '"Lemur";v="135", "", "", "Microsoft Edge Simulate";v="135"',
+      "sec-ch-ua-mobile": "?1",
+      "sec-ch-ua-platform": '"Android"',
+      "sec-fetch-dest": "document",
+      "sec-fetch-mode": "navigate",
+      "sec-fetch-site": "same-origin",
+      "sec-fetch-user": "?1",
+      "upgrade-insecure-requests": "1",
+      "user-agent": "Mozilla/5.0 (Linux; Android 10; K) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/135.0.0.0 Mobile Safari/537.36"
+    };
+    this.cookies = {
+      _ga: "amp-I_XT79j4EJ4el1bP7mobxg",
+      "-test-amp-cookie-tmp": "TESTCOOKIEVALUE"
     };
   }
-  async cekResi({
-    resi = "JX3708794672",
-    expedisi = "jnt"
-  }) {
-    const code = `const { chromium } = require("playwright");
-
-(async () => {
-    const resi = "${resi}";
-    const kurir = "${expedisi}";
-
-    const browser = await chromium.launch({ headless: true });
-    const page = await browser.newPage();
-
-    try {
-        await page.goto("https://www.cekpengiriman.com/cek-resi?resi=" + resi + "&kurir=" + kurir, { waitUntil: "domcontentloaded" });
-
-        while (!(await page.$("#renderResult")) || (await page.$("#renderResult .loader-wrapper")))
-            await page.waitForTimeout(500);
-
-        const result = await page.evaluate(() => {
-            const formatKey = (key) => key.toLowerCase().replace(/\\s+/g, "_");
-            const getText = (sel) => document.querySelector(sel)?.textContent.trim() || null;
-            const getTable = (sel) => Object.fromEntries(
-                [...document.querySelectorAll(sel + " tbody tr")].map(row => {
-                    const cells = [...row.cells].map(cell => cell.textContent.trim());
-                    return cells.length === 2 ? [formatKey(cells[0]), cells[1]] : null;
-                }).filter(Boolean)
-            );
-
-            return {
-                tracking_number: getText(".topTitleShare .title b"),
-                courier: getText(".topTitleShare .title b:nth-of-type(2)"),
-                shipment_details: getTable(".detail table"),
-                shipment_status: getTable(".statusPengiriman table"),
-                history: [...document.querySelectorAll(".riwayatPengiriman table tbody tr")].map(row => {
-                    const cells = [...row.cells].map(cell => cell.textContent.trim());
-                    return { date: cells[0], location: cells[1], description: cells[2] };
-                }),
-                courier_info: getTable(".infoEkspedisi table")
-            };
-        });
-
-        console.log(JSON.stringify(result, null, 2));
-    } catch (error) {
-        console.error(error);
-    } finally {
-        await page.close();
-        await browser.close();
-    }
-})();`;
-    try {
-      const response = await axios.post(this.url, {
-        code: code
-      }, {
-        headers: this.headers
-      });
-      return JSON.parse(response.data.output);
-    } catch (error) {
-      console.error("Error:", error.response ? error.response.data : error.message);
-      return null;
-    }
+  _formatCookies() {
+    return Object.entries(this.cookies).map(([key, value]) => `${key}=${value}`).join("; ");
   }
   async expedisiList() {
-    const code = `const { chromium } = require('playwright');
-
-      (async () => {
-          const browser = await chromium.launch({ headless: true });
-          const page = await browser.newPage();
-      
-          try {
-              await page.goto('https://www.cekpengiriman.com/cek-resi');
-              const result = await page.evaluate(() => ({
-                  list: Array.from(document.querySelectorAll('select[name="kurir"] option'))
-                      .filter(opt => opt.value)
-                      .map(opt => ({ expedisi: opt.value, name: opt.textContent.trim() }))
-              }));
-              console.log(JSON.stringify(result, null, 2));
-          } catch (e) {
-              console.error(e);
-          } finally {
-              await browser.close();
-          }
-      })();`;
     try {
-      const response = await axios.post(this.url, {
-        code: code
-      }, {
-        headers: this.headers
+      const response = await axios.get(this.baseURL, {
+        headers: {
+          ...this.defaultHeaders,
+          cookie: this._formatCookies()
+        }
       });
-      return JSON.parse(response.data.output);
+      if (response.status !== 200) {
+        throw new Error(`Request failed with status code ${response.status}`);
+      }
+      return this.parseExpedisiList(response.data);
     } catch (error) {
-      console.error("Error:", error.response ? error.response.data : error.message);
-      return null;
+      console.error("Error getting expedisi list:", error.message);
+      throw error;
     }
+  }
+  parseExpedisiList(html) {
+    const $ = cheerio.load(html);
+    const expedisiList = [];
+    const selectElement = $('select[name="kurir"]');
+    if (selectElement.length) {
+      selectElement.find("option").each((i, option) => {
+        const value = $(option).attr("value");
+        const text = $(option).text().trim();
+        if (value && value !== "") {
+          expedisiList.push({
+            value: value,
+            name: text
+          });
+        }
+      });
+    }
+    return expedisiList;
+  }
+  async trackResi({
+    resi,
+    expedisi: kurir = "spx"
+  }) {
+    try {
+      const url = `${this.baseURL}/cek-resi?resi=${resi}&kurir=${kurir}`;
+      const response = await axios.get(url, {
+        headers: {
+          ...this.defaultHeaders,
+          cookie: this._formatCookies()
+        }
+      });
+      if (response.status !== 200) {
+        throw new Error(`Request failed with status code ${response.status}`);
+      }
+      return this.parseData(response.data);
+    } catch (error) {
+      console.error("Error tracking resi:", error.message);
+      throw error;
+    }
+  }
+  parseData(html) {
+    const $ = cheerio.load(html);
+    const result = {
+      expedisi: "",
+      noResi: "",
+      ringkasan: {},
+      history: []
+    };
+    const panelHeading = $(".panel-heading");
+    if (panelHeading.length) {
+      result.expedisi = panelHeading.first().text().trim();
+    }
+    const ringkasanTable = $('h4:contains("Ringkasan")').next("table");
+    if (ringkasanTable.length) {
+      ringkasanTable.find("tr").each((i, row) => {
+        const label = $(row).find("td:first-child").text().trim();
+        const value = $(row).find("td:last-child").text().trim();
+        if (label && value) {
+          result.ringkasan[label] = value;
+          if (label.includes("No. Resi") || label.includes("No Resi")) {
+            result.noResi = value;
+          }
+        }
+      });
+    }
+    const historyTable = $('h4:contains("Riwayat Pengiriman")').next("table");
+    if (historyTable.length) {
+      historyTable.find("tr").each((i, row) => {
+        const text = $(row).find("td").text().trim();
+        if (text) {
+          const timestampMatch = text.match(/(\d{2}\/\d{2}\/\d{4})\s+\((\d{2}:\d{2})\)\s+-\s+(.*)/);
+          if (timestampMatch) {
+            result.history.push({
+              date: timestampMatch[1],
+              time: timestampMatch[2],
+              description: timestampMatch[3],
+              fullText: text
+            });
+          } else {
+            result.history.push({
+              fullText: text
+            });
+          }
+        }
+      });
+    }
+    return result;
   }
 }
 export default async function handler(req, res) {
@@ -109,7 +137,7 @@ export default async function handler(req, res) {
     action,
     ...params
   } = req.method === "GET" ? req.query : req.body;
-  const playwrightAPI = new PlaywrightAPI();
+  const scraper = new CekPengirimanScraper();
   try {
     let data;
     switch (action) {
@@ -120,16 +148,16 @@ export default async function handler(req, res) {
           });
         }
         if (!params.expedisi) {
-          data = await playwrightAPI.expedisiList();
+          data = await scraper.expedisiList();
           return res.status(200).json({
             message: "Ekspedisi tidak diisi, berikut adalah daftar ekspedisi:",
             data: data
           });
         }
-        data = await playwrightAPI.cekResi(params);
+        data = await scraper.trackResi(params);
         return res.status(200).json(data);
       case "list":
-        data = await playwrightAPI.expedisiList();
+        data = await scraper.expedisiList();
         return res.status(200).json(data);
       default:
         return res.status(400).json({
