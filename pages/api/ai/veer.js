@@ -1,66 +1,86 @@
 import axios from "axios";
 import crypto from "crypto";
-import {
-  FormData,
-  Blob
-} from "formdata-node";
 import Encoder from "@/lib/encoder";
-import SpoofHead from "@/lib/spoof-head";
-class VheerImageGenerator {
+class VheerEncryption {
   constructor() {
-    this.baseUrl = "https://vheer.com";
-    this.styleMapping = {
-      1: "Flat Design",
-      2: "Minimalist",
-      3: "Cartoon",
-      4: "Retro",
-      5: "Outline",
-      6: "Watercolor",
-      7: "Isometric",
-      8: "Nature"
-    };
-    this.axiosInstance = axios.create({
-      headers: this.buildHeaders()
-    });
-    this.cookies = {};
+    this.encryptionKey = "vH33r_2025_AES_GCM_S3cur3_K3y_9X7mP4qR8nT2wE5yU1oI6aS3dF7gH0jK9lZ";
+    this.key = this.deriveKey(this.encryptionKey);
   }
-  buildHeaders(extra = {}) {
-    const cookieString = Object.entries(this.cookies).map(([key, value]) => `${key}=${value}`).join("; ");
-    const commonHeaders = {
-      accept: "*/*",
+  async deriveKey(keyString) {
+    const encoder = new TextEncoder();
+    const keyData = encoder.encode(keyString);
+    const importedKey = await crypto.subtle.importKey("raw", keyData, {
+      name: "PBKDF2"
+    }, false, ["deriveKey"]);
+    const salt = encoder.encode("vheer-salt-2024");
+    return await crypto.subtle.deriveKey({
+      name: "PBKDF2",
+      salt: salt,
+      iterations: 1e4,
+      hash: "SHA-256"
+    }, importedKey, {
+      name: "AES-GCM",
+      length: 256
+    }, false, ["encrypt", "decrypt"]);
+  }
+  async encrypt(plaintext) {
+    try {
+      const key = await this.key;
+      const encoder = new TextEncoder();
+      const iv = crypto.getRandomValues(new Uint8Array(12));
+      const encrypted = await crypto.subtle.encrypt({
+        name: "AES-GCM",
+        iv: iv
+      }, key, encoder.encode(plaintext));
+      const combined = new Uint8Array(iv.length + encrypted.byteLength);
+      combined.set(iv);
+      combined.set(new Uint8Array(encrypted), iv.length);
+      return btoa(String.fromCharCode(...combined));
+    } catch (error) {
+      console.error("Encryption error:", error);
+      throw new Error("Failed to encrypt data");
+    }
+  }
+  async decrypt(ciphertextBase64) {
+    try {
+      const key = await this.key;
+      const decoder = new TextDecoder();
+      const binaryString = atob(ciphertextBase64);
+      const combined = new Uint8Array(binaryString.length);
+      for (let i = 0; i < binaryString.length; i++) {
+        combined[i] = binaryString.charCodeAt(i);
+      }
+      const iv = combined.slice(0, 12);
+      const ciphertext = combined.slice(12);
+      const decrypted = await crypto.subtle.decrypt({
+        name: "AES-GCM",
+        iv: iv
+      }, key, ciphertext);
+      return decoder.decode(decrypted);
+    } catch (error) {
+      console.error("Decryption error:", error);
+      throw new Error("Failed to decrypt data");
+    }
+  }
+}
+class VheerAPI {
+  constructor() {
+    this.baseURL = "https://vheer.com";
+    this.uploadURL = "https://access.vheer.com/api/Vheer/UploadByFileNew";
+    this.encryption = new VheerEncryption();
+    this.headers = {
+      accept: "application/json, text/plain, */*",
       "accept-language": "id-ID,id;q=0.9",
-      origin: this.baseUrl,
-      referer: `${this.baseUrl}/`,
-      "user-agent": "Mozilla/5.0 (Linux; Android 10; K) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/135.0.0.0 Mobile Safari/537.36",
+      origin: "https://vheer.com",
+      referer: "https://vheer.com/",
       "sec-ch-ua": '"Lemur";v="135", "", "", "Microsoft Edge Simulate";v="135"',
       "sec-ch-ua-mobile": "?1",
       "sec-ch-ua-platform": '"Android"',
       "sec-fetch-dest": "empty",
       "sec-fetch-mode": "cors",
-      "sec-fetch-site": "same-origin",
-      "x-request-id": this.randomID(8),
-      ...SpoofHead(),
-      ...cookieString ? {
-        cookie: cookieString
-      } : {},
-      ...extra
+      "sec-fetch-site": "same-site",
+      "user-agent": "Mozilla/5.0 (Linux; Android 10; K) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/135.0.0.0 Mobile Safari/537.36"
     };
-    return commonHeaders;
-  }
-  updateCookiesFromResponse(response) {
-    const setCookieHeaders = response.headers["set-cookie"];
-    if (setCookieHeaders) {
-      setCookieHeaders.forEach(cookie => {
-        const cookieParts = cookie.split(";")[0].split("=");
-        if (cookieParts.length >= 2) {
-          this.cookies[cookieParts[0]] = cookieParts[1];
-        }
-      });
-      this.axiosInstance.defaults.headers = this.buildHeaders();
-    }
-  }
-  randomID(length = 16) {
-    return crypto.randomBytes(length).toString("hex");
   }
   async enc(data) {
     const {
@@ -78,441 +98,290 @@ class VheerImageGenerator {
     });
     return decryptedJson.text;
   }
-  _formatPrompt(basePrompt, styleName) {
-    const elaborate = `Create a ${styleName} clip art illustration of ${basePrompt}, ${styleName.toLowerCase()} style, featuring undefined. The artwork should embody the essence of ${styleName}, capturing its unique visual appeal and aesthetic qualities. Designed with careful attention to detail, this illustration maintains a consistent and polished look, making it suitable for a wide range of creative applications.`;
-    return Buffer.from(elaborate).toString("base64");
-  }
-  async _imageUrlToBlob(imageUrl) {
-    try {
-      const response = await this.axiosInstance.get(imageUrl, {
-        responseType: "arraybuffer"
-      });
-      const contentType = response.headers["content-type"] || "image/jpeg";
-      return new Blob([response.data], {
-        type: contentType
-      });
-    } catch (error) {
-      throw new Error(`Failed to fetch image from ${imageUrl}: ${error.message}`);
-    }
-  }
-  async _uploadForTxt2Img(prompt, style, width, height, model) {
-    const form = new FormData();
-    const apiStyleSpecificPrompt = this._formatPrompt(prompt, this.styleMapping[style]);
-    form.append("prompt", apiStyleSpecificPrompt);
-    form.append("type", style.toString());
-    form.append("width", width.toString());
-    form.append("height", height.toString());
-    form.append("flux_model", model === 1 ? "1" : "0");
-    try {
-      const response = await this.axiosInstance.post("https://access.vheer.com/api/Vheer/UploadByFile", form, {
-        headers: {
-          ...form.headers,
-          ...this.buildHeaders({
-            Accept: "application/json, text/plain, */*"
-          })
-        },
-        timeout: 3e4
-      });
-      this.updateCookiesFromResponse(response);
-      if (response.data && response.data.code === 200 && response.data.data && response.data.data.code) {
-        return response.data.data.code;
-      } else {
-        throw new Error("Invalid upload response");
-      }
-    } catch (error) {
-      throw error;
-    }
-  }
-  async _uploadForImg2Img(imageBlob, filename, options) {
-    const formData = new FormData();
-    formData.append("file", imageBlob, filename);
-    const encodedPositivePrompt = Buffer.from(options.prompt).toString("base64");
-    const encodedNegativePrompt = Buffer.from(options.negative_prompt).toString("base64");
-    formData.append("positive_prompts", encodedPositivePrompt);
-    formData.append("negative_prompts", encodedNegativePrompt);
-    formData.append("strength", options.strength.toString());
-    formData.append("control_strength", options.control_strength.toString());
-    formData.append("type", options.type.toString());
-    formData.append("width", options.width.toString());
-    formData.append("height", options.height.toString());
-    formData.append("lora", options.lora);
-    formData.append("batch_size", options.batch_size.toString());
-    for (const key in options.rest) {
-      if (Object.hasOwnProperty.call(options.rest, key)) {
-        formData.append(key, options.rest[key].toString());
-      }
-    }
-    try {
-      const response = await this.axiosInstance.post("https://access.vheer.com/api/Vheer/UploadByFile", formData, {
-        headers: this.buildHeaders({
-          accept: "application/json, text/plain, */*",
-          origin: "https://vheer.com",
-          referer: "https://vheer.com/",
-          "sec-fetch-dest": "empty",
-          "sec-fetch-mode": "cors",
-          "sec-fetch-site": "same-site"
-        })
-      });
-      this.updateCookiesFromResponse(response);
-      if (response.data.code !== 200 || !response.data.data || !response.data.data.code) {
-        throw new Error(`Failed to get image code: ${response.data.msg || "An error occurred"}`);
-      }
-      return response.data.data.code;
-    } catch (error) {
-      throw error;
-    }
-  }
-  async status({
-    task_id
+  async txt2img({
+    prompt,
+    width = 1248,
+    height = 702,
+    aspect_ratio = "16:9",
+    flux_model = 1,
+    email = "",
+    lan_code = "en",
+    ...rest
   }) {
     try {
-      const decryptedData = await this.dec(task_id);
-      const {
-        code: taskCode,
-        endpoint,
-        type,
-        cookies
-      } = decryptedData;
-      if (cookies) {
-        this.cookies = cookies;
-        this.axiosInstance.defaults.headers = this.buildHeaders();
+      const uploadPayload = {
+        prompt: prompt,
+        type: 1,
+        width: width,
+        height: height,
+        email: email,
+        lan_code: lan_code,
+        aspect_ratio: aspect_ratio,
+        flux_model: flux_model,
+        ...rest
+      };
+      const encryptedParams = await this.encryption.encrypt(JSON.stringify(uploadPayload));
+      const formData = new FormData();
+      formData.append("params", encryptedParams);
+      const uploadResponse = await axios.post(this.uploadURL, formData, {
+        headers: {
+          ...this.headers,
+          "content-type": "multipart/form-data"
+        }
+      });
+      if (!uploadResponse.data || !uploadResponse.data.code) {
+        throw new Error("Failed to get task code from upload");
       }
-      const payload = [{
-        type: type,
-        code: taskCode
-      }];
-      const response = await this.axiosInstance.post(`https://vheer.com/app/${endpoint}`, JSON.stringify(payload), {
-        headers: this.buildHeaders({
+      const taskCode = uploadResponse.data.code;
+      const submitPayload = {
+        type: 1,
+        code: taskCode,
+        email: email || ""
+      };
+      const encryptedSubmit = await this.encryption.encrypt(JSON.stringify(submitPayload));
+      const submitResponse = await axios.post(`${this.baseURL}/app/text-to-image`, [{
+        params: encryptedSubmit
+      }], {
+        headers: {
+          ...this.headers,
           accept: "text/x-component",
-          "cache-control": "no-cache",
           "content-type": "text/plain;charset=UTF-8",
           "next-action": "1eeefc61e5469e1a173b48743a3cb8dd77eed91b",
-          "next-router-state-tree": endpoint === "text-to-image" ? "%5B%22%22%2C%7B%22children%22%3A%5B%22app%22%2C%7B%22children%22%3A%5B%22(image-generator-flux)%22%2C%7B%22children%22%3A%5B%22text-to-image%22%2C%7B%22children%22%3A%5B%22__PAGE__%22%2C%7B%7D%2C%22%2Fapp%2Ftext-to-image%22%2C%22refresh%22%5D%7D%5D%7D%5D%7D%5D%7D%2Cnull%2Cnull%2Ctrue%5D" : endpoint === "image-to-image" ? "%5B%22%22%2C%7B%22children%22%3A%5B%22app%22%2C%7B%22children%22%3A%5B%22(image-tools)%22%2C%7B%22children%22%3A%5B%22image-to-image%22%2C%7B%22children%22%3A%5B%22__PAGE__%22%2C%7B%7D%2C%22%2Fapp%2Fimage-to-image%22%2C%22refresh%22%5D%7D%5D%7D%5D%7D%5D%7D%2Cnull%2Cnull%2Ctrue%5D" : endpoint === "pixar-disney-art-generator" ? "%5B%22%22%2C%7B%22children%22%3A%5B%22app%22%2C%7B%22children%22%3A%5B%22(image-generator-flux)%22%2C%7B%22children%22%3A%5B%22pixar-disney-art-generator%22%2C%7B%22children%22%3A%5B%22__PAGE__%22%2C%7B%7D%2C%22%2Fapp%2Fpixar-disney-art-generator%22%2C%22refresh%22%5D%7D%5D%7D%5D%7D%5D%7D%2Cnull%2Cnull%5D%7D%2Cnull%2Cnull%2Ctrue%5D" : endpoint === "anime-portrait" ? "%5B%22%22%2C%7B%22children%22%3A%5B%22app%22%2C%7B%22children%22%3A%5B%22(portrait-generator-flux)%22%2C%7B%22children%22%3A%5B%22anime-portrait%22%2C%7B%22children%22%3A%5B%22__PAGE__%22%2C%7B%7D%2C%22%2Fapp%2Fanime-portrait%22%2C%22refresh%22%5D%7D%5D%7D%5D%7D%5D%7D%2Cnull%2Cnull%5D%7D%2Cnull%2Cnull%2Ctrue%5D" : "%5B%22%22%2C%7B%22children%22%3A%5B%22app%22%2C%7B%22children%22%3A%5B%22(image-tools)%22%2C%7B%22children%22%3A%5B%22image-to-video%22%2C%7B%22children%22%3A%5B%22__PAGE__%22%2C%7B%7D%2C%22%2Fapp%2Fimage-to-video%22%2C%22refresh%22%5D%7D%5D%7D%2Cnull%2Cnull%5D%7D%5D%7D%2Cnull%2Cnull%2Ctrue%5D",
-          pragma: "no-cache",
-          priority: "u=1, i",
-          referer: `https://vheer.com/app/${endpoint}`,
-          "sec-fetch-site": "same-origin"
-        })
-      });
-      this.updateCookiesFromResponse(response);
-      const responseText = response.data;
-      const jsonStartIndex = responseText.indexOf("{");
-      if (jsonStartIndex !== -1) {
-        try {
-          const jsonString = responseText.substring(jsonStartIndex);
-          const jsonData = JSON.parse(jsonString);
-          if (jsonData.code === 200 && jsonData.data) {
-            if (jsonData.data.status === "success") {
-              return {
-                status: "success",
-                downloadUrls: jsonData.data.downloadUrls,
-                url: jsonData.data.downloadUrls[0],
-                ...jsonData.data
-              };
-            } else {
-              return {
-                status: jsonData.data.status || "pending",
-                message: jsonData.data.message || "Task is still processing"
-              };
-            }
-          }
-        } catch (jsonError) {
-          throw new Error("Failed to parse response JSON");
+          referer: `${this.baseURL}/app/text-to-image`
         }
-      }
-      throw new Error("Invalid response format from server");
-    } catch (error) {
-      throw new Error(`Request failed: ${error.message}`);
-    }
-  }
-  async txt2img({
-    prompt = "A red dragon breathing fire on a mountain",
-    style = 1,
-    width = 512,
-    height = 512,
-    model = 1
-  }) {
-    const styleName = this.styleMapping[style];
-    if (!styleName) {
-      throw new Error(`Invalid style: ${style}. Options: ${Object.keys(this.styleMapping).join(", ")}`);
-    }
-    try {
-      const taskCode = await this._uploadForTxt2Img(prompt, style, width, height, model);
+      });
       const encryptedData = {
-        code: taskCode,
-        endpoint: "text-to-image",
-        type: 1,
-        cookies: this.cookies
+        success: true,
+        taskCode: taskCode,
+        type: "txt2img",
+        message: "Generation started successfully"
       };
-      const result = await this.enc(encryptedData);
       return {
-        task_id: result
+        task_id: await this.enc(encryptedData)
       };
     } catch (error) {
-      throw error;
+      console.error("Text-to-image generation error:", error);
+      return {
+        success: false,
+        error: error.message
+      };
     }
   }
   async img2img({
+    prompt,
     imageUrl,
-    prompt = "A red dragon breathing fire on a mountain",
-    negative_prompt = "low quality, bad quality, blurry",
-    strength = .975,
+    positive_prompts = "",
+    negative_prompts = "low quality, bad quality, blurry, pixelated, distorted, poorly drawn, out of focus",
+    strength = .9,
     control_strength = .2,
-    type = 4,
     width = 1024,
     height = 1024,
+    email = "",
     lora = "",
     batch_size = 1,
     ...rest
   }) {
     try {
-      const imageBlob = await this._imageUrlToBlob(imageUrl);
-      const filename = imageUrl.substring(imageUrl.lastIndexOf("/") + 1);
-      const taskCode = await this._uploadForImg2Img(imageBlob, filename, {
-        prompt: prompt,
-        negative_prompt: negative_prompt,
+      const imageResponse = await axios.get(imageUrl, {
+        responseType: "arraybuffer"
+      });
+      const imageBuffer = Buffer.from(imageResponse.data);
+      const formData = new FormData();
+      formData.append("file", new Blob([imageBuffer], {
+        type: "image/jpeg"
+      }), "uploaded_image.jpg");
+      const uploadPayload = {
+        positive_prompts: prompt + (positive_prompts ? "," + positive_prompts : ""),
+        negative_prompts: negative_prompts,
         strength: strength,
         control_strength: control_strength,
-        type: type,
+        type: 4,
         width: width,
         height: height,
+        email: email,
         lora: lora,
         batch_size: batch_size,
-        rest: rest
+        ...rest
+      };
+      const encryptedParams = await this.encryption.encrypt(JSON.stringify(uploadPayload));
+      formData.append("params", encryptedParams);
+      const uploadResponse = await axios.post(this.uploadURL, formData, {
+        headers: this.headers
       });
-      const generatePayload = [{
-        type: type,
-        code: taskCode
-      }];
-      await this.axiosInstance.post("https://vheer.com/app/image-to-image", JSON.stringify(generatePayload), {
-        headers: this.buildHeaders({
+      if (!uploadResponse.data || !uploadResponse.data.code) {
+        throw new Error("Failed to get task code from upload");
+      }
+      const taskCode = uploadResponse.data.code;
+      const submitPayload = {
+        type: 4,
+        code: taskCode,
+        email: email || ""
+      };
+      const encryptedSubmit = await this.encryption.encrypt(JSON.stringify(submitPayload));
+      const submitResponse = await axios.post(`${this.baseURL}/app/image-to-image`, [{
+        params: encryptedSubmit
+      }], {
+        headers: {
+          ...this.headers,
           accept: "text/x-component",
-          "cache-control": "no-cache",
           "content-type": "text/plain;charset=UTF-8",
           "next-action": "1eeefc61e5469e1a173b48743a3cb8dd77eed91b",
-          "next-router-state-tree": "%5B%22%22%2C%7B%22children%22%3A%5B%22app%22%2C%7B%22children%22%3A%5B%22(image-tools)%22%2C%7B%22children%22%3A%5B%22image-to-image%22%2C%7B%22children%22%3A%5B%22__PAGE__%22%2C%7B%7D%2C%22%2Fapp%2Fimage-to-image%22%2C%22refresh%22%5D%7D%5D%7D%5D%7D%5D%7D%2Cnull%2Cnull%2Ctrue%5D",
-          pragma: "no-cache",
-          priority: "u=1, i",
-          referer: "https://vheer.com/app/image-to-image",
-          "sec-fetch-site": "same-origin"
-        })
-      });
-      const encryptedData = {
-        code: taskCode,
-        endpoint: "image-to-image",
-        type: 4,
-        cookies: this.cookies
-      };
-      const result = await this.enc(encryptedData);
-      return {
-        task_id: result
-      };
-    } catch (error) {
-      throw error;
-    }
-  }
-  async img2prompt({
-    imageUrl,
-    promptStyle = "long"
-  }) {
-    try {
-      const imageBlob = await this._imageUrlToBlob(imageUrl);
-      const filename = imageUrl.substring(imageUrl.lastIndexOf("/") + 1);
-      const formData = new FormData();
-      formData.append("1_image", imageBlob, filename);
-      formData.append("1_promptStyle", promptStyle);
-      formData.append("0", `["$K1","wlz8hlb7z"]`);
-      const headers = this.buildHeaders({
-        accept: "text/x-component",
-        "content-type": `multipart/form-data; boundary=${formData.getBoundary()}`,
-        "next-action": "fa6112528e902fdca102489e06fea745880f88e3",
-        "next-router-state-tree": "%5B%22%22%2C%7B%22children%22%3A%5B%22app%22%2C%7B%22children%22%3A%5B%22(image-tools)%22%2C%7B%22children%22%3A%5B%22image-to-prompt%22%2C%7B%22children%22%3A%5B%22__PAGE__%22%2C%7B%7D%2C%22%2Fapp%2Fimage-to-prompt%22%2C%22refresh%22%5D%7D%5D%7D%5D%7D%5D%7D%2Cnull%2Cnull%2Ctrue%5D",
-        referer: "https://vheer.com/app/image-to-prompt"
-      });
-      const response = await this.axiosInstance.post("https://vheer.com/app/image-to-prompt", formData, {
-        headers: headers,
-        timeout: 3e4
-      });
-      this.updateCookiesFromResponse(response);
-      const responseText = response.data;
-      try {
-        const jsonData = JSON.parse(responseText.substring(responseText.indexOf("{")));
-        if (jsonData.code === 200 && jsonData.data && jsonData.data.prompt) {
-          return {
-            status: "success",
-            prompt: jsonData.data.prompt
-          };
-        } else if (jsonData.prompt) {
-          return {
-            status: "success",
-            prompt: jsonData.prompt
-          };
+          referer: `${this.baseURL}/app/image-to-image`
         }
-      } catch (e) {
-        const promptMatch = responseText.match(/prompt: "([^"]+)"/);
-        if (promptMatch && promptMatch[1]) {
-          return {
-            status: "success",
-            prompt: promptMatch[1]
-          };
-        } else {
-          return {
-            status: "unknown_response_format",
-            rawData: responseText
-          };
-        }
-      }
-    } catch (error) {
-      throw new Error(`Failed to convert image to prompt: ${error.message}`);
-    }
-  }
-  async pixar({
-    prompt = "A beautifully crafted character in the Semi-Realistic, showcasing a confident woman in a trench coat walking through city rain. Set in a a dark, rainy city street illuminated by streetlights, the scene is brought to life with realistic clothing textures, dramatic rain effects, and moody lighting, evoking the emotional depth and whimsical charm characteristic of Pixar and Disney animation.",
-    width = 896,
-    height = 1152,
-    type = 1,
-    model = 1
-  }) {
-    const encodedPrompt = Buffer.from(prompt).toString("base64");
-    const form = new FormData();
-    form.append("prompt", encodedPrompt);
-    form.append("type", type.toString());
-    form.append("width", width.toString());
-    form.append("height", height.toString());
-    form.append("flux_model", model.toString());
-    try {
-      const response = await this.axiosInstance.post("https://access.vheer.com/api/Vheer/UploadByFile", form, {
-        headers: {
-          ...form.headers,
-          ...this.buildHeaders({
-            Accept: "application/json, text/plain, */*",
-            Referer: "https://vheer.com/",
-            "sec-fetch-site": "same-site"
-          })
-        },
-        timeout: 3e4
       });
-      this.updateCookiesFromResponse(response);
-      if (response.data.code !== 200 || !response.data.data || !response.data.data.code) {
-        throw new Error(`Failed to get image code from upload: ${response.data.msg || "An error occurred"}`);
-      }
-      const taskCode = response.data.data.code;
       const encryptedData = {
-        code: taskCode,
-        endpoint: "pixar-disney-art-generator",
-        type: type,
-        cookies: this.cookies
+        taskCode: taskCode,
+        type: "img2img",
+        email: email || ""
       };
-      const result = await this.enc(encryptedData);
       return {
-        task_id: result
+        task_id: await this.enc(encryptedData)
       };
     } catch (error) {
-      throw error;
-    }
-  }
-  async anime({
-    imageUrl,
-    prompt = "A stunning anime portrait in Cyberpunk, the gender is Female, set against A neon-lit futuristic city with towering skyscrapers and glowing billboards, featuring A confident smirk. The character wears High-tech, techno-style clothing with glowing elements, with Cybernetic eyes and mechanical accessories, adding to the urban chaos. The composition captures vibrant colors, soft lighting, and intricate details, highlighting the character's emotions and unique charm.",
-    width = 896,
-    height = 1152,
-    type = 0
-  }) {
-    try {
-      const imageBlob = await this._imageUrlToBlob(imageUrl);
-      const filename = imageUrl.substring(imageUrl.lastIndexOf("/") + 1);
-      const encodedPrompt = Buffer.from(prompt).toString("base64");
-      const formData = new FormData();
-      formData.append("file", imageBlob, filename);
-      formData.append("prompt", encodedPrompt);
-      formData.append("type", type.toString());
-      formData.append("width", width.toString());
-      formData.append("height", height.toString());
-      const response = await this.axiosInstance.post("https://access.vheer.com/api/Vheer/UploadByFile", formData, {
-        headers: {
-          ...formData.headers,
-          ...this.buildHeaders({
-            Accept: "application/json, text/plain, */*",
-            Referer: "https://vheer.com/",
-            "sec-fetch-site": "same-site"
-          })
-        },
-        timeout: 3e4
-      });
-      this.updateCookiesFromResponse(response);
-      if (response.data.code !== 200 || !response.data.data || !response.data.data.code) {
-        throw new Error(`Failed to get image code from anime upload: ${response.data.msg || "An error occurred"}`);
-      }
-      const taskCode = response.data.data.code;
-      const encryptedData = {
-        code: taskCode,
-        endpoint: "anime-portrait",
-        type: type,
-        cookies: this.cookies
-      };
-      const result = await this.enc(encryptedData);
+      console.error("Image-to-image generation error:", error);
       return {
-        task_id: result
+        success: false,
+        error: error.message
       };
-    } catch (error) {
-      throw error;
     }
   }
   async img2vid({
+    prompt,
     imageUrl,
-    positive_prompts = 'Photograph of an astronaut in a white spacesuit with an American flag patch, holding a wooden sign that reads "HOUSE BOT," standing on the moon\'s surface with craters and a dark sky backdrop. Extremely detailed, photorealistic, 8k high resolution, RAW footage, ultra realistic, cinematic film',
+    positive_prompts = "",
     negative_prompts = "low quality, bad quality, blurry, pixelated, distorted, poorly drawn, out of focus",
-    width = 768,
-    height = 1344,
+    width = 1100,
+    height = 733,
     frameRate = 24,
     videoLength = 5,
     videoFormat = "mp4",
-    type = 5
+    videoDimension = 768,
+    model = 1,
+    email = "",
+    costCredits = 0,
+    ...rest
   }) {
     try {
-      const imageBlob = await this._imageUrlToBlob(imageUrl);
-      const filename = imageUrl.substring(imageUrl.lastIndexOf("/") + 1);
-      const encodedPositivePrompt = Buffer.from(positive_prompts).toString("base64");
-      const encodedNegativePrompt = Buffer.from(negative_prompts).toString("base64");
-      const formData = new FormData();
-      formData.append("file", imageBlob, filename);
-      formData.append("positive_prompts", encodedPositivePrompt);
-      formData.append("negative_prompts", encodedNegativePrompt);
-      formData.append("type", type.toString());
-      formData.append("width", width.toString());
-      formData.append("height", height.toString());
-      formData.append("frameRate", frameRate.toString());
-      formData.append("videoLength", videoLength.toString());
-      formData.append("videoFormat", videoFormat);
-      const response = await this.axiosInstance.post("https://access.vheer.com/api/Vheer/UploadByFile", formData, {
-        headers: {
-          ...formData.headers,
-          ...this.buildHeaders({
-            Accept: "application/json, text/plain, */*",
-            Referer: "https://vheer.com/",
-            "sec-fetch-site": "same-site"
-          })
-        },
-        timeout: 3e4
+      const imageResponse = await axios.get(imageUrl, {
+        responseType: "arraybuffer"
       });
-      this.updateCookiesFromResponse(response);
-      if (response.data.code !== 200 || !response.data.data || !response.data.data.code) {
-        throw new Error(`Failed to get video code from upload: ${response.data.msg || "An error occurred"}`);
-      }
-      const taskCode = response.data.data.code;
-      const encryptedData = {
-        code: taskCode,
-        endpoint: "image-to-video",
-        type: type,
-        cookies: this.cookies
+      const imageBuffer = Buffer.from(imageResponse.data);
+      const formData = new FormData();
+      formData.append("file", new Blob([imageBuffer], {
+        type: "image/jpeg"
+      }), "uploaded_image.jpg");
+      const uploadPayload = {
+        positive_prompts: prompt + (positive_prompts ? "," + positive_prompts : ""),
+        negative_prompts: negative_prompts,
+        type: 5,
+        width: width,
+        height: height,
+        frameRate: frameRate,
+        videoLength: videoLength,
+        videoFormat: videoFormat,
+        videoDimension: videoDimension,
+        model: model,
+        email: email,
+        costCredits: costCredits,
+        ...rest
       };
-      const result = await this.enc(encryptedData);
+      const encryptedParams = await this.encryption.encrypt(JSON.stringify(uploadPayload));
+      formData.append("params", encryptedParams);
+      const uploadResponse = await axios.post(this.uploadURL, formData, {
+        headers: this.headers
+      });
+      if (!uploadResponse.data || !uploadResponse.data.code) {
+        throw new Error("Failed to get task code from upload");
+      }
+      const taskCode = uploadResponse.data.code;
+      const submitPayload = {
+        type: 5,
+        code: taskCode,
+        email: email || "",
+        model: model
+      };
+      const encryptedSubmit = await this.encryption.encrypt(JSON.stringify(submitPayload));
+      const submitResponse = await axios.post(`${this.baseURL}/app/image-to-video`, [{
+        params: encryptedSubmit
+      }], {
+        headers: {
+          ...this.headers,
+          accept: "text/x-component",
+          "content-type": "text/plain;charset=UTF-8",
+          "next-action": "1eeefc61e5469e1a173b48743a3cb8dd77eed91b",
+          referer: `${this.baseURL}/app/image-to-video`
+        }
+      });
+      const encryptedData = {
+        taskCode: taskCode,
+        type: "img2vid",
+        email: email || ""
+      };
       return {
-        task_id: result
+        task_id: await this.enc(encryptedData)
       };
     } catch (error) {
-      throw error;
+      console.error("Image-to-video generation error:", error);
+      return {
+        success: false,
+        error: error.message
+      };
     }
+  }
+  async status({
+    task_id,
+    ...rest
+  }) {
+    try {
+      const decryptedData = await this.dec(task_id);
+      const {
+        taskCode,
+        type,
+        email
+      } = decryptedData;
+      const statusPayload = {
+        type: this.getTypeNumber(type),
+        code: taskCode,
+        email: email,
+        ...rest
+      };
+      const encryptedStatus = await this.encryption.encrypt(JSON.stringify(statusPayload));
+      const endpoint = this.getStatusEndpoint(type);
+      const response = await axios.post(`${this.baseURL}${endpoint}`, [{
+        params: encryptedStatus
+      }], {
+        headers: {
+          ...this.headers,
+          accept: "text/x-component",
+          "content-type": "text/plain;charset=UTF-8",
+          "next-action": "1eeefc61e5469e1a173b48743a3cb8dd77eed91b",
+          referer: `${this.baseURL}${endpoint.replace("/app/", "/app")}`
+        }
+      });
+      return response.data;
+    } catch (error) {
+      console.error("Status check error:", error);
+      return {
+        success: false,
+        error: error.message
+      };
+    }
+  }
+  getTypeNumber(type) {
+    const typeMap = {
+      txt2img: 1,
+      img2img: 4,
+      img2vid: 5
+    };
+    return typeMap[type] || 1;
+  }
+  getStatusEndpoint(type) {
+    const endpointMap = {
+      txt2img: "/app/text-to-image",
+      img2img: "/app/image-to-image",
+      img2vid: "/app/image-to-video"
+    };
+    return endpointMap[type] || "/app/text-to-image";
   }
 }
 export default async function handler(req, res) {
@@ -524,11 +393,11 @@ export default async function handler(req, res) {
     return res.status(400).json({
       error: "Missing required field: action",
       required: {
-        action: "txt2img | img2img | img2prompt | pixar | anime | img2vid | status"
+        action: "txt2img | img2img | img2vid | status"
       }
     });
   }
-  const generator = new VheerImageGenerator();
+  const generator = new VheerAPI();
   try {
     let result;
     switch (action) {
@@ -541,41 +410,17 @@ export default async function handler(req, res) {
         result = await generator.txt2img(params);
         break;
       case "img2img":
-        if (!params.imageUrl) {
+        if (!params.prompt || !params.imageUrl) {
           return res.status(400).json({
-            error: `Missing required field: imageUrl (required for ${action})`
+            error: `Missing required field: prompt, imageUrl (required for ${action})`
           });
         }
         result = await generator.img2img(params);
         break;
-      case "img2prompt":
-        if (!params.imageUrl) {
-          return res.status(400).json({
-            error: `Missing required field: imageUrl (required for ${action})`
-          });
-        }
-        result = await generator.img2prompt(params);
-        break;
-      case "pixar":
-        if (!params.prompt) {
-          return res.status(400).json({
-            error: `Missing required field: prompt (required for ${action})`
-          });
-        }
-        result = await generator.pixar(params);
-        break;
-      case "anime":
-        if (!params.imageUrl) {
-          return res.status(400).json({
-            error: `Missing required fields: imageUrl (required for ${action})`
-          });
-        }
-        result = await generator.anime(params);
-        break;
       case "img2vid":
-        if (!params.imageUrl) {
+        if (!params.prompt || !params.imageUrl) {
           return res.status(400).json({
-            error: `Missing required fields: imageUrl (required for ${action})`
+            error: `Missing required field: prompt, imageUrl (required for ${action})`
           });
         }
         result = await generator.img2vid(params);
@@ -590,7 +435,7 @@ export default async function handler(req, res) {
         break;
       default:
         return res.status(400).json({
-          error: `Invalid action: ${action}. Allowed: txt2img | img2img | img2prompt | pixar | anime | img2vid | status`
+          error: `Invalid action: ${action}. Allowed: txt2img | img2img | img2vid | status`
         });
     }
     return res.status(200).json(result);
