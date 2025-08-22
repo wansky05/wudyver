@@ -22,11 +22,10 @@ class VheerImageGenerator {
     this.axiosInstance = axios.create({
       headers: this.buildHeaders()
     });
-  }
-  randomID(length = 16) {
-    return crypto.randomBytes(length).toString("hex");
+    this.cookies = {};
   }
   buildHeaders(extra = {}) {
+    const cookieString = Object.entries(this.cookies).map(([key, value]) => `${key}=${value}`).join("; ");
     const commonHeaders = {
       accept: "*/*",
       "accept-language": "id-ID,id;q=0.9",
@@ -41,9 +40,27 @@ class VheerImageGenerator {
       "sec-fetch-site": "same-origin",
       "x-request-id": this.randomID(8),
       ...SpoofHead(),
+      ...cookieString ? {
+        cookie: cookieString
+      } : {},
       ...extra
     };
     return commonHeaders;
+  }
+  updateCookiesFromResponse(response) {
+    const setCookieHeaders = response.headers["set-cookie"];
+    if (setCookieHeaders) {
+      setCookieHeaders.forEach(cookie => {
+        const cookieParts = cookie.split(";")[0].split("=");
+        if (cookieParts.length >= 2) {
+          this.cookies[cookieParts[0]] = cookieParts[1];
+        }
+      });
+      this.axiosInstance.defaults.headers = this.buildHeaders();
+    }
+  }
+  randomID(length = 16) {
+    return crypto.randomBytes(length).toString("hex");
   }
   async enc(data) {
     const {
@@ -87,7 +104,7 @@ class VheerImageGenerator {
     form.append("height", height.toString());
     form.append("flux_model", model === 1 ? "1" : "0");
     try {
-      const response = await axios.post("https://access.vheer.com/api/Vheer/UploadByFile", form, {
+      const response = await this.axiosInstance.post("https://access.vheer.com/api/Vheer/UploadByFile", form, {
         headers: {
           ...form.headers,
           ...this.buildHeaders({
@@ -96,6 +113,7 @@ class VheerImageGenerator {
         },
         timeout: 3e4
       });
+      this.updateCookiesFromResponse(response);
       if (response.data && response.data.code === 200 && response.data.data && response.data.data.code) {
         return response.data.data.code;
       } else {
@@ -135,6 +153,7 @@ class VheerImageGenerator {
           "sec-fetch-site": "same-site"
         })
       });
+      this.updateCookiesFromResponse(response);
       if (response.data.code !== 200 || !response.data.data || !response.data.data.code) {
         throw new Error(`Failed to get image code: ${response.data.msg || "An error occurred"}`);
       }
@@ -151,8 +170,13 @@ class VheerImageGenerator {
       const {
         code: taskCode,
         endpoint,
-        type
+        type,
+        cookies
       } = decryptedData;
+      if (cookies) {
+        this.cookies = cookies;
+        this.axiosInstance.defaults.headers = this.buildHeaders();
+      }
       const payload = [{
         type: type,
         code: taskCode
@@ -170,6 +194,7 @@ class VheerImageGenerator {
           "sec-fetch-site": "same-origin"
         })
       });
+      this.updateCookiesFromResponse(response);
       const responseText = response.data;
       const jsonStartIndex = responseText.indexOf("{");
       if (jsonStartIndex !== -1) {
@@ -216,9 +241,9 @@ class VheerImageGenerator {
       const encryptedData = {
         code: taskCode,
         endpoint: "text-to-image",
-        type: 1
+        type: 1,
+        cookies: this.cookies
       };
-      return;
       const result = await this.enc(encryptedData);
       return {
         task_id: result
@@ -275,7 +300,8 @@ class VheerImageGenerator {
       const encryptedData = {
         code: taskCode,
         endpoint: "image-to-image",
-        type: 4
+        type: 4,
+        cookies: this.cookies
       };
       const result = await this.enc(encryptedData);
       return {
@@ -307,6 +333,7 @@ class VheerImageGenerator {
         headers: headers,
         timeout: 3e4
       });
+      this.updateCookiesFromResponse(response);
       const responseText = response.data;
       try {
         const jsonData = JSON.parse(responseText.substring(responseText.indexOf("{")));
@@ -354,7 +381,7 @@ class VheerImageGenerator {
     form.append("height", height.toString());
     form.append("flux_model", model.toString());
     try {
-      const uploadResponse = await axios.post("https://access.vheer.com/api/Vheer/UploadByFile", form, {
+      const response = await this.axiosInstance.post("https://access.vheer.com/api/Vheer/UploadByFile", form, {
         headers: {
           ...form.headers,
           ...this.buildHeaders({
@@ -365,14 +392,16 @@ class VheerImageGenerator {
         },
         timeout: 3e4
       });
-      if (uploadResponse.data.code !== 200 || !uploadResponse.data.data || !uploadResponse.data.data.code) {
-        throw new Error(`Failed to get image code from upload: ${uploadResponse.data.msg || "An error occurred"}`);
+      this.updateCookiesFromResponse(response);
+      if (response.data.code !== 200 || !response.data.data || !response.data.data.code) {
+        throw new Error(`Failed to get image code from upload: ${response.data.msg || "An error occurred"}`);
       }
-      const taskCode = uploadResponse.data.data.code;
+      const taskCode = response.data.data.code;
       const encryptedData = {
         code: taskCode,
         endpoint: "pixar-disney-art-generator",
-        type: type
+        type: type,
+        cookies: this.cookies
       };
       const result = await this.enc(encryptedData);
       return {
@@ -399,7 +428,7 @@ class VheerImageGenerator {
       formData.append("type", type.toString());
       formData.append("width", width.toString());
       formData.append("height", height.toString());
-      const uploadResponse = await axios.post("https://access.vheer.com/api/Vheer/UploadByFile", formData, {
+      const response = await this.axiosInstance.post("https://access.vheer.com/api/Vheer/UploadByFile", formData, {
         headers: {
           ...formData.headers,
           ...this.buildHeaders({
@@ -410,14 +439,16 @@ class VheerImageGenerator {
         },
         timeout: 3e4
       });
-      if (uploadResponse.data.code !== 200 || !uploadResponse.data.data || !uploadResponse.data.data.code) {
-        throw new Error(`Failed to get image code from anime upload: ${uploadResponse.data.msg || "An error occurred"}`);
+      this.updateCookiesFromResponse(response);
+      if (response.data.code !== 200 || !response.data.data || !response.data.data.code) {
+        throw new Error(`Failed to get image code from anime upload: ${response.data.msg || "An error occurred"}`);
       }
-      const taskCode = uploadResponse.data.data.code;
+      const taskCode = response.data.data.code;
       const encryptedData = {
         code: taskCode,
         endpoint: "anime-portrait",
-        type: type
+        type: type,
+        cookies: this.cookies
       };
       const result = await this.enc(encryptedData);
       return {
@@ -453,7 +484,7 @@ class VheerImageGenerator {
       formData.append("frameRate", frameRate.toString());
       formData.append("videoLength", videoLength.toString());
       formData.append("videoFormat", videoFormat);
-      const uploadResponse = await axios.post("https://access.vheer.com/api/Vheer/UploadByFile", formData, {
+      const response = await this.axiosInstance.post("https://access.vheer.com/api/Vheer/UploadByFile", formData, {
         headers: {
           ...formData.headers,
           ...this.buildHeaders({
@@ -464,14 +495,16 @@ class VheerImageGenerator {
         },
         timeout: 3e4
       });
-      if (uploadResponse.data.code !== 200 || !uploadResponse.data.data || !uploadResponse.data.data.code) {
-        throw new Error(`Failed to get video code from upload: ${uploadResponse.data.msg || "An error occurred"}`);
+      this.updateCookiesFromResponse(response);
+      if (response.data.code !== 200 || !response.data.data || !response.data.data.code) {
+        throw new Error(`Failed to get video code from upload: ${response.data.msg || "An error occurred"}`);
       }
-      const taskCode = uploadResponse.data.data.code;
+      const taskCode = response.data.data.code;
       const encryptedData = {
         code: taskCode,
         endpoint: "image-to-video",
-        type: type
+        type: type,
+        cookies: this.cookies
       };
       const result = await this.enc(encryptedData);
       return {
@@ -491,7 +524,7 @@ export default async function handler(req, res) {
     return res.status(400).json({
       error: "Missing required field: action",
       required: {
-        action: "txt2img | img2img | img2prompt | pixar | anime | img2vid"
+        action: "txt2img | img2img | img2prompt | pixar | anime | img2vid | status"
       }
     });
   }

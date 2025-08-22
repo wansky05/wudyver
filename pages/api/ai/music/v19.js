@@ -32,8 +32,8 @@ class SongGenerator {
       console.log("Creating song with token:", anonymousUserToken);
       const response = await this.client.post("/music/generate", {
         prompt: prompt,
-        style: rest.style || "Tejano",
-        title: rest.title || "",
+        style: rest.style || "Pop, Acoustic",
+        title: rest.title || "Default Test Song",
         customMode: rest.customMode !== undefined ? rest.customMode : true,
         instrumental: rest.instrumental !== undefined ? rest.instrumental : false,
         isPrivate: rest.isPrivate !== undefined ? rest.isPrivate : false,
@@ -88,9 +88,9 @@ export default async function handler(req, res) {
   try {
     switch (action) {
       case "create":
-        if (!params.lyrics) {
+        if (!params.prompt) {
           return res.status(400).json({
-            error: "lyrics is required for 'create' action."
+            error: "prompt is required for 'create' action."
           });
         }
         const createResponse = await generator.create(params);
