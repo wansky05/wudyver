@@ -4,6 +4,7 @@ import {
   FormData,
   Blob
 } from "formdata-node";
+import Encoder from "@/lib/encoder";
 import SpoofHead from "@/lib/spoof-head";
 class VheerImageGenerator {
   constructor() {
@@ -43,6 +44,22 @@ class VheerImageGenerator {
       ...extra
     };
     return commonHeaders;
+  }
+  async enc(data) {
+    const {
+      uuid: jsonUuid
+    } = await Encoder.enc({
+      data: data,
+      method: "combined"
+    });
+    return jsonUuid;
+  }
+  async dec(uuid) {
+    const decryptedJson = await Encoder.dec({
+      uuid: uuid,
+      method: "combined"
+    });
+    return decryptedJson.text;
   }
   _formatPrompt(basePrompt, styleName) {
     const elaborate = `Create a ${styleName} clip art illustration of ${basePrompt}, ${styleName.toLowerCase()} style, featuring undefined. The artwork should embody the essence of ${styleName}, capturing its unique visual appeal and aesthetic qualities. Designed with careful attention to detail, this illustration maintains a consistent and polished look, making it suitable for a wide range of creative applications.`;
@@ -126,52 +143,62 @@ class VheerImageGenerator {
       throw error;
     }
   }
-  async _pollTaskStatus(taskCode, endpoint = "text-to-image", type = 1, interval = 3e3, maxAttempts = 20) {
-    let attempts = 0;
-    while (attempts < maxAttempts) {
-      await new Promise(resolve => setTimeout(resolve, interval));
-      attempts++;
-      try {
-        const payload = [{
-          type: type,
-          code: taskCode
-        }];
-        const response = await this.axiosInstance.post(`https://vheer.com/app/${endpoint}`, JSON.stringify(payload), {
-          headers: this.buildHeaders({
-            accept: "text/x-component",
-            "cache-control": "no-cache",
-            "content-type": "text/plain;charset=UTF-8",
-            "next-action": "1eeefc61e5469e1a173b48743a3cb8dd77eed91b",
-            "next-router-state-tree": endpoint === "text-to-image" ? "%5B%22%22%2C%7B%22children%22%3A%5B%22app%22%2C%7B%22children%22%3A%5B%22(image-generator-flux)%22%2C%7B%22children%22%3A%5B%22text-to-image%22%2C%7B%22children%22%3A%5B%22__PAGE__%22%2C%7B%7D%2C%22%2Fapp%2Ftext-to-image%22%2C%22refresh%22%5D%7D%5D%7D%5D%7D%5D%7D%2Cnull%2Cnull%2Ctrue%5D" : endpoint === "image-to-image" ? "%5B%22%22%2C%7B%22children%22%3A%5B%22app%22%2C%7B%22children%22%3A%5B%22(image-tools)%22%2C%7B%22children%22%3A%5B%22image-to-image%22%2C%7B%22children%22%3A%5B%22__PAGE__%22%2C%7B%7D%2C%22%2Fapp%2Fimage-to-image%22%2C%22refresh%22%5D%7D%5D%7D%5D%7D%5D%7D%2Cnull%2Cnull%2Ctrue%5D" : endpoint === "pixar-disney-art-generator" ? "%5B%22%22%2C%7B%22children%22%3A%5B%22app%22%2C%7B%22children%22%3A%5B%22(image-generator-flux)%22%2C%7B%22children%22%3A%5B%22pixar-disney-art-generator%22%2C%7B%22children%22%3A%5B%22__PAGE__%22%2C%7B%7D%2C%22%2Fapp%2Fpixar-disney-art-generator%22%2C%22refresh%22%5D%7D%5D%7D%5D%7D%5D%7D%2Cnull%2Cnull%5D%7D%2Cnull%2Cnull%2Ctrue%5D" : endpoint === "anime-portrait" ? "%5B%22%22%2C%7B%22children%22%3A%5B%22app%22%2C%7B%22children%22%3A%5B%22(portrait-generator-flux)%22%2C%7B%22children%22%3A%5B%22anime-portrait%22%2C%7B%22children%22%3A%5B%22__PAGE__%22%2C%7B%7D%2C%22%2Fapp%2Fanime-portrait%22%2C%22refresh%22%5D%7D%5D%7D%5D%7D%5D%7D%2Cnull%2Cnull%5D%7D%2Cnull%2Cnull%2Ctrue%5D" : "%5B%22%22%2C%7B%22children%22%3A%5B%22app%22%2C%7B%22children%22%3A%5B%22(image-tools)%22%2C%7B%22children%22%3A%5B%22image-to-video%22%2C%7B%22children%22%3A%5B%22__PAGE__%22%2C%7B%7D%2C%22%2Fapp%2Fimage-to-video%22%2C%22refresh%22%5D%7D%5D%7D%2Cnull%2Cnull%5D%7D%5D%7D%2Cnull%2Cnull%2Ctrue%5D",
-            pragma: "no-cache",
-            priority: "u=1, i",
-            referer: `https://vheer.com/app/${endpoint}`,
-            "sec-fetch-site": "same-origin"
-          })
-        });
-        const responseText = response.data;
-        const jsonStartIndex = responseText.indexOf("{");
-        if (jsonStartIndex !== -1) {
-          try {
-            const jsonString = responseText.substring(jsonStartIndex);
-            const jsonData = JSON.parse(jsonString);
-            if (jsonData.code === 200 && jsonData.data && jsonData.data.status === "success") {
+  async status({
+    task_id
+  }) {
+    try {
+      const decryptedData = await this.dec(task_id);
+      const {
+        code: taskCode,
+        endpoint,
+        type
+      } = decryptedData;
+      const payload = [{
+        type: type,
+        code: taskCode
+      }];
+      const response = await this.axiosInstance.post(`https://vheer.com/app/${endpoint}`, JSON.stringify(payload), {
+        headers: this.buildHeaders({
+          accept: "text/x-component",
+          "cache-control": "no-cache",
+          "content-type": "text/plain;charset=UTF-8",
+          "next-action": "1eeefc61e5469e1a173b48743a3cb8dd77eed91b",
+          "next-router-state-tree": endpoint === "text-to-image" ? "%5B%22%22%2C%7B%22children%22%3A%5B%22app%22%2C%7B%22children%22%3A%5B%22(image-generator-flux)%22%2C%7B%22children%22%3A%5B%22text-to-image%22%2C%7B%22children%22%3A%5B%22__PAGE__%22%2C%7B%7D%2C%22%2Fapp%2Ftext-to-image%22%2C%22refresh%22%5D%7D%5D%7D%5D%7D%5D%7D%2Cnull%2Cnull%2Ctrue%5D" : endpoint === "image-to-image" ? "%5B%22%22%2C%7B%22children%22%3A%5B%22app%22%2C%7B%22children%22%3A%5B%22(image-tools)%22%2C%7B%22children%22%3A%5B%22image-to-image%22%2C%7B%22children%22%3A%5B%22__PAGE__%22%2C%7B%7D%2C%22%2Fapp%2Fimage-to-image%22%2C%22refresh%22%5D%7D%5D%7D%5D%7D%5D%7D%2Cnull%2Cnull%2Ctrue%5D" : endpoint === "pixar-disney-art-generator" ? "%5B%22%22%2C%7B%22children%22%3A%5B%22app%22%2C%7B%22children%22%3A%5B%22(image-generator-flux)%22%2C%7B%22children%22%3A%5B%22pixar-disney-art-generator%22%2C%7B%22children%22%3A%5B%22__PAGE__%22%2C%7B%7D%2C%22%2Fapp%2Fpixar-disney-art-generator%22%2C%22refresh%22%5D%7D%5D%7D%5D%7D%5D%7D%2Cnull%2Cnull%5D%7D%2Cnull%2Cnull%2Ctrue%5D" : endpoint === "anime-portrait" ? "%5B%22%22%2C%7B%22children%22%3A%5B%22app%22%2C%7B%22children%22%3A%5B%22(portrait-generator-flux)%22%2C%7B%22children%22%3A%5B%22anime-portrait%22%2C%7B%22children%22%3A%5B%22__PAGE__%22%2C%7B%7D%2C%22%2Fapp%2Fanime-portrait%22%2C%22refresh%22%5D%7D%5D%7D%5D%7D%5D%7D%2Cnull%2Cnull%5D%7D%2Cnull%2Cnull%2Ctrue%5D" : "%5B%22%22%2C%7B%22children%22%3A%5B%22app%22%2C%7B%22children%22%3A%5B%22(image-tools)%22%2C%7B%22children%22%3A%5B%22image-to-video%22%2C%7B%22children%22%3A%5B%22__PAGE__%22%2C%7B%7D%2C%22%2Fapp%2Fimage-to-video%22%2C%22refresh%22%5D%7D%5D%7D%2Cnull%2Cnull%5D%7D%5D%7D%2Cnull%2Cnull%2Ctrue%5D",
+          pragma: "no-cache",
+          priority: "u=1, i",
+          referer: `https://vheer.com/app/${endpoint}`,
+          "sec-fetch-site": "same-origin"
+        })
+      });
+      const responseText = response.data;
+      const jsonStartIndex = responseText.indexOf("{");
+      if (jsonStartIndex !== -1) {
+        try {
+          const jsonString = responseText.substring(jsonStartIndex);
+          const jsonData = JSON.parse(jsonString);
+          if (jsonData.code === 200 && jsonData.data) {
+            if (jsonData.data.status === "success") {
               return {
                 status: "success",
                 downloadUrls: jsonData.data.downloadUrls,
                 url: jsonData.data.downloadUrls[0],
                 ...jsonData.data
               };
+            } else {
+              return {
+                status: jsonData.data.status || "pending",
+                message: jsonData.data.message || "Task is still processing"
+              };
             }
-          } catch (jsonError) {
-            continue;
           }
+        } catch (jsonError) {
+          throw new Error("Failed to parse response JSON");
         }
-      } catch (error) {
-        continue;
       }
+      throw new Error("Invalid response format from server");
+    } catch (error) {
+      throw new Error(`Request failed: ${error.message}`);
     }
-    throw new Error(`Polling timed out after ${maxAttempts} attempts for ${endpoint}`);
   }
   async txt2img({
     prompt = "A red dragon breathing fire on a mountain",
@@ -186,8 +213,16 @@ class VheerImageGenerator {
     }
     try {
       const taskCode = await this._uploadForTxt2Img(prompt, style, width, height, model);
-      const result = await this._pollTaskStatus(taskCode, "text-to-image", 1);
-      return result;
+      const encryptedData = {
+        code: taskCode,
+        endpoint: "text-to-image",
+        type: 1
+      };
+      return;
+      const result = await this.enc(encryptedData);
+      return {
+        task_id: result
+      };
     } catch (error) {
       throw error;
     }
@@ -237,8 +272,15 @@ class VheerImageGenerator {
           "sec-fetch-site": "same-origin"
         })
       });
-      const result = await this._pollTaskStatus(taskCode, "image-to-image", 4);
-      return result;
+      const encryptedData = {
+        code: taskCode,
+        endpoint: "image-to-image",
+        type: 4
+      };
+      const result = await this.enc(encryptedData);
+      return {
+        task_id: result
+      };
     } catch (error) {
       throw error;
     }
@@ -327,8 +369,15 @@ class VheerImageGenerator {
         throw new Error(`Failed to get image code from upload: ${uploadResponse.data.msg || "An error occurred"}`);
       }
       const taskCode = uploadResponse.data.data.code;
-      const result = await this._pollTaskStatus(taskCode, "pixar-disney-art-generator", type);
-      return result;
+      const encryptedData = {
+        code: taskCode,
+        endpoint: "pixar-disney-art-generator",
+        type: type
+      };
+      const result = await this.enc(encryptedData);
+      return {
+        task_id: result
+      };
     } catch (error) {
       throw error;
     }
@@ -365,8 +414,15 @@ class VheerImageGenerator {
         throw new Error(`Failed to get image code from anime upload: ${uploadResponse.data.msg || "An error occurred"}`);
       }
       const taskCode = uploadResponse.data.data.code;
-      const result = await this._pollTaskStatus(taskCode, "anime-portrait", type);
-      return result;
+      const encryptedData = {
+        code: taskCode,
+        endpoint: "anime-portrait",
+        type: type
+      };
+      const result = await this.enc(encryptedData);
+      return {
+        task_id: result
+      };
     } catch (error) {
       throw error;
     }
@@ -412,8 +468,15 @@ class VheerImageGenerator {
         throw new Error(`Failed to get video code from upload: ${uploadResponse.data.msg || "An error occurred"}`);
       }
       const taskCode = uploadResponse.data.data.code;
-      const result = await this._pollTaskStatus(taskCode, "image-to-video", type);
-      return result;
+      const encryptedData = {
+        code: taskCode,
+        endpoint: "image-to-video",
+        type: type
+      };
+      const result = await this.enc(encryptedData);
+      return {
+        task_id: result
+      };
     } catch (error) {
       throw error;
     }
@@ -484,9 +547,17 @@ export default async function handler(req, res) {
         }
         result = await generator.img2vid(params);
         break;
+      case "status":
+        if (!params.task_id) {
+          return res.status(400).json({
+            error: `Missing required fields: task_id (required for ${action})`
+          });
+        }
+        result = await generator.status(params);
+        break;
       default:
         return res.status(400).json({
-          error: `Invalid action: ${action}. Allowed: txt2img | img2img | img2prompt | pixar | anime | img2vid`
+          error: `Invalid action: ${action}. Allowed: txt2img | img2img | img2prompt | pixar | anime | img2vid | status`
         });
     }
     return res.status(200).json(result);

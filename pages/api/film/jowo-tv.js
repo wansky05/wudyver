@@ -396,7 +396,7 @@ export default async function handler(req, res) {
             error: "vid parameter is required for info"
           });
         }
-        result = await scraper.detail(params);
+        result = await jowo.info(params);
         break;
       default:
         return res.status(400).json({

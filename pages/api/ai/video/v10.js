@@ -46,7 +46,7 @@ class AiLabs {
     ...rest
   }) {
     try {
-      if (!prompt?.trim()) {
+      if (!prompt) {
         return {
           success: false,
           code: 400,
@@ -101,18 +101,11 @@ class AiLabs {
     ...rest
   }) {
     try {
-      if (!prompt?.trim()) {
+      if (!prompt) {
         return {
           success: false,
           code: 400,
           error: "Prompt cannot be empty"
-        };
-      }
-      if (!/^[a-zA-Z0-9\s.,!?'-]+$/.test(prompt)) {
-        return {
-          success: false,
-          code: 400,
-          error: "Prompt contains invalid characters"
         };
       }
       console.log("Starting video generation...");
@@ -164,7 +157,7 @@ class AiLabs {
     ...rest
   }) {
     try {
-      if (!task_id || typeof task_id !== "string") {
+      if (!task_id) {
         return {
           success: false,
           code: 400,

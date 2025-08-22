@@ -44,7 +44,7 @@ class AILabs {
     prompt,
     ...rest
   }) {
-    if (!prompt?.trim()) {
+    if (!prompt) {
       return {
         success: false,
         code: 400,
@@ -103,7 +103,7 @@ class AILabs {
     isPremium = 1,
     ...rest
   }) {
-    if (!prompt?.trim() || !/^[a-zA-Z0-9\s.,!?'-]+$/.test(prompt)) {
+    if (!prompt) {
       return {
         success: false,
         code: 400,
@@ -160,7 +160,7 @@ class AILabs {
     task_id: key,
     ...rest
   }) {
-    if (!key || typeof key !== "string") {
+    if (!key) {
       console.log("Invalid task_id provided");
       return {
         success: false,
