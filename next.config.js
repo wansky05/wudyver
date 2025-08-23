@@ -27,6 +27,9 @@ const securityHeaders = [...createSecureHeaders({
 }];
 const nextConfig = withPWA({
   reactStrictMode: true,
+  productionBrowserSourceMaps: false,
+  compress: true,
+  poweredByHeader: false,
   experimental: {
     appDir: true,
     swcMinify: true,
@@ -60,6 +63,17 @@ const nextConfig = withPWA({
       "utf-8-validate": "commonjs utf-8-validate",
       bufferutil: "commonjs bufferutil"
     });
+    if (!dev && !isServer) {
+      const WebpackObfuscator = require('webpack-obfuscator');
+      config.plugins.push(
+        new WebpackObfuscator({
+          rotateStringArray: true,
+          stringArray: true,
+          stringArrayThreshold: 0.75,
+          disableConsoleOutput: true
+        })
+      );
+    }
     return config;
   }
 });

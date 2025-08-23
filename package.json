@@ -84,6 +84,7 @@
     "formdata-node": "latest",
     "image-size": "latest",
     "javascript-obfuscator": "latest",
+    "webpack-obfuscator": "latest",
     "js-beautify": "latest",
     "js-confuser": "latest",
     "js-cookie": "latest",

@@ -36,7 +36,8 @@ class VheerEncryption {
       const combined = new Uint8Array(iv.length + encrypted.byteLength);
       combined.set(iv);
       combined.set(new Uint8Array(encrypted), iv.length);
-      return btoa(String.fromCharCode(...combined));
+      const binaryString = Array.from(combined).map(byte => String.fromCharCode(byte)).join("");
+      return btoa(binaryString);
     } catch (error) {
       console.error("Encryption error:", error);
       throw new Error("Failed to encrypt data");
@@ -342,7 +343,7 @@ class VheerAPI {
         email
       } = decryptedData;
       const statusPayload = {
-        type: this.getTypeNumber(type),
+        type: String(this.getTypeNumber(type)),
         code: taskCode,
         email: email,
         ...rest
@@ -360,9 +361,21 @@ class VheerAPI {
           referer: `${this.baseURL}${endpoint.replace("/app/", "/app")}`
         }
       });
+      if (typeof response.data === "string") {
+        try {
+          const jsonStringStartIndex = response.data.indexOf("1:");
+          if (jsonStringStartIndex !== -1) {
+            const jsonString = response.data.substring(jsonStringStartIndex + 2).trim();
+            return JSON.parse(jsonString);
+          }
+        } catch (e) {
+          console.error("Gagal mengurai respons string:", e);
+          return response.data;
+        }
+      }
       return response.data;
     } catch (error) {
-      console.error("Status check error:", error);
+      console.error("Kesalahan pemeriksaan status:", error);
       return {
         success: false,
         error: error.message
