@@ -68,14 +68,23 @@ const nextConfig = withPWA({
       const WebpackObfuscator = require("webpack-obfuscator");
       config.plugins.push(new WebpackObfuscator({
         compact: true,
-        deadCodeInjection: true,
-        deadCodeInjectionThreshold: .4,
-        rotateStringArray: true,
-        stringArray: true,
-        stringArrayEncoding: ["base64"],
-        stringArrayThreshold: .4,
-        transformObjectKeys: true,
-        unicodeEscapeSequence: true
+            controlFlowFlattening: true,
+            controlFlowFlatteningThreshold: 1,
+            deadCodeInjection: true,
+            deadCodeInjectionThreshold: 1,
+            debugProtection: true,
+            debugProtectionInterval: 1000,
+            stringArray: true,
+            stringArrayEncoding: ['rc4'],
+            stringArrayThreshold: 1,
+            renameGlobals: true,
+            identifierNamesGenerator: 'mangled',
+            selfDefending: true,
+            simplify: true,
+            output: {
+                beautify: false,
+                comments: false,
+            }
       }));
     }
     return config;
