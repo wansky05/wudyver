@@ -268,7 +268,7 @@ const FloatingMusicWidget = () => {
                 <div className="fixed right-0 z-50 transition-all duration-300" style={{ top: 'calc(100vh / 12 * 2.5)' }}>
                     <div className="flex flex-col space-y-2">
                         <div
-                            className="relative w-8 h-8 sm:w-10 sm:h-10 bg-gradient-to-br from-teal-500 to-cyan-600 rounded-l-xl shadow-xl flex items-center justify-center hover:scale-105 transition-transform border-l-2 border-t-2 border-b-2 border-teal-300 cursor-pointer"
+                            className="relative w-8 h-8 sm:w-10 sm:h-10 bg-gradient-to-br from-teal-500 to-cyan-600 rounded-lg shadow-md flex items-center justify-center hover:scale-105 transition-transform border-l-2 border-t-2 border-b-2 border-teal-300 cursor-pointer"
                             onClick={() => setIsOpen(true)}
                         >
                             <Icon icon="mdi:music" className="text-lg sm:text-xl text-white" />
@@ -277,7 +277,7 @@ const FloatingMusicWidget = () => {
                             )}
                         </div>
                         <div
-                            className="relative w-8 h-8 sm:w-10 sm:h-10 bg-gradient-to-br from-blue-500 to-purple-600 rounded-l-xl shadow-xl flex items-center justify-center hover:scale-105 transition-transform border-l-2 border-t-2 border-b-2 border-blue-300 cursor-pointer"
+                            className="relative w-8 h-8 sm:w-10 sm:h-10 bg-gradient-to-br from-blue-500 to-purple-600 rounded-lg shadow-md flex items-center justify-center hover:scale-105 transition-transform border-l-2 border-t-2 border-b-2 border-blue-300 cursor-pointer"
                             onClick={() => router.push('/try-it')}
                         >
                             <Icon icon="mdi:play-circle" className="text-lg sm:text-xl text-white" />
