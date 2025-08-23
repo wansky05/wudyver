@@ -1,4 +1,9 @@
+import apiConfig from "@/configs/apiConfig";
 import axios from "axios";
+import {
+  FormData,
+  Blob
+} from "formdata-node";
 import SpoofHead from "@/lib/spoof-head";
 class VeniceAI {
   constructor() {
@@ -19,6 +24,7 @@ class VeniceAI {
         ...SpoofHead()
       }
     });
+    this.uploadUrl = `https://${apiConfig.DOMAIN_URL}/api/tools/upload?host=Catbox`;
     this.version = null;
     this.middlefaceVersion = "0.1.197";
     this.userId = `user_anon_${Math.random().toString().slice(2, 12)}`;
@@ -84,9 +90,36 @@ class VeniceAI {
         responseType: "arraybuffer"
       });
       const base64 = Buffer.from(response.data, "binary").toString("base64");
-      return `/9j/${base64}`;
+      return base64;
     } catch (error) {
       throw new Error(`Failed to convert image to base64: ${error.message}`);
+    }
+  }
+  async uploadImage(buffer, mimeType = "image/png", fileName = "image.png") {
+    try {
+      const formData = new FormData();
+      formData.append("file", new Blob([buffer], {
+        type: mimeType
+      }), fileName);
+      const {
+        data: uploadResponse
+      } = await axios.post(this.uploadUrl, formData, {
+        headers: {
+          ...formData.headers ? formData.headers : {}
+        }
+      });
+      if (!uploadResponse) {
+        throw new Error("Upload failed");
+      }
+      return uploadResponse?.result;
+    } catch (error) {
+      if (error.response) {
+        throw new Error(`Error uploading image: Server responded with status ${error.response.status} - ${JSON.stringify(error.response.data)}`);
+      } else if (error.request) {
+        throw new Error("Error uploading image: No response received from server.");
+      } else {
+        throw new Error("Error uploading image: " + error.message);
+      }
     }
   }
   async chat({
@@ -193,9 +226,9 @@ class VeniceAI {
         },
         responseType: "arraybuffer"
       });
-      const base64 = Buffer.from(response.data, "binary").toString("base64");
+      const buffer = Buffer.from(response.data);
       return {
-        image: base64
+        result: await this.uploadImage(buffer)
       };
     } catch (error) {
       throw new Error(`Image generation failed: ${error.message}`);

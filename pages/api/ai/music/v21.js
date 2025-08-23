@@ -22,6 +22,12 @@ class MusicHero {
   }
   async generate({
     prompt = `[Verse]\nAisles stretching out like endless dreams\nCereal boxes and canned food schemes\nPickle jars and pasta towers\nLost for hours in neon flowered scenes\n[Chorus]\nTrolley rolling to a distant beat\nDancing down the frozen treat street\nMilk's going wild in the dairy lane\nGet lost with me in this bizarre terrain`,
+  style = "Sheng,Symphonic Metal,Content",
+  title = "Grocery Store Anthem",
+  customMode = true,
+  instrumental = false,
+  model = "Prime",
+  privateFlag = false,
     ...rest
   }) {
     try {
@@ -30,8 +36,9 @@ class MusicHero {
         data: cf
       } = await axios.get(`https://${apiConfig.DOMAIN_URL}/api/tools/cf-token`, {
         params: {
-          sitekey: "0x4AAAAAAAgeJUEUvYlF2CzO",
-          url: "https://musichero.ai/id/app"
+          sitekey: "671460be-d3bc-4fa4-9b98-b88af6b21aaa",
+          url: "https://musichero.ai/id/app",
+          type: "hcaptcha"
         }
       });
       const uid = crypto.createHash("md5").update(Date.now().toString()).digest("hex");
@@ -46,7 +53,7 @@ class MusicHero {
       };
       const {
         data: task
-      } = await axios.post("https://musicheroai.erweima.ai/api/v1/suno/create", {
+      } = await axios.post("https://api.musichero.ai/api/v1/suno/create", {
         prompt: prompt,
         ...options
       }, {
@@ -85,7 +92,7 @@ class MusicHero {
       }
       const {
         data: statusData
-      } = await axios.post("https://musicheroai.erweima.ai/api/v1/suno/loadPendingRecordList", {
+      } = await axios.post("https://api.musichero.ai/api/v1/suno/loadPendingRecordList", {
         pendingRecordIdList: [recordId]
       }, {
         headers: {

@@ -22,6 +22,12 @@ class AiMusic {
   }
   async generate({
     prompt = `[Verse]\nAisles stretching out like endless dreams\nCereal boxes and canned food schemes\nPickle jars and pasta towers\nLost for hours in neon flowered scenes\n[Chorus]\nTrolley rolling to a distant beat\nDancing down the frozen treat street\nMilk's going wild in the dairy lane\nGet lost with me in this bizarre terrain`,
+  style = "Sheng,Symphonic Metal,Content",
+  title = "Grocery Store Anthem",
+  customMode = true,
+  instrumental = false,
+  model = "Prime",
+  privateFlag = false,
     ...rest
   }) {
     try {
@@ -46,7 +52,7 @@ class AiMusic {
       };
       const {
         data: task
-      } = await axios.post("https://aimusic.erweima.ai/api/v1/suno/create", {
+      } = await axios.post("https://api.aimusic.so/api/v1/suno/create", {
         prompt: prompt,
         ...options
       }, {
@@ -85,7 +91,7 @@ class AiMusic {
       }
       const {
         data: statusData
-      } = await axios.post("https://aimusic.erweima.ai/api/v1/suno/loadPendingRecordList", {
+      } = await axios.post("https://api.aimusic.so/api/v1/suno/loadPendingRecordList", {
         pendingRecordIdList: [recordId]
       }, {
         headers: {

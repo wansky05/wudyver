@@ -39,7 +39,8 @@ class SongGenerator {
         isPrivate: rest.isPrivate !== undefined ? rest.isPrivate : false,
         voice: rest.voice || "random",
         negative_prompt: rest.negative_prompt || "",
-        anonymousUserToken: anonymousUserToken
+        anonymousUserToken: anonymousUserToken,
+        ...rest
       });
       return {
         task_id: anonymousUserToken
