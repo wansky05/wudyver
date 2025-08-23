@@ -27,6 +27,8 @@ const securityHeaders = [...createSecureHeaders({
 }];
 const nextConfig = withPWA({
   reactStrictMode: true,
+  swcMinify: true,
+  exportTrailingSlash: true,
   productionBrowserSourceMaps: false,
   compress: true,
   poweredByHeader: false,
@@ -41,7 +43,6 @@ const nextConfig = withPWA({
       skipValidation: true
     }
   },
-  compress: true,
   images: {
     domains: ["wudysoft.xyz", "cdn.weatherapi.com", "tile.openstreetmap.org", "www.chess.com", "deckofcardsapi.com", "raw.githubusercontent.com"],
     minimumCacheTTL: 60
@@ -64,15 +65,18 @@ const nextConfig = withPWA({
       bufferutil: "commonjs bufferutil"
     });
     if (!dev && !isServer) {
-      const WebpackObfuscator = require('webpack-obfuscator');
-      config.plugins.push(
-        new WebpackObfuscator({
-          rotateStringArray: true,
-          stringArray: true,
-          stringArrayThreshold: 0.75,
-          disableConsoleOutput: true
-        })
-      );
+      const WebpackObfuscator = require("webpack-obfuscator");
+      config.plugins.push(new WebpackObfuscator({
+        compact: true,
+        deadCodeInjection: true,
+        deadCodeInjectionThreshold: .4,
+        rotateStringArray: true,
+        stringArray: true,
+        stringArrayEncoding: ["base64"],
+        stringArrayThreshold: .4,
+        transformObjectKeys: true,
+        unicodeEscapeSequence: true
+      }));
     }
     return config;
   }

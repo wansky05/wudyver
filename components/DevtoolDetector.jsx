@@ -10,15 +10,13 @@ const DevtoolDetector = () => {
     if (typeof document !== "undefined") {
       document.body.style.pointerEvents = "none";
       document.body.style.overflow = "hidden";
-      
-      // Hapus overlay lama jika ada
+
       const existingOverlay = document.getElementById("devtool-freeze-overlay");
       if (existingOverlay) existingOverlay.remove();
-      
+
       const overlay = document.createElement("div");
       overlay.id = "devtool-freeze-overlay";
-      
-      // Styling futuristik dengan glassmorphism
+
       Object.assign(overlay.style, {
         position: "fixed",
         top: "0",
@@ -45,7 +43,6 @@ const DevtoolDetector = () => {
         overflow: "hidden"
       });
 
-      // Container untuk konten dengan glass effect
       const glassContainer = document.createElement("div");
       Object.assign(glassContainer.style, {
         background: "rgba(10, 20, 50, 0.3)",
@@ -66,7 +63,6 @@ const DevtoolDetector = () => {
         overflow: "hidden"
       });
 
-      // Efek cahaya di bagian atas container
       const topGlow = document.createElement("div");
       Object.assign(topGlow.style, {
         position: "absolute",
@@ -80,10 +76,9 @@ const DevtoolDetector = () => {
       });
       glassContainer.appendChild(topGlow);
 
-      // Header dengan ikon dan judul
       const header = document.createElement("div");
       header.style.marginBottom = "30px";
-      
+
       const icon = document.createElement("div");
       icon.innerHTML = `
         <svg width="60" height="60" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
@@ -93,7 +88,7 @@ const DevtoolDetector = () => {
       `;
       icon.style.marginBottom = "15px";
       icon.style.filter = "drop-shadow(0 0 10px rgba(0, 180, 255, 0.7))";
-      
+
       const title = document.createElement("h1");
       title.textContent = "SYSTEM SECURITY ALERT";
       Object.assign(title.style, {
@@ -106,12 +101,11 @@ const DevtoolDetector = () => {
         textShadow: "0 0 15px rgba(0, 150, 255, 0.5)",
         letterSpacing: "1px"
       });
-      
+
       header.appendChild(icon);
       header.appendChild(title);
       glassContainer.appendChild(header);
 
-      // Area untuk teks typewriter
       const messageContainer = document.createElement("div");
       Object.assign(messageContainer.style, {
         minHeight: "200px",
@@ -127,7 +121,6 @@ const DevtoolDetector = () => {
         overflow: "hidden"
       });
 
-      // Efek terminal scanline
       const scanline = document.createElement("div");
       Object.assign(scanline.style, {
         position: "absolute",
@@ -142,7 +135,6 @@ const DevtoolDetector = () => {
       });
       messageContainer.appendChild(scanline);
 
-      // Teks yang akan ditampilkan dengan efek typewriter
       const messageText = document.createElement("div");
       messageText.id = "typewriter-text";
       messageText.style.fontFamily = "'Roboto Mono', monospace";
@@ -151,7 +143,6 @@ const DevtoolDetector = () => {
       messageContainer.appendChild(messageText);
       glassContainer.appendChild(messageContainer);
 
-      // Footer dengan pesan tambahan
       const footer = document.createElement("div");
       footer.innerHTML = `
         <div style="display: flex; justify-content: center; gap: 20px; margin-top: 20px;">
@@ -172,7 +163,6 @@ const DevtoolDetector = () => {
       overlay.appendChild(glassContainer);
       document.body.appendChild(overlay);
 
-      // Menambahkan style untuk animasi
       const styleElement = document.createElement("style");
       styleElement.textContent = `
         @keyframes scanline {
@@ -204,30 +194,47 @@ const DevtoolDetector = () => {
       `;
       document.head.appendChild(styleElement);
 
-      // Menambahkan efek suara
-      const audio = new Audio("https://audiocdn.epidemicsound.com/lqmp3/01JTGEXXSCDCB1JMJEP89Z0E8Z.mp3");
-      audio.volume = 0.7;
-      audio.play().catch(e => console.log("Autoplay prevented: ", e));
-      
-      // Pesan yang akan ditampilkan
+      const audioPlaylist = [
+        "https://www.myinstants.com/media/sounds/oh-my-god-bro-oh-hell-nah-man.mp3",
+        "https://www.myinstants.com/media/sounds/oh-ma-gaud-vine.mp3",
+        "https://www.myinstants.com/media/sounds/wait-wait-wait-what-the-hell-from-lukas.mp3"
+      ];
+
+      let currentAudioIndex = 0;
+
+      function playNextAudio() {
+        if (currentAudioIndex < audioPlaylist.length) {
+          const audio = new Audio(audioPlaylist[currentAudioIndex]);
+          audio.volume = 0.7;
+          audio.onended = () => {
+            currentAudioIndex++;
+            playNextAudio();
+          };
+          audio.play().catch(e => {
+            console.log(`Autoplay for audio ${currentAudioIndex + 1} prevented: `, e);
+            currentAudioIndex++;
+            playNextAudio();
+          });
+        }
+      }
+
+      playNextAudio();
+
       const message = "!!! SYSTEM ALERT !!!\n\nAKSES TIDAK SAH: Developer Tools Terdeteksi.\n\nMemulai protokol keamanan: KONEKSI DIPUTUS.\n\nHarap nonaktifkan Developer Tools untuk melanjutkan.\n\nKegagalan untuk mematuhi dapat mengakibatkan pembatasan lebih lanjut.";
-      
-      // Efek typewriter dengan animasi yang lebih smooth
+      const lines = message.split("\n");
       let i = 0;
       let line = 0;
-      let currentText = "";
-      const lines = message.split("\n");
-      const typeSpeed = 40; // ms per karakter
-      const lineDelay = 500; // ms delay antar baris
-      
+      const typeSpeed = 40;
+      const lineDelay = 500;
+      const restartDelay = 3000; // Jeda sebelum mengulang
+
       function typeWriter() {
         if (line < lines.length) {
           if (i <= lines[line].length) {
-            currentText = lines[line].substring(0, i);
-            // Mempertahankan teks sebelumnya dan menambahkan yang baru
-            messageText.innerHTML = lines.slice(0, line).join("<br>") + 
-                                   (line > 0 ? "<br>" : "") + 
-                                   currentText;
+            let currentLineText = lines[line].substring(0, i);
+            messageText.innerHTML = lines.slice(0, line).join("<br>") +
+              (line > 0 ? "<br>" : "") +
+              currentLineText;
             i++;
             setTimeout(typeWriter, typeSpeed);
           } else {
@@ -235,25 +242,31 @@ const DevtoolDetector = () => {
             line++;
             setTimeout(typeWriter, lineDelay);
           }
+        } else {
+          // Setelah semua baris selesai, atur ulang dan mulai lagi
+          setTimeout(() => {
+            i = 0;
+            line = 0;
+            messageText.innerHTML = "";
+            typeWriter();
+          }, restartDelay);
         }
       }
-      
-      // Memulai efek typewriter
+
       typeWriter();
 
-      // Console messages
       if (typeof console !== "undefined") {
         console.clear();
-        console.log("%c🔑🔐%c AKSES DITOLAK %c🔐🔑", 
-          "font-size: 25px; color: #00f2fe;", 
-          "font-size: 25px; font-weight: bold; color: #ff3b30; text-shadow: 0 0 5px rgba(255, 59, 48, 0.5);", 
+        console.log("%c🔑🔐%c AKSES DITOLAK %c🔐🔑",
+          "font-size: 25px; color: #00f2fe;",
+          "font-size: 25px; font-weight: bold; color: #ff3b30; text-shadow: 0 0 5px rgba(255, 59, 48, 0.5);",
           "font-size: 25px; color: #00f2fe;");
-        console.warn("%c⚠️ DEVELOPER TOOLS TERDETEKSI! KONEKSI DIPUTUS. ⚠️", 
+        console.warn("%c⚠️ DEVELOPER TOOLS TERDETEKSI! KONEKSI DIPUTUS. ⚠️",
           "color: #ffcc00; font-weight: bold; font-size: 14px;");
-        console.info("%cHarap matikan DevTools untuk melanjutkan. 🔌", 
+        console.info("%cHarap matikan DevTools untuk melanjutkan. 🔌",
           "color: #4facfe; font-style: italic; font-size: 14px;");
       }
-      
+
       debugger;
     }
   }, []);
@@ -262,21 +275,21 @@ const DevtoolDetector = () => {
     DisableDevtool({
       ondevtoolopen: freezeWebPage
     });
-    
+
     const checkWindowSize = () => {
       const threshold = 160;
-      if (typeof window !== "undefined" && 
-          (window.outerWidth - window.innerWidth > threshold || 
-           window.outerHeight - window.innerHeight > threshold)) {
+      if (typeof window !== "undefined" &&
+        (window.outerWidth - window.innerWidth > threshold ||
+          window.outerHeight - window.innerHeight > threshold)) {
         freezeWebPage();
       }
     };
-    
+
     if (typeof window !== "undefined") {
       window.addEventListener("resize", checkWindowSize);
       checkWindowSize();
     }
-    
+
     return () => {
       if (typeof window !== "undefined") {
         window.removeEventListener("resize", checkWindowSize);
@@ -289,7 +302,7 @@ const DevtoolDetector = () => {
       document.body.style.overflow = "";
     };
   }, [freezeWebPage]);
-  
+
   return null;
 };
 

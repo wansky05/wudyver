@@ -1,20 +1,21 @@
 import axios from "axios";
-import crypto from "crypto";
 import Encoder from "@/lib/encoder";
 import SpoofHead from "@/lib/spoof-head";
+import crypto from "crypto";
 class VheerEncryption {
   constructor() {
     this.encryptionKey = "vH33r_2025_AES_GCM_S3cur3_K3y_9X7mP4qR8nT2wE5yU1oI6aS3dF7gH0jK9lZ";
     this.key = this.deriveKey(this.encryptionKey);
   }
   async deriveKey(keyString) {
+    console.log("🔑 Deriving encryption key...");
     const encoder = new TextEncoder();
     const keyData = encoder.encode(keyString);
     const importedKey = await crypto.subtle.importKey("raw", keyData, {
       name: "PBKDF2"
     }, false, ["deriveKey"]);
     const salt = encoder.encode("vheer-salt-2024");
-    return await crypto.subtle.deriveKey({
+    const derivedKey = await crypto.subtle.deriveKey({
       name: "PBKDF2",
       salt: salt,
       iterations: 1e4,
@@ -23,9 +24,12 @@ class VheerEncryption {
       name: "AES-GCM",
       length: 256
     }, false, ["encrypt", "decrypt"]);
+    console.log("✅ Encryption key derived successfully");
+    return derivedKey;
   }
   async encrypt(plaintext) {
     try {
+      console.log("🔒 Encrypting data:", typeof plaintext, plaintext.length > 100 ? plaintext.substring(0, 100) + "..." : plaintext);
       const key = await this.key;
       const encoder = new TextEncoder();
       const iv = crypto.getRandomValues(new Uint8Array(12));
@@ -37,14 +41,17 @@ class VheerEncryption {
       combined.set(iv);
       combined.set(new Uint8Array(encrypted), iv.length);
       const binaryString = Array.from(combined).map(byte => String.fromCharCode(byte)).join("");
-      return btoa(binaryString);
+      const result = btoa(binaryString);
+      console.log("✅ Encryption successful, length:", result.length);
+      return result;
     } catch (error) {
-      console.error("Encryption error:", error);
+      console.error("❌ Encryption error:", error);
       throw new Error("Failed to encrypt data");
     }
   }
   async decrypt(ciphertextBase64) {
     try {
+      console.log("🔓 Decrypting data, length:", ciphertextBase64.length);
       const key = await this.key;
       const decoder = new TextDecoder();
       const binaryString = atob(ciphertextBase64);
@@ -58,9 +65,12 @@ class VheerEncryption {
         name: "AES-GCM",
         iv: iv
       }, key, ciphertext);
-      return decoder.decode(decrypted);
+      const result = decoder.decode(decrypted);
+      console.log("✅ Decryption successful:", result.length > 100 ? result.substring(0, 100) + "..." : result);
+      return result;
     } catch (error) {
-      console.error("Decryption error:", error);
+      console.error("❌ Decryption error:", error);
+      console.error("❌ Input was:", ciphertextBase64.substring(0, 50) + "...");
       throw new Error("Failed to decrypt data");
     }
   }
@@ -75,7 +85,7 @@ class VheerAPI {
       "accept-language": "id-ID,id;q=0.9",
       origin: "https://vheer.com",
       referer: "https://vheer.com/",
-      "sec-ch-ua": '"Lemur";v="135", "", "", "Microsoft Edge Simulate";v="135"',
+      "sec-ch-ua": '"Lemur";v="135", "Chromium";v="135", "Microsoft Edge";v="135"',
       "sec-ch-ua-mobile": "?1",
       "sec-ch-ua-platform": '"Android"',
       "sec-fetch-dest": "empty",
@@ -84,6 +94,7 @@ class VheerAPI {
       "user-agent": "Mozilla/5.0 (Linux; Android 10; K) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/135.0.0.0 Mobile Safari/537.36",
       ...SpoofHead()
     };
+    console.log("🚀 VheerAPI initialized");
   }
   async enc(data) {
     const {
@@ -111,6 +122,7 @@ class VheerAPI {
     lan_code = "en",
     ...rest
   }) {
+    console.log("🎨 Starting txt2img generation...");
     try {
       const uploadPayload = {
         prompt: prompt,
@@ -123,25 +135,30 @@ class VheerAPI {
         flux_model: flux_model,
         ...rest
       };
+      console.log("📤 Upload payload:", uploadPayload);
       const encryptedParams = await this.encryption.encrypt(JSON.stringify(uploadPayload));
       const formData = new FormData();
       formData.append("params", encryptedParams);
+      console.log("🌐 Sending upload request...");
       const uploadResponse = await axios.post(this.uploadURL, formData, {
         headers: {
           ...this.headers,
           "content-type": "multipart/form-data"
         }
       });
+      console.log("📥 Upload response:", uploadResponse.data);
       if (!uploadResponse.data || !uploadResponse.data.code) {
         throw new Error("Failed to get task code from upload");
       }
       const taskCode = uploadResponse.data.code;
+      console.log("🏷️ Task code received:", taskCode);
       const submitPayload = {
         type: 1,
         code: taskCode,
         email: email || ""
       };
       const encryptedSubmit = await this.encryption.encrypt(JSON.stringify(submitPayload));
+      console.log("🌐 Sending submit request...");
       const submitResponse = await axios.post(`${this.baseURL}/app/text-to-image`, [{
         params: encryptedSubmit
       }], {
@@ -153,17 +170,20 @@ class VheerAPI {
           referer: `${this.baseURL}/app/text-to-image`
         }
       });
+      console.log("📥 Submit response:", submitResponse.data);
       const encryptedData = {
         success: true,
         taskCode: taskCode,
         type: "txt2img",
         message: "Generation started successfully"
       };
-      return {
+      const result = {
         task_id: await this.enc(encryptedData)
       };
+      console.log("✅ txt2img generation initiated successfully");
+      return result;
     } catch (error) {
-      console.error("Text-to-image generation error:", error);
+      console.error("❌ txt2img generation error:", error);
       return {
         success: false,
         error: error.message
@@ -184,11 +204,14 @@ class VheerAPI {
     batch_size = 1,
     ...rest
   }) {
+    console.log("🖼️ Starting img2img generation...");
     try {
+      console.log("⬇️ Downloading image from:", imageUrl);
       const imageResponse = await axios.get(imageUrl, {
         responseType: "arraybuffer"
       });
       const imageBuffer = Buffer.from(imageResponse.data);
+      console.log("✅ Image downloaded, size:", imageBuffer.length, "bytes");
       const formData = new FormData();
       formData.append("file", new Blob([imageBuffer], {
         type: "image/jpeg"
@@ -206,21 +229,26 @@ class VheerAPI {
         batch_size: batch_size,
         ...rest
       };
+      console.log("📤 Upload payload:", uploadPayload);
       const encryptedParams = await this.encryption.encrypt(JSON.stringify(uploadPayload));
       formData.append("params", encryptedParams);
+      console.log("🌐 Sending upload request...");
       const uploadResponse = await axios.post(this.uploadURL, formData, {
         headers: this.headers
       });
+      console.log("📥 Upload response:", uploadResponse.data);
       if (!uploadResponse.data || !uploadResponse.data.code) {
         throw new Error("Failed to get task code from upload");
       }
       const taskCode = uploadResponse.data.code;
+      console.log("🏷️ Task code received:", taskCode);
       const submitPayload = {
         type: 4,
         code: taskCode,
         email: email || ""
       };
       const encryptedSubmit = await this.encryption.encrypt(JSON.stringify(submitPayload));
+      console.log("🌐 Sending submit request...");
       const submitResponse = await axios.post(`${this.baseURL}/app/image-to-image`, [{
         params: encryptedSubmit
       }], {
@@ -232,16 +260,19 @@ class VheerAPI {
           referer: `${this.baseURL}/app/image-to-image`
         }
       });
+      console.log("📥 Submit response:", submitResponse.data);
       const encryptedData = {
         taskCode: taskCode,
         type: "img2img",
         email: email || ""
       };
-      return {
+      const result = {
         task_id: await this.enc(encryptedData)
       };
+      console.log("✅ img2img generation initiated successfully");
+      return result;
     } catch (error) {
-      console.error("Image-to-image generation error:", error);
+      console.error("❌ img2img generation error:", error);
       return {
         success: false,
         error: error.message
@@ -264,11 +295,27 @@ class VheerAPI {
     costCredits = 0,
     ...rest
   }) {
+    console.log("🎬 Starting img2vid generation...");
+    console.log("📝 Parameters:", {
+      prompt: prompt,
+      imageUrl: imageUrl.substring(0, 50) + "...",
+      width: width,
+      height: height,
+      frameRate: frameRate,
+      videoLength: videoLength,
+      videoFormat: videoFormat,
+      videoDimension: videoDimension,
+      model: model,
+      email: email,
+      costCredits: costCredits
+    });
     try {
+      console.log("⬇️ Downloading image from:", imageUrl);
       const imageResponse = await axios.get(imageUrl, {
         responseType: "arraybuffer"
       });
       const imageBuffer = Buffer.from(imageResponse.data);
+      console.log("✅ Image downloaded, size:", imageBuffer.length, "bytes");
       const formData = new FormData();
       formData.append("file", new Blob([imageBuffer], {
         type: "image/jpeg"
@@ -277,33 +324,39 @@ class VheerAPI {
         positive_prompts: prompt + (positive_prompts ? "," + positive_prompts : ""),
         negative_prompts: negative_prompts,
         type: 5,
-        width: width,
-        height: height,
-        frameRate: frameRate,
-        videoLength: videoLength,
-        videoFormat: videoFormat,
-        videoDimension: videoDimension,
-        model: model,
-        email: email,
-        costCredits: costCredits,
+        width: parseInt(width),
+        height: parseInt(height),
+        frameRate: parseInt(frameRate),
+        videoLength: parseInt(videoLength),
+        videoFormat: String(videoFormat),
+        videoDimension: parseInt(videoDimension),
+        model: parseInt(model),
+        email: String(email),
+        costCredits: parseInt(costCredits),
         ...rest
       };
+      console.log("📤 Upload payload:", uploadPayload);
       const encryptedParams = await this.encryption.encrypt(JSON.stringify(uploadPayload));
       formData.append("params", encryptedParams);
+      console.log("🌐 Sending upload request...");
       const uploadResponse = await axios.post(this.uploadURL, formData, {
         headers: this.headers
       });
+      console.log("📥 Upload response:", uploadResponse.data);
       if (!uploadResponse.data || !uploadResponse.data.code) {
         throw new Error("Failed to get task code from upload");
       }
       const taskCode = uploadResponse.data.code;
+      console.log("🏷️ Task code received:", taskCode);
       const submitPayload = {
         type: 5,
-        code: taskCode,
-        email: email || "",
-        model: model
+        code: String(taskCode),
+        email: String(email || ""),
+        model: parseInt(model)
       };
+      console.log("📤 Submit payload:", submitPayload);
       const encryptedSubmit = await this.encryption.encrypt(JSON.stringify(submitPayload));
+      console.log("🌐 Sending submit request...");
       const submitResponse = await axios.post(`${this.baseURL}/app/image-to-video`, [{
         params: encryptedSubmit
       }], {
@@ -315,16 +368,20 @@ class VheerAPI {
           referer: `${this.baseURL}/app/image-to-video`
         }
       });
+      console.log("📥 Submit response:", submitResponse.data);
       const encryptedData = {
-        taskCode: taskCode,
+        taskCode: String(taskCode),
         type: "img2vid",
-        email: email || ""
+        email: String(email || "")
       };
-      return {
+      console.log("🔐 Encrypting final data:", encryptedData);
+      const result = {
         task_id: await this.enc(encryptedData)
       };
+      console.log("✅ img2vid generation initiated successfully");
+      return result;
     } catch (error) {
-      console.error("Image-to-video generation error:", error);
+      console.error("❌ img2vid generation error:", error);
       return {
         success: false,
         error: error.message
@@ -335,21 +392,38 @@ class VheerAPI {
     task_id,
     ...rest
   }) {
+    console.log("📊 Checking status for task_id:", task_id.substring(0, 20) + "...");
     try {
+      console.log("🔓 Decrypting task data...");
       const decryptedData = await this.dec(task_id);
+      console.log("✅ Decrypted task data:", decryptedData);
       const {
         taskCode,
         type,
         email
       } = decryptedData;
+      if (!taskCode) {
+        throw new Error("No taskCode found in decrypted data");
+      }
+      if (!type) {
+        throw new Error("No type found in decrypted data");
+      }
+      const typeNumber = this.getTypeNumber(type);
+      console.log("🔢 Type number:", typeNumber, "for type:", type);
+      if (typeNumber === null || typeNumber === undefined) {
+        throw new Error(`Invalid type: ${type}`);
+      }
       const statusPayload = {
-        type: String(this.getTypeNumber(type)),
-        code: taskCode,
-        email: email,
+        type: typeNumber,
+        code: String(taskCode),
+        email: String(email || ""),
         ...rest
       };
+      console.log("📤 Status payload:", statusPayload);
       const encryptedStatus = await this.encryption.encrypt(JSON.stringify(statusPayload));
       const endpoint = this.getStatusEndpoint(type);
+      console.log("🌐 Using endpoint:", endpoint);
+      console.log("🌐 Sending status request...");
       const response = await axios.post(`${this.baseURL}${endpoint}`, [{
         params: encryptedStatus
       }], {
@@ -358,27 +432,77 @@ class VheerAPI {
           accept: "text/x-component",
           "content-type": "text/plain;charset=UTF-8",
           "next-action": "1eeefc61e5469e1a173b48743a3cb8dd77eed91b",
-          referer: `${this.baseURL}${endpoint.replace("/app/", "/app")}`
+          referer: `${this.baseURL}${endpoint}`
         }
       });
+      console.log("📥 Raw status response type:", typeof response.data);
+      console.log("📥 Raw status response:", response.data);
       if (typeof response.data === "string") {
         try {
+          let jsonString = null;
           const jsonStringStartIndex = response.data.indexOf("1:");
           if (jsonStringStartIndex !== -1) {
-            const jsonString = response.data.substring(jsonStringStartIndex + 2).trim();
-            return JSON.parse(jsonString);
+            jsonString = response.data.substring(jsonStringStartIndex + 2).trim();
+            console.log("📋 Found JSON with '1:' pattern:", jsonString);
+          }
+          if (!jsonString) {
+            const jsonMatch = response.data.match(/\{[^}]*\}/);
+            if (jsonMatch) {
+              jsonString = jsonMatch[0];
+              console.log("📋 Found JSON with regex pattern:", jsonString);
+            }
+          }
+          if (!jsonString) {
+            const lines = response.data.split("\n");
+            for (const line of lines) {
+              const trimmed = line.trim();
+              if (trimmed.startsWith("{") && trimmed.endsWith("}")) {
+                jsonString = trimmed;
+                console.log("📋 Found JSON in line:", jsonString);
+                break;
+              }
+            }
+          }
+          if (jsonString) {
+            const parsedData = JSON.parse(jsonString);
+            console.log("✅ Parsed status response:", parsedData);
+            return parsedData;
+          } else {
+            console.log("⚠️ No JSON pattern found, returning raw response");
+            return {
+              success: false,
+              error: "No valid JSON found in response",
+              raw: response.data
+            };
           }
         } catch (e) {
-          console.error("Gagal mengurai respons string:", e);
-          return response.data;
+          console.error("❌ Failed to parse string response:", e);
+          console.error("❌ Raw response sample:", response.data.substring(0, 200));
+          return {
+            success: false,
+            error: "Failed to parse response",
+            parseError: e.message,
+            raw: response.data.substring(0, 500)
+          };
         }
+      } else if (typeof response.data === "object") {
+        console.log("✅ Direct object response:", response.data);
+        return response.data;
+      } else {
+        console.log("⚠️ Unexpected response type:", typeof response.data);
+        return {
+          success: false,
+          error: "Unexpected response type",
+          type: typeof response.data,
+          data: response.data
+        };
       }
-      return response.data;
     } catch (error) {
-      console.error("Kesalahan pemeriksaan status:", error);
+      console.error("❌ Status check error:", error);
       return {
         success: false,
-        error: error.message
+        error: error.message,
+        stack: error.stack
       };
     }
   }
@@ -388,7 +512,9 @@ class VheerAPI {
       img2img: 4,
       img2vid: 5
     };
-    return typeMap[type] || 1;
+    const result = typeMap[type];
+    console.log("🔄 Type mapping:", type, "->", result);
+    return result !== undefined ? result : 1;
   }
   getStatusEndpoint(type) {
     const endpointMap = {
@@ -396,7 +522,9 @@ class VheerAPI {
       img2img: "/app/image-to-image",
       img2vid: "/app/image-to-video"
     };
-    return endpointMap[type] || "/app/text-to-image";
+    const result = endpointMap[type] || "/app/text-to-image";
+    console.log("🔄 Endpoint mapping:", type, "->", result);
+    return result;
   }
 }
 export default async function handler(req, res) {
