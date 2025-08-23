@@ -447,6 +447,7 @@ export default function handler(req, res) {
     { path: "/api/ai/pixel-art", name: "Pixel-art", params: [{ "name": "prompt", "in": "query", "required": false }], },
     { path: "/api/ai/artly", name: "Artly", params: [{ "name": "prompt", "in": "query", "required": false }], },
     { path: "/api/ai/veer", name: "Veer", params: [{ "name": "prompt", "in": "query", "required": false }], },
+    { path: "/api/ai/hair-style", name: "Hair-style", params: [{ "name": "prompt", "in": "query", "required": false }], },
     { path: "/api/ai/rubiks", name: "Rubiks", params: [{ "name": "prompt", "in": "query", "required": false }], },
     { path: "/api/ai/runner-ai", name: "Runner-ai", params: [{ "name": "prompt", "in": "query", "required": false }], },
     { path: "/api/ai/sara-study", name: "Sara-study", params: [{ "name": "prompt", "in": "query", "required": false }], },
