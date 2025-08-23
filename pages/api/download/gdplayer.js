@@ -163,8 +163,8 @@ class GdPlayerDownloader {
       const finalData = finalResponse.data;
       console.log("Response dari API:", finalData);
       if (finalData) {
-          console.log("\n=== HASIL DOWNLOAD ===");
-          return finalData;
+        console.log("\n=== HASIL DOWNLOAD ===");
+        return finalData;
       } else {
         const errorMsg = finalData && finalData.message ? `Error: ${finalData.message}` : "Tidak ada link download yang tersedia";
         throw new Error(errorMsg);

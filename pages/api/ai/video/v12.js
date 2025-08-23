@@ -6,12 +6,13 @@ import {
   wrapper
 } from "axios-cookiejar-support";
 import crypto from "crypto";
+import apiConfig from "@/configs/apiConfig";
 import Encoder from "@/lib/encoder";
 import SpoofHead from "@/lib/spoof-head";
 const client = wrapper(axios.create());
 class Veo3Service {
   constructor() {
-    this.baseTempMailUrl = "https://api.malik-jmk.web.id/api/mails/v9";
+    this.baseTempMailUrl = `https://${apiConfig.DOMAIN_URL}/api/mails/v9`;
     this.baseVeoUrl = "https://veo3.studio/api";
     this.supabaseUrl = "https://cmqnphdipomuuwsplfgv.supabase.co/auth/v1/otp";
     this.supabaseRestUrl = "https://cmqnphdipomuuwsplfgv.supabase.co/rest/v1";
@@ -120,7 +121,7 @@ class Veo3Service {
       throw error;
     }
   }
-  async waitForOTP(maxAttempts = 30, interval = 3e3) {
+  async waitForOTP(maxAttempts = 60, interval = 3e3) {
     console.log("⏳ Menunggu OTP...");
     for (let attempt = 0; attempt < maxAttempts; attempt++) {
       try {
@@ -275,7 +276,7 @@ class Veo3Service {
   async txt2vid({
     prompt,
     model = "fast",
-    aspect_ratio = "16:9",
+    aspect_ratio = "9:16",
     is_private = false,
     ...rest
   }) {

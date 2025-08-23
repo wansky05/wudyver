@@ -1370,6 +1370,7 @@ export default function handler(req, res) {
     { path: "/api/tools/remove-bg/v7", name: "V7", params: [{ "name": "prompt", "in": "query", "required": false }], },
     { path: "/api/tools/remove-bg/v8", name: "V8", params: [{ "name": "prompt", "in": "query", "required": false }], },
     { path: "/api/tools/remove-bg/v9", name: "V9", params: [{ "name": "prompt", "in": "query", "required": false }], },
+    { path: "/api/tools/remove-bg/v13", name: "V13", params: [{ "name": "prompt", "in": "query", "required": false }], },
     { path: "/api/tools/scanqr/v1", name: "V1", params: [{ "name": "prompt", "in": "query", "required": false }], },
     { path: "/api/tools/scanqr/v2", name: "V2", params: [{ "name": "prompt", "in": "query", "required": false }], },
     { path: "/api/tools/sendmail/v1", name: "V1", params: [{ "name": "prompt", "in": "query", "required": false }], },
