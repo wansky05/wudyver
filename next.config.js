@@ -68,11 +68,11 @@ const nextConfig = withPWA({
       const WebpackObfuscator = require("webpack-obfuscator");
       config.plugins.push(new WebpackObfuscator({
         rotateStringArray: true,
-          stringArray: true,
-          stringArrayThreshold: 0.75,
-          disableConsoleOutput: true,
-            renameGlobals: true,
-            identifierNamesGenerator: 'mangled',
+        stringArray: true,
+        stringArrayThreshold: .75,
+        disableConsoleOutput: true,
+        renameGlobals: true,
+        identifierNamesGenerator: "mangled"
       }));
     }
     return config;

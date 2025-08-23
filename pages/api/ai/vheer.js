@@ -147,10 +147,10 @@ class VheerAPI {
         }
       });
       console.log("📥 Upload response:", uploadResponse.data);
-      if (!uploadResponse.data || !uploadResponse.data.code) {
+      if (!uploadResponse.data || !uploadResponse.data.data.code) {
         throw new Error("Failed to get task code from upload");
       }
-      const taskCode = uploadResponse.data.code;
+      const taskCode = uploadResponse.data.data.code;
       console.log("🏷️ Task code received:", taskCode);
       const submitPayload = {
         type: 1,
@@ -237,10 +237,10 @@ class VheerAPI {
         headers: this.headers
       });
       console.log("📥 Upload response:", uploadResponse.data);
-      if (!uploadResponse.data || !uploadResponse.data.code) {
+      if (!uploadResponse.data || !uploadResponse.data.data.code) {
         throw new Error("Failed to get task code from upload");
       }
-      const taskCode = uploadResponse.data.code;
+      const taskCode = uploadResponse.data.data.code;
       console.log("🏷️ Task code received:", taskCode);
       const submitPayload = {
         type: 4,
@@ -343,10 +343,10 @@ class VheerAPI {
         headers: this.headers
       });
       console.log("📥 Upload response:", uploadResponse.data);
-      if (!uploadResponse.data || !uploadResponse.data.code) {
+      if (!uploadResponse.data || !uploadResponse.data.data.code) {
         throw new Error("Failed to get task code from upload");
       }
-      const taskCode = uploadResponse.data.code;
+      const taskCode = uploadResponse.data.data.code;
       console.log("🏷️ Task code received:", taskCode);
       const submitPayload = {
         type: 5,
