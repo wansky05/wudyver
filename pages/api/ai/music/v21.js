@@ -2,7 +2,7 @@ import axios from "axios";
 import crypto from "crypto";
 import apiConfig from "@/configs/apiConfig";
 import Encoder from "@/lib/encoder";
-class MusicHero {
+class AiMusic {
   constructor() {}
   async enc(data) {
     const {
@@ -36,9 +36,8 @@ class MusicHero {
         data: cf
       } = await axios.get(`https://${apiConfig.DOMAIN_URL}/api/tools/cf-token`, {
         params: {
-          sitekey: "671460be-d3bc-4fa4-9b98-b88af6b21aaa",
-          url: "https://musichero.ai/id/app",
-          type: "hcaptcha"
+          sitekey: "0x4AAAAAAAgeJUEUvYlF2CzO",
+          url: "https://aimusic.so/app"
         }
       });
       const uid = crypto.createHash("md5").update(Date.now().toString()).digest("hex");
@@ -53,7 +52,7 @@ class MusicHero {
       };
       const {
         data: task
-      } = await axios.post("https://api.musichero.ai/api/v1/suno/create", {
+      } = await axios.post("https://api.aimusic.so/api/v1/suno/create", {
         prompt: prompt,
         ...options
       }, {
@@ -92,7 +91,7 @@ class MusicHero {
       }
       const {
         data: statusData
-      } = await axios.post("https://api.musichero.ai/api/v1/suno/loadPendingRecordList", {
+      } = await axios.post("https://api.aimusic.so/api/v1/suno/loadPendingRecordList", {
         pendingRecordIdList: [recordId]
       }, {
         headers: {
@@ -102,7 +101,7 @@ class MusicHero {
       });
       return statusData;
     } catch (error) {
-      console.error("Error in MusicHero status check:", error);
+      console.error("Error in AiMusic status check:", error);
       throw new Error(`Failed to check api task status: ${error.message}`);
     }
   }
@@ -117,7 +116,7 @@ export default async function handler(req, res) {
       error: "Action (create or status) is required."
     });
   }
-  const api = new MusicHero();
+  const api = new AiMusic();
   try {
     switch (action) {
       case "create":

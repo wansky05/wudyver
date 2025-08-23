@@ -8,7 +8,7 @@ class FileUploader {
   constructor() {
     this.apiUrl = "https://service5.coolutils.org/upload.php";
     this.convertUrl = "https://service5.coolutils.org/word_convert.php";
-    this.uploadUrl = `https://${apiConfig.DOMAIN_URL}/api/tools/upload?host=Catbox`;
+    this.uploadUrl = `https://${apiConfig.DOMAIN_URL}/api/tools/upload`;
     this.headers = {
       accept: "*/*",
       "accept-language": "id-ID,id;q=0.9",

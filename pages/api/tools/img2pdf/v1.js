@@ -6,7 +6,7 @@ import {
 import apiConfig from "@/configs/apiConfig";
 class Pdf24Converter {
   constructor() {
-    this.uploadUrl = `https://${apiConfig.DOMAIN_URL}/api/tools/upload?host=Catbox`;
+    this.uploadUrl = `https://${apiConfig.DOMAIN_URL}/api/tools/upload`;
     this.userAgent = "Mozilla/5.0 (Linux; Android 10; K) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Mobile Safari/537.36";
     this.headers = {
       "user-agent": this.userAgent,

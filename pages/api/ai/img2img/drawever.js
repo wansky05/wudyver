@@ -7,7 +7,7 @@ import apiConfig from "@/configs/apiConfig";
 class DraweverAPI {
   constructor() {
     this.baseUrl = "https://www.drawever.com/api/tools/queue";
-    this.uploadUrl = `https://${apiConfig.DOMAIN_URL}/api/tools/upload?host=Catbox`;
+    this.uploadUrl = `https://${apiConfig.DOMAIN_URL}/api/tools/upload`;
   }
   generateHeaders() {
     try {

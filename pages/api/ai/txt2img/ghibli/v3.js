@@ -7,7 +7,7 @@ import apiConfig from "@/configs/apiConfig";
 class GhibliAIGen {
   constructor() {
     this.generateUrl = "https://ghibliaigenerator.im/api/generate";
-    this.uploadUrl = `https://${apiConfig.DOMAIN_URL}/api/tools/upload?host=Catbox`;
+    this.uploadUrl = `https://${apiConfig.DOMAIN_URL}/api/tools/upload`;
     this.headers = {
       "content-type": "application/json",
       "user-agent": "Mozilla/5.0 (Linux; Android 10)",

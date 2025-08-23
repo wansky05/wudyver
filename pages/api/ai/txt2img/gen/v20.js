@@ -23,7 +23,7 @@ class AiGreemAutomator {
     this.memberId = null;
     this.buildId = null;
     this.sessionToken = null;
-    this.uploadUrl = `https://${apiConfig.DOMAIN_URL}/api/tools/upload?host=Catbox`;
+    this.uploadUrl = `https://${apiConfig.DOMAIN_URL}/api/tools/upload`;
     this.userAgents = ["Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/125.0.0.0 Safari/537.36", "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.0 Safari/605.1.15", "Mozilla/5.0 (Linux; Android 12; Pixel 6) AppleWebKit=537.36 (KHTML, like Gecko) Chrome/125.0.0.0 Mobile Safari/533.36"];
     this.defaultHeaders = {};
     this.updateRandomHeaders();

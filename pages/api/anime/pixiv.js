@@ -3,6 +3,7 @@ import {
   FormData,
   Blob
 } from "formdata-node";
+import apiConfig from "@/configs/apiConfig";
 class Pixiv {
   constructor() {
     this.api = {
@@ -11,9 +12,9 @@ class Pixiv {
         search: "/ajax/search/artworks/",
         illust: "/ajax/illust/"
       },
-      proxy: "https://api.xiaomiao-ica.top/agent/index.php",
-      upload: "https://catbox.moe/user/api.php"
+      proxy: "https://api.xiaomiao-ica.top/agent/index.php"
     };
+    this.uploadUrl = `https://${apiConfig.DOMAIN_URL}/api/tools/upload`;
     this.headers = {
       accept: "application/json",
       referer: "https://www.pixiv.net/",
@@ -22,7 +23,7 @@ class Pixiv {
     };
     this.defaults = {
       useProxy: true,
-      useCatbox: false,
+      useUpload: false,
       useBuffer: false,
       outputType: "url",
       deleteAfterUpload: true,
@@ -72,19 +73,18 @@ class Pixiv {
   proxies(url) {
     return `${this.api.proxy}?dns=8.8.8.8&fileUrl=${encodeURIComponent(url)}&referer=https://www.pixiv.net`;
   }
-  async up2Catbox(buffer, filename) {
+  async up2Upload(buffer, filename) {
     try {
       const formData = new FormData();
-      formData.append("reqtype", "fileupload");
-      formData.append("fileToUpload", buffer, filename);
-      const response = await axios.post(this.api.upload, formData, {
+      formData.append("file", buffer, filename);
+      const response = await axios.post(this.uploadUrl, formData, {
         headers: {
           ...formData.headers
         }
       });
       return response.data;
     } catch (error) {
-      console.error("Upload ke Catbox gagal:", error);
+      console.error("Upload gagal:", error);
       return null;
     }
   }
@@ -111,8 +111,8 @@ class Pixiv {
       };
       if (opt.useProxy) result.proxy = dlink;
       if (opt.useBuffer) result.buffer = buffer;
-      if (opt.useCatbox) {
-        result.catbox = await this.up2Catbox(buffer, filename);
+      if (opt.useUpload) {
+        result.upload = await this.up2Upload(buffer, filename);
       }
       return result;
     } catch (error) {

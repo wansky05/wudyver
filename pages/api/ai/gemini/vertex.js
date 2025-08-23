@@ -1,9 +1,11 @@
 import axios from "axios";
 import FormData from "form-data";
+import apiConfig from "@/configs/apiConfig";
 class VertexAI {
   constructor() {
     this.api_url = "https://firebasevertexai.googleapis.com/v1beta";
     this.model_url = "projects/gemmy-ai-bdc03/locations/us-central1/publishers/google/models";
+    this.uploadUrl = `https://${apiConfig.DOMAIN_URL}/api/tools/upload`;
     this.headers = {
       "content-type": "application/json",
       "x-goog-api-client": "gl-kotlin/2.1.0-ai fire/16.5.0",
@@ -127,20 +129,19 @@ class VertexAI {
     try {
       const buffer = Buffer.from(bytesBase64Encoded, "base64");
       const formData = new FormData();
-      formData.append("reqtype", "fileupload");
       const fileExtension = mimeType.split("/")[1] || "png";
-      formData.append("fileToUpload", buffer, `image.${fileExtension}`);
-      const response = await axios.post("https://catbox.moe/user/api.php", formData, {
+      formData.append("file", buffer, `image.${fileExtension}`);
+      const response = await axios.post(this.uploadUrl, formData, {
         headers: {
           ...formData.getHeaders()
         }
       });
       if (response.status !== 200) {
-        throw new Error(`Catbox.moe upload failed with status ${response.status}: ${response.data}`);
+        throw new Error(`upload failed with status ${response.status}: ${response.data}`);
       }
-      return response.data.trim();
+      return response.data?.result;
     } catch (error) {
-      throw new Error(`Error uploading image to Catbox.moe: ${error.message}`);
+      throw new Error(`Error uploading image to: ${error.message}`);
     }
   }
 }

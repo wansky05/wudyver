@@ -9,7 +9,7 @@ class OpenAi {
     this.voices = ["Alloy", "Ash", "Ballad", "Coral", "Echo", "Fable", "Onyx", "Nova", "Sage", "Shimmer", "Verse"];
     this.vibes = ["Santa", "True Crime Buff", "Old-Timey", "Robot", "Eternal Optimist"];
     this.apiBase = "https://www.openai.fm/api/generate";
-    this.uploadUrl = `https://${apiConfig.DOMAIN_URL}/api/tools/upload?host=Catbox`;
+    this.uploadUrl = `https://${apiConfig.DOMAIN_URL}/api/tools/upload`;
     this.defaultPrompt = {
       identity: "Pembicara yang profesional",
       affect: "Berwibawa dan ramah",

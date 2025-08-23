@@ -6,7 +6,7 @@ import {
 import apiConfig from "@/configs/apiConfig";
 class ImageUploader {
   constructor() {
-    this.uploadUrl = `https://${apiConfig.DOMAIN_URL}/api/tools/upload?host=Catbox`;
+    this.uploadUrl = `https://${apiConfig.DOMAIN_URL}/api/tools/upload`;
   }
   async uploadImage(buffer, mimeType = "image/png", fileName = "image.png") {
     try {

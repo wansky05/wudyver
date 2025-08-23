@@ -9,7 +9,7 @@ import SpoofHead from "@/lib/spoof-head";
 class Dewatermark {
   constructor() {
     this.apiUrl = "https://api.dewatermark.ai/api/object_removal/v5/erase_watermark";
-    this.uploadUrl = `https://${apiConfig.DOMAIN_URL}/api/tools/upload?host=Catbox`;
+    this.uploadUrl = `https://${apiConfig.DOMAIN_URL}/api/tools/upload`;
     this.cnKey = "TUFOVUF";
   }
   randomHeaders() {

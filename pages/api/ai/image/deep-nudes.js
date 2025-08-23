@@ -19,7 +19,7 @@ class DeepNudesAPI {
     this.cookieJar = new CookieJar();
     this.baseURL = "https://api.deep-nudes.com";
     this.emailServiceURL = `https://${apiConfig.DOMAIN_URL}/api/mails/v9`;
-    this.uploadUrl = `https://${apiConfig.DOMAIN_URL}/api/tools/upload?host=Catbox`;
+    this.uploadUrl = `https://${apiConfig.DOMAIN_URL}/api/tools/upload`;
     this.client = wrapper(axios.create({
       headers: {
         accept: "*/*",

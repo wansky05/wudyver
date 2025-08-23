@@ -9,7 +9,7 @@ class KrakenFiles {
   constructor(url) {
     if (!/krakenfiles.com/.test(url)) throw new Error("Input URL harus dari Krakenfiles!");
     this.url = url;
-    this.uploadUrl = `https://${apiConfig.DOMAIN_URL}/api/tools/upload?host=Catbox`;
+    this.uploadUrl = `https://${apiConfig.DOMAIN_URL}/api/tools/upload`;
   }
   async fetchPage() {
     try {

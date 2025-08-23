@@ -8,7 +8,7 @@ import apiConfig from "@/configs/apiConfig";
 class AIVoice {
   constructor() {
     this.bUrl = "https://theaivoicegenerator.com";
-    this.uploadUrl = `https://${apiConfig.DOMAIN_URL}/api/tools/upload?host=Catbox`;
+    this.uploadUrl = `https://${apiConfig.DOMAIN_URL}/api/tools/upload`;
     this.axI = axios.create({
       baseURL: this.bUrl,
       headers: {

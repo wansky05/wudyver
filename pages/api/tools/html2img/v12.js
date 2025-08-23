@@ -12,7 +12,7 @@ class GroupDocsConverter {
     this.tokenUrl = "https://app-widgets-y1390q5d.k8s.dynabic.com/api/groupdocs/token";
     this.firstUploadUrl = "https://api.groupdocs.cloud/v2.0/conversion/storage/file/";
     this.conversionUrl = "https://api.groupdocs.cloud/v2.0/conversion";
-    this.uploadUrl = `https://${apiConfig.DOMAIN_URL}/api/tools/upload?host=Catbox`;
+    this.uploadUrl = `https://${apiConfig.DOMAIN_URL}/api/tools/upload`;
     this.clientId = "339d3302-096e-420c-968f-c07d32dafe7f";
     this.clientSecret = "db03dc4ebb489f2b9817780f57da7106";
     this.authToken = null;

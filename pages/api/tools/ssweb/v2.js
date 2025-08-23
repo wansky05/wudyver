@@ -10,7 +10,7 @@ class ScreenshotMachine {
       base: "https://www.screenshotmachine.com",
       ocr: "https://demo.api4ai.cloud/ocr/v1/results"
     };
-    this.uploadUrl = `https://${apiConfig.DOMAIN_URL}/api/tools/upload?host=Catbox`;
+    this.uploadUrl = `https://${apiConfig.DOMAIN_URL}/api/tools/upload`;
     this.headers = {
       "user-agent": "Mozilla/5.0 (Linux; Android 10; K)",
       "x-requested-with": "XMLHttpRequest"

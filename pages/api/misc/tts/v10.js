@@ -9,7 +9,7 @@ class Speechma {
     this.baseURL = "https://speechma.com";
     this.scriptURL = "https://speechma.com/script.js?v=1743935266";
     this.ttsEndpoint = `${this.baseURL}/com.api/tts-api.php`;
-    this.uploadUrl = `https://${apiConfig.DOMAIN_URL}/api/tools/upload?host=Catbox`;
+    this.uploadUrl = `https://${apiConfig.DOMAIN_URL}/api/tools/upload`;
   }
   async list() {
     try {

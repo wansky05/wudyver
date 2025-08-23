@@ -64,7 +64,7 @@ class BansosCrawler {
           responseType: "arraybuffer"
         });
         const captchaBuffer = Buffer.from(captchaResponse.data);
-        console.log("[PROSES] Uploading CAPTCHA image to Catbox...");
+        console.log("[PROSES] Uploading CAPTCHA image...");
         const formData = new FormData();
         formData.append("file", captchaBuffer, {
           filename: "captcha.png",
@@ -81,7 +81,7 @@ class BansosCrawler {
           maxContentLength: Infinity,
           maxBodyLength: Infinity
         });
-        console.log("[API_RESP] Catbox Upload:", JSON.stringify(uploadResponse.data).substring(0, 100) + "...");
+        console.log("[API_RESP] Upload:", JSON.stringify(uploadResponse.data).substring(0, 100) + "...");
         if (uploadResponse.data?.file_url) {
           const captchaImageUrlFromUpload = uploadResponse.data.file_url;
           console.log(`[CAPTCHA] Image uploaded to: ${captchaImageUrlFromUpload}`);
@@ -100,7 +100,7 @@ class BansosCrawler {
             console.warn("[WARN] OCR API did not return CAPTCHA text.");
           }
         } else {
-          console.warn("[WARN] Image upload to Catbox failed or returned no result.");
+          console.warn("[WARN] Image upload failed or returned no result.");
         }
       } catch (ocrError) {
         console.error(`[ERR] Failed to process CAPTCHA: ${ocrError.message}`);

@@ -15,7 +15,7 @@ class CreartAI {
     this.version = version;
     this.apiUrl = `https://api.creartai.com/api/${version}/text2image`;
     this.translateUrl = "https://ssl-api.itranslateapp.com/v3/texts/translate";
-    this.uploadUrl = `https://${apiConfig.DOMAIN_URL}/api/tools/upload?host=Catbox`;
+    this.uploadUrl = `https://${apiConfig.DOMAIN_URL}/api/tools/upload`;
     this.allowedStyles = ["anime", "animev2", "animev3", "animev4", "artdeco", "bwcomic", "chromatic", "cinematic", "classiccartoon", "clay", "colorcomic", "coloredsketch", "colorfulsketch", "coloringbook", "creartv1", "cubism", "cyberpunk", "cyberpunkcartoon", "darksurrealism", "dream", "expressionism", "fantasy", "filmnoir", "fluidwatercolor", "game", "gothicfuturism", "grisaille", "illustration", "impressionism", "jewelry", "kawaii", "kidscartoon", "lowpoly", "macrophoto", "mystical", "naiveart", "neon", "nostyle", "origami", "papercut", "pixelart", "pixelarthd", "popart", "popsurrealism", "porcelainfigurine", "poster", "productphoto", "psychedelic", "realistic", "renaissance", "retrofuturism", "sketch", "stainedglass", "sticker", "surrealism", "synthwave", "textile", "ukiyoe", "vangogh", "vectorart", "vividcolors", "watercolor", "woodsculpture", "wool", "neonpunk", "cartoon"];
     this.baseUrl = "https://api.creartai.com";
     this.options = options;

@@ -12,7 +12,7 @@ class ImageGenerator {
     this.ivHex = "09e1612e1bb08c162a6654437f51e939";
     this.bearerTokenPayload = "1dca7ac0450ecefb7d8ba4e6357958489382e4744382db6102c1fad7d95d9780796801dd40c8c7ad5219fb870416eaf7af460beb2d0889656d83281261e2962c";
     this.generateCartoonUrl = "https://be.neuralframes.com/tools/generate_cartoon";
-    this.uploadUrl = `https://${apiConfig.DOMAIN_URL}/api/tools/upload?host=Catbox`;
+    this.uploadUrl = `https://${apiConfig.DOMAIN_URL}/api/tools/upload`;
     console.log("ImageGenerator: Instance created.");
   }
   async generateBearerAuth() {

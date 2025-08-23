@@ -8,7 +8,7 @@ import apiConfig from "@/configs/apiConfig";
 class TetyTTS {
   constructor() {
     this.baseURL = "https://www.tetyys.com/SAPI4/";
-    this.uploadUrl = `https://${apiConfig.DOMAIN_URL}/api/tools/upload?host=Catbox`;
+    this.uploadUrl = `https://${apiConfig.DOMAIN_URL}/api/tools/upload`;
     this.headers = {
       accept: "*/*",
       "accept-language": "id-ID,id;q=0.9",

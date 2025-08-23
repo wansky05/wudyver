@@ -8,7 +8,7 @@ class MicMonster {
   constructor() {
     this.baseURL = "https://micmonster.com/";
     this.apiHost = "https://mmhomepageapi.azurewebsites.net/api/MMHomePageApi";
-    this.uploadUrl = `https://${apiConfig.DOMAIN_URL}/api/tools/upload?host=Catbox`;
+    this.uploadUrl = `https://${apiConfig.DOMAIN_URL}/api/tools/upload`;
     this.code = "";
     this.cookies = "";
     this.headers = {

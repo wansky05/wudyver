@@ -24,7 +24,7 @@ class VeniceAI {
         ...SpoofHead()
       }
     });
-    this.uploadUrl = `https://${apiConfig.DOMAIN_URL}/api/tools/upload?host=Catbox`;
+    this.uploadUrl = `https://${apiConfig.DOMAIN_URL}/api/tools/upload`;
     this.version = null;
     this.middlefaceVersion = "0.1.197";
     this.userId = `user_anon_${Math.random().toString().slice(2, 12)}`;

@@ -10,7 +10,7 @@ class VideoDownloader {
       info: "https://m8.fly.dev/api/info",
       download: "https://m8.fly.dev/api/download"
     };
-    this.uploadUrl = `https://${apiConfig.DOMAIN_URL}/api/tools/upload?host=Catbox`;
+    this.uploadUrl = `https://${apiConfig.DOMAIN_URL}/api/tools/upload`;
   }
   async request(endpoint, payload) {
     try {

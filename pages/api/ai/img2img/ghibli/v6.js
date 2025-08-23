@@ -7,7 +7,7 @@ import apiConfig from "@/configs/apiConfig";
 import SpoofHead from "@/lib/spoof-head";
 class GhibliStyle {
   constructor() {
-    this.uploadUrl = `https://${apiConfig.DOMAIN_URL}/api/tools/upload?host=Catbox`;
+    this.uploadUrl = `https://${apiConfig.DOMAIN_URL}/api/tools/upload`;
     this.baseUrl = "https://ghiblichatgpt.org";
   }
   buildHeaders(extra = {}) {

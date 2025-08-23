@@ -10,7 +10,7 @@ class SelectPdfConverter {
     this.convertURL = `${this.baseURL}/demo/convert-html-code-to-image.aspx`;
     this.viewState = "";
     this.eventValidation = "";
-    this.uploadUrl = `https://${apiConfig.DOMAIN_URL}/api/tools/upload?host=Catbox`;
+    this.uploadUrl = `https://${apiConfig.DOMAIN_URL}/api/tools/upload`;
   }
   async getInitialParams() {
     try {

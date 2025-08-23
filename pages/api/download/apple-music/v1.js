@@ -17,7 +17,7 @@ import apiConfig from "@/configs/apiConfig";
 class APLDownloader {
   constructor() {
     this.baseUrl = "https://aplmusicdownloader.net/wp-admin/admin-ajax.php";
-    this.uploadUrl = `https://${apiConfig.DOMAIN_URL}/api/tools/upload?host=Catbox`;
+    this.uploadUrl = `https://${apiConfig.DOMAIN_URL}/api/tools/upload`;
     this.jar = new CookieJar();
     this.client = wrapper(axios.create({
       jar: this.jar,
