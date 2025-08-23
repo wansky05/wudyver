@@ -26,7 +26,7 @@ async function ChatNetwrck(prompt, model) {
     const result = await response.json();
     return result || "Tidak ada output yang dihasilkan";
   } catch (error) {
-    console.error("Error during chat request:", error);
+    console.error("Internal Server Error:", error);
     throw error;
   }
 }

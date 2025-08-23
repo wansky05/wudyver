@@ -3,6 +3,7 @@ import crypto from "crypto";
 import OSS from "ali-oss";
 import apiConfig from "@/configs/apiConfig";
 import Encoder from "@/lib/encoder";
+import SpoofHead from "@/lib/spoof-head";
 class PixVerseImg2Vid {
   constructor() {
     this.baseUrl = "https://app-api.pixverse.ai";
@@ -22,7 +23,8 @@ class PixVerseImg2Vid {
       "Accept-Language": "id-ID",
       "X-Platform": "Web",
       "User-Agent": "Mozilla/5.0 (Linux; Android 10; K) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/139.0.0.0 Mobile Safari/537.36",
-      Referer: "https://app.pixverse.ai/create/image-text"
+      Referer: "https://app.pixverse.ai/create/image-text",
+      ...SpoofHead()
     };
     if (this.token) {
       this.headers["Token"] = this.token;

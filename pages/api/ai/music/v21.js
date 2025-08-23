@@ -2,7 +2,7 @@ import axios from "axios";
 import crypto from "crypto";
 import apiConfig from "@/configs/apiConfig";
 import Encoder from "@/lib/encoder";
-class BrevApi {
+class MusicHero {
   constructor() {}
   async enc(data) {
     const {
@@ -31,7 +31,7 @@ class BrevApi {
       } = await axios.get(`https://${apiConfig.DOMAIN_URL}/api/tools/cf-token`, {
         params: {
           sitekey: "0x4AAAAAAAgeJUEUvYlF2CzO",
-          url: "https://brev.ai/id/app"
+          url: "https://musichero.ai/id/app"
         }
       });
       const uid = crypto.createHash("md5").update(Date.now().toString()).digest("hex");
@@ -46,7 +46,7 @@ class BrevApi {
       };
       const {
         data: task
-      } = await axios.post("https://api.brev.ai/api/v1/suno/create", {
+      } = await axios.post("https://musicheroai.erweima.ai/api/v1/suno/create", {
         prompt: prompt,
         ...options
       }, {
@@ -85,7 +85,7 @@ class BrevApi {
       }
       const {
         data: statusData
-      } = await axios.post("https://api.brev.ai/api/v1/suno/loadPendingRecordList", {
+      } = await axios.post("https://musicheroai.erweima.ai/api/v1/suno/loadPendingRecordList", {
         pendingRecordIdList: [recordId]
       }, {
         headers: {
@@ -95,8 +95,8 @@ class BrevApi {
       });
       return statusData;
     } catch (error) {
-      console.error("Error in BrevApi status check:", error);
-      throw new Error(`Failed to check brev task status: ${error.message}`);
+      console.error("Error in MusicHero status check:", error);
+      throw new Error(`Failed to check api task status: ${error.message}`);
     }
   }
 }
@@ -110,7 +110,7 @@ export default async function handler(req, res) {
       error: "Action (create or status) is required."
     });
   }
-  const brev = new BrevApi();
+  const api = new MusicHero();
   try {
     switch (action) {
       case "create":
@@ -119,7 +119,7 @@ export default async function handler(req, res) {
             error: "Prompt is required for 'create' action."
           });
         }
-        const createResponse = await brev.generate(params);
+        const createResponse = await api.generate(params);
         return res.status(200).json(createResponse);
       case "status":
         if (!params.task_id) {
@@ -127,7 +127,7 @@ export default async function handler(req, res) {
             error: "task_id is required for 'status' action."
           });
         }
-        const statusResponse = await brev.status(params);
+        const statusResponse = await api.status(params);
         return res.status(200).json(statusResponse);
       default:
         return res.status(400).json({

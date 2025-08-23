@@ -1,215 +1,252 @@
 import axios from "axios";
-import crypto from "crypto";
-import {
-  FormData,
-  Blob
-} from "form-data";
-import apiConfig from "@/configs/apiConfig";
 import SpoofHead from "@/lib/spoof-head";
-const delay = ms => new Promise(resolve => setTimeout(resolve, ms));
-class VeniceAPI {
-  userAgents = ["Mozilla/5.0 (Linux; Android 10; K) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/135.0.0.0 Mobile Safari/537.36", "Mozilla/5.0 (Linux; Android 12; SM-S906N Build/QP1A.190711.020) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/134.0.0.0 Mobile Safari/537.36", "Mozilla/5.0 (Linux; Android 11; Pixel 5) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/133.0.0.0 Mobile Safari/537.36", "Mozilla/5.0 (iPhone; CPU iPhone OS 17_5 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) CriOS/125.0.6422.80 Mobile/15E148 Safari/604.1"];
+class VeniceAI {
   constructor() {
-    this.baseUrl = "https://venice.ai";
-    this.uploadUrl = `https://${apiConfig.DOMAIN_URL}/api/tools/upload?host=Catbox`;
-    this.api = axios.create({
-      baseURL: "https://outerface.venice.ai/api/inference/"
+    this.client = axios.create({
+      baseURL: "https://outerface.venice.ai/api",
+      headers: {
+        accept: "*/*",
+        "accept-language": "id-ID,id;q=0.9",
+        priority: "u=1, i",
+        "sec-ch-ua": '"Lemur";v="135", "", "", "Microsoft Edge Simulate";v="135"',
+        "sec-ch-ua-mobile": "?1",
+        "sec-ch-ua-platform": '"Android"',
+        "sec-fetch-dest": "empty",
+        "sec-fetch-mode": "cors",
+        "user-agent": "Mozilla/5.0 (Linux; Android 10; K) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/135.0.0.0 Mobile Safari/537.36",
+        origin: "https://venice.ai",
+        referer: "https://venice.ai/",
+        ...SpoofHead()
+      }
+    });
+    this.version = null;
+    this.middlefaceVersion = "0.1.197";
+    this.userId = `user_anon_${Math.random().toString().slice(2, 12)}`;
+    this.cookies = {};
+    this.setupInterceptors();
+  }
+  setupInterceptors() {
+    this.client.interceptors.request.use(config => {
+      config.headers["x-venice-timestamp"] = new Date().toISOString();
+      if (this.version) {
+        config.headers["x-venice-version"] = this.version;
+      }
+      config.headers["x-venice-middleface-version"] = this.middlefaceVersion;
+      config.headers["x-venice-request-timestamp-ms"] = new Date().getTime();
+      if (Object.keys(this.cookies).length > 0) {
+        const cookieString = Object.entries(this.cookies).map(([key, value]) => `${key}=${value}`).join("; ");
+        config.headers["Cookie"] = cookieString;
+      }
+      return config;
+    });
+    this.client.interceptors.response.use(response => {
+      const setCookie = response.headers["set-cookie"];
+      if (setCookie) {
+        setCookie.forEach(cookie => {
+          const [cookieStr] = cookie.split(";");
+          const [key, value] = cookieStr.split("=");
+          this.cookies[key] = value;
+        });
+      }
+      return response;
+    }, error => {
+      return Promise.reject(error);
     });
   }
-  randomCryptoIP() {
-    const bytes = crypto.randomBytes(4);
-    return Array.from(bytes).map(b => b % 256).join(".");
-  }
-  randomID(length = 16) {
-    return crypto.randomBytes(length).toString("hex");
-  }
-  _generateAnonymousUserId() {
-    const part1 = Math.floor(Math.random() * 1e9);
-    const part2 = Math.floor(Math.random() * 1e9);
-    return `user_anon_${part1}${part2}`;
-  }
-  _generateId() {
-    return Math.random().toString(36).substring(2, 9);
-  }
-  buildHeaders(extra = {}) {
-    const ip = this.randomCryptoIP();
-    const randomUserAgent = this.userAgents[Math.floor(Math.random() * this.userAgents.length)];
-    return {
-      accept: "*/*",
-      "accept-language": "id-ID,id;q=0.9",
-      origin: this.baseUrl,
-      referer: `${this.baseUrl}/`,
-      "user-agent": randomUserAgent,
-      "sec-ch-ua": '"Lemur";v="135", "", "", "Microsoft Edge Simulate";v="135"',
-      "sec-ch-ua-mobile": "?1",
-      "sec-ch-ua-platform": '"Android"',
-      "sec-fetch-dest": "empty",
-      "sec-fetch-mode": "cors",
-      "sec-fetch-site": "same-site",
-      "x-request-id": this.randomID(8),
-      ...SpoofHead(),
-      ...extra
-    };
-  }
-  async chat(rest = {}) {
+  async getVersion() {
     try {
-      const defaultPayload = {
-        conversationType: "text",
-        type: "text",
-        modelId: "mistral-31-24b",
-        modelName: "Venice Uncensored",
-        modelType: "text",
-        prompt: [{
-          content: "apa itu wibu",
-          role: "user"
-        }],
-        systemPrompt: "",
-        includeVeniceSystemPrompt: true,
-        isCharacter: false,
-        simpleMode: true,
-        characterId: "",
-        id: "",
-        textToSpeech: {
-          voiceId: "af_sky",
-          speed: 1
-        },
-        webEnabled: true,
-        reasoning: true,
-        clientProcessingTime: 541
-      };
-      const {
-        messages,
-        prompt,
-        ...otherRest
-      } = rest;
-      let finalPrompt = defaultPayload.prompt;
-      if (messages?.length) {
-        finalPrompt = messages;
-      } else if (typeof prompt === "string" && prompt.trim() !== "") {
-        finalPrompt = [{
+      const url = `https://venice.ai/api/venice/version?${new Date().valueOf()}`;
+      const response = await axios.get(url, {
+        headers: {
+          accept: "*/*",
+          "accept-language": "id-ID,id;q=0.9",
+          priority: "u=1, i",
+          referer: "https://venice.ai/chat",
+          "sec-ch-ua": '"Lemur";v="135", "", "", "Microsoft Edge Simulate";v="135"',
+          "sec-ch-ua-mobile": "?1",
+          "sec-ch-ua-platform": '"Android"',
+          "sec-fetch-dest": "empty",
+          "sec-fetch-mode": "cors",
+          "sec-fetch-site": "same-origin",
+          "user-agent": "Mozilla/5.0 (Linux; Android 10; K) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/135.0.0.0 Mobile Safari/537.36",
+          ...SpoofHead()
+        }
+      });
+      this.version = response.data.version;
+      return response.data;
+    } catch (error) {
+      throw new Error(`Failed to get version: ${error.message}`);
+    }
+  }
+  async imageToBase64(imageUrl) {
+    try {
+      const response = await axios.get(imageUrl, {
+        responseType: "arraybuffer"
+      });
+      const base64 = Buffer.from(response.data, "binary").toString("base64");
+      return `/9j/${base64}`;
+    } catch (error) {
+      throw new Error(`Failed to convert image to base64: ${error.message}`);
+    }
+  }
+  async chat({
+    prompt,
+    imageUrl,
+    messages = [],
+    ...rest
+  }) {
+    try {
+      if (!this.version) {
+        await this.getVersion();
+      }
+      let promptArray = [];
+      if (messages.length > 0) {
+        promptArray = messages;
+      } else {
+        promptArray = [{
           content: prompt,
           role: "user"
         }];
       }
-      const payload = {
-        ...defaultPayload,
-        ...otherRest,
-        prompt: finalPrompt,
-        requestId: this._generateId(),
-        messageId: this._generateId(),
-        userId: this._generateAnonymousUserId()
-      };
-      const headers = this.buildHeaders({
-        "content-type": "application/json",
-        priority: "u=1, i",
-        "x-venice-version": "interface@20250611.010712+52c00c6"
-      });
-      const {
-        data
-      } = await this.api.post("/chat", payload, {
-        headers: headers
-      });
-      return this.parseChatStream(data);
-    } catch (error) {
-      console.error("Error in chat request:", error.response ? error.response.data : error.message);
-      throw error;
-    }
-  }
-  parseChatStream(rawResponse) {
-    if (!rawResponse || typeof rawResponse !== "string") {
-      return {
-        result: "",
-        array_stream: [],
-        kinds: {}
-      };
-    }
-    const array_stream = rawResponse.split("\n").filter(line => line.startsWith("{")).map(line => {
-      try {
-        return JSON.parse(line);
-      } catch (e) {
-        return null;
+      if (imageUrl) {
+        const base64Image = await this.imageToBase64(imageUrl);
+        const lastPrompt = promptArray[promptArray.length - 1];
+        lastPrompt.imagePath = [base64Image];
       }
-    }).filter(obj => obj !== null);
-    const kinds = array_stream.reduce((acc, obj) => {
-      const key = obj.kind || "unknown";
-      if (!acc[key]) {
-        acc[key] = [];
-      }
-      acc[key].push(obj);
-      return acc;
-    }, {});
-    const result = (kinds.content || []).map(obj => obj.content).join("");
-    return {
-      result: result,
-      array_stream: array_stream,
-      kinds: kinds
-    };
-  }
-  async uploadImage(buffer, mimeType = "image/png", fileName = "image.png") {
-    try {
-      const formData = new FormData();
-      formData.append("file", new Blob([buffer], {
-        type: mimeType
-      }), fileName);
-      const {
-        data: uploadResponse
-      } = await axios.post(this.uploadUrl, formData, {
+      const data = {
+        characterId: "",
+        clientProcessingTime: 4848,
+        conversationType: "text",
+        includeVeniceSystemPrompt: true,
+        isCharacter: false,
+        modelId: "mistral-31-24b",
+        prompt: promptArray,
+        reasoning: true,
+        requestId: this.generateRequestId(),
+        systemPrompt: "",
+        temperature: .7,
+        topP: .9,
+        userId: this.userId,
+        webEnabled: true,
+        ...rest
+      };
+      const response = await this.client.post("/inference/chat", data, {
         headers: {
-          ...formData.headers ? formData.headers : {}
+          "content-type": "application/json"
         }
       });
-      if (!uploadResponse) {
-        throw new Error("Upload failed");
+      const lines = response.data.split("\n").filter(line => line.trim());
+      const result = {
+        result: "",
+        kind: []
+      };
+      for (const line of lines) {
+        try {
+          const parsed = JSON.parse(line);
+          if (parsed.kind === "content") {
+            result.result += parsed.content;
+            result.kind.push(parsed);
+          }
+        } catch (e) {}
       }
-      return uploadResponse;
+      return result;
     } catch (error) {
-      if (error.response) {
-        throw new Error(`Error uploading image: Server responded with status ${error.response.status} - ${JSON.stringify(error.response.data)}`);
-      } else if (error.request) {
-        throw new Error("Error uploading image: No response received from server.");
-      } else {
-        throw new Error("Error uploading image: " + error.message);
-      }
+      throw new Error(`Chat failed: ${error.message}`);
     }
   }
-  async image(rest = {}) {
+  async image({
+    prompt,
+    ...rest
+  }) {
     try {
-      const defaultPayload = {
-        aspectRatio: "1:1",
-        cfgScale: 5,
-        format: "webp",
-        height: 1024,
-        steps: 20,
-        variants: 1,
-        width: 1024,
-        modelId: "hidream"
-      };
-      const payload = {
-        ...defaultPayload,
-        ...rest,
-        requestId: this._generateId(),
-        messageId: this._generateId(),
+      if (!this.version) {
+        await this.getVersion();
+      }
+      const data = {
+        aspectRatio: "2:3",
+        embedExifMetadata: true,
+        format: "png",
+        height: 1264,
+        hideWatermark: false,
+        imageToImageCfgScale: 15,
+        imageToImageStrength: 33,
+        loraStrength: 75,
+        matureFilter: true,
+        messageId: this.generateMessageId(),
+        modelId: "hidream",
+        negativePrompt: "",
+        parentMessageId: null,
+        prompt: prompt,
+        requestId: this.generateRequestId(),
         seed: Math.floor(Math.random() * 1e8),
-        userId: this._generateAnonymousUserId()
+        steps: 20,
+        stylePreset: "Cinematic",
+        type: "image",
+        userId: this.userId,
+        variants: 1,
+        width: 848,
+        ...rest
       };
-      const headers = this.buildHeaders({
-        "content-type": "application/json",
-        priority: "u=1, i",
-        "x-venice-version": "interface@20250611.010712+52c00c6"
-      });
-      const {
-        data: imageBuffer
-      } = await this.api.post("/image", payload, {
-        headers: headers,
+      const response = await this.client.post("/inference/image", data, {
+        headers: {
+          "content-type": "application/json"
+        },
         responseType: "arraybuffer"
       });
-      const uploadResult = await this.uploadImage(imageBuffer);
-      return uploadResult;
+      const base64 = Buffer.from(response.data, "binary").toString("base64");
+      return {
+        image: base64
+      };
     } catch (error) {
-      const errorMessage = error.response ? JSON.stringify(error.response.data) : error.message;
-      console.error("Terjadi kesalahan di metode image:", errorMessage);
-      throw error;
+      throw new Error(`Image generation failed: ${error.message}`);
     }
+  }
+  async prompt_enhance({
+    prompt
+  }) {
+    try {
+      if (!this.version) {
+        await this.getVersion();
+      }
+      const data = {
+        prompt: prompt
+      };
+      const response = await this.client.post("/inference/image_prompt_enhance_streaming", data, {
+        headers: {
+          accept: "text/event-stream",
+          "content-type": "application/json"
+        }
+      });
+      const lines = response.data.split("\n").filter(line => line.trim());
+      const result = {
+        result: "",
+        text: []
+      };
+      for (const line of lines) {
+        try {
+          if (line.startsWith("data: ")) {
+            const jsonStr = line.slice(6).trim();
+            if (jsonStr === "[DONE]") continue;
+            const parsed = JSON.parse(jsonStr);
+            if (parsed.text) {
+              result.result += parsed.text;
+              result.text.push(parsed);
+            } else if (parsed.results && parsed.results.enhancedPrompt) {
+              result.result = parsed.results.enhancedPrompt;
+            }
+          }
+        } catch (e) {}
+      }
+      return result;
+    } catch (error) {
+      throw new Error(`Prompt enhance failed: ${error.message}`);
+    }
+  }
+  generateRequestId() {
+    return Math.random().toString(36).substring(2, 10).toUpperCase();
+  }
+  generateMessageId() {
+    return Math.random().toString(36).substring(2, 10);
   }
 }
 export default async function handler(req, res) {
@@ -221,21 +258,21 @@ export default async function handler(req, res) {
     return res.status(400).json({
       error: "Missing required field: action",
       required: {
-        action: "chat | image"
+        action: "chat | image | prompt_enhance"
       }
     });
   }
-  const venice = new VeniceAPI();
+  const venice = new VeniceAI();
   try {
     let result;
     switch (action) {
       case "chat":
-        if (!params.prompt) {
+        if (!params.prompt && !params.messages) {
           return res.status(400).json({
-            error: `Missing required field: prompt (required for ${action})`
+            error: `Missing required field: prompt or messages (required for ${action})`
           });
         }
-        result = await venice[action](params);
+        result = await venice.chat(params);
         break;
       case "image":
         if (!params.prompt) {
@@ -243,15 +280,24 @@ export default async function handler(req, res) {
             error: `Missing required field: prompt (required for ${action})`
           });
         }
-        result = await venice[action](params);
+        result = await venice.image(params);
+        break;
+      case "prompt_enhance":
+        if (!params.prompt) {
+          return res.status(400).json({
+            error: `Missing required field: prompt (required for ${action})`
+          });
+        }
+        result = await venice.prompt_enhance(params);
         break;
       default:
         return res.status(400).json({
-          error: `Invalid action: ${action}. Allowed: chat | image`
+          error: `Invalid action: ${action}. Allowed: chat | image | prompt_enhance`
         });
     }
     return res.status(200).json(result);
   } catch (error) {
+    console.error("VeniceAI API Error:", error);
     return res.status(500).json({
       error: `Processing error: ${error.message}`
     });

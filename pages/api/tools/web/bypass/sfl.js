@@ -88,7 +88,7 @@ class LinkBypasser {
           accept: "application/json"
         }
       });
-      if (!res.data?.status) {
+      if (!res.data) {
         throw new Error(res.data.message || "Turnstile bypass API returned an error.");
       }
       this.bypassResult = res.data;

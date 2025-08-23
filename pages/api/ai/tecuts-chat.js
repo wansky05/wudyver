@@ -72,7 +72,7 @@ class ChatService {
       const response = await this.api.post("/chat/stream", payload);
       return this.parseStreamData(response.data);
     } catch (error) {
-      console.error("Error during chat request:", error);
+      console.error("Internal Server Error:", error);
       throw error;
     }
   }

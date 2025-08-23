@@ -1,4 +1,5 @@
 import axios from "axios";
+import SpoofHead from "@/lib/spoof-head";
 class Artly {
   constructor() {
     this.api = {
@@ -11,7 +12,8 @@ class Artly {
     this.headers = {
       "user-agent": "NB Android/1.0.0",
       "accept-encoding": "gzip",
-      "content-type": "application/x-www-form-urlencoded"
+      "content-type": "application/x-www-form-urlencoded",
+      ...SpoofHead()
     };
     this.logger = {
       info: (message, data = {}) => console.log(`[Artly] INFO: ${message}`, data),

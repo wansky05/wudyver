@@ -51,7 +51,7 @@ class GeminiAPI {
       });
       return response.data;
     } catch (error) {
-      console.error("Error during chat request:", error.response?.data || error.message);
+      console.error("Internal Server Error:", error.response?.data || error.message);
       throw error;
     }
   }
@@ -69,7 +69,7 @@ export default async function handler(req, res) {
     return res.status(200).json(data);
   } catch (error) {
     res.status(500).json({
-      error: "Error during chat request"
+      error: "Internal Server Error"
     });
   }
 }

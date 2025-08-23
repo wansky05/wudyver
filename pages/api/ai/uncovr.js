@@ -1,4 +1,5 @@
 import axios from "axios";
+import SpoofHead from "@/lib/spoof-head";
 class UncoverAPI {
   constructor() {
     this.baseURL = "https://uncovr.app";
@@ -10,7 +11,8 @@ class UncoverAPI {
       Accept: "*/*",
       "Accept-Language": "en-US,en;q=0.9",
       "Content-Type": "application/json",
-      "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36"
+      "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36",
+      ...SpoofHead()
     };
   }
   async init() {

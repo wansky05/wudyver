@@ -8,106 +8,106 @@ import qs from "qs";
 import apiConfig from "@/configs/apiConfig";
 import SpoofHead from "@/lib/spoof-head";
 class CreartAI {
-  constructor() {
-    this.apiUrl = "https://api.creartai.com/api/v1/text2image";
+  constructor({
+    version = "v1",
+    ...options
+  } = {}) {
+    this.version = version;
+    this.apiUrl = `https://api.creartai.com/api/${version}/text2image`;
     this.translateUrl = "https://ssl-api.itranslateapp.com/v3/texts/translate";
     this.uploadUrl = `https://${apiConfig.DOMAIN_URL}/api/tools/upload?host=Catbox`;
     this.allowedStyles = ["anime", "animev2", "animev3", "animev4", "artdeco", "bwcomic", "chromatic", "cinematic", "classiccartoon", "clay", "colorcomic", "coloredsketch", "colorfulsketch", "coloringbook", "creartv1", "cubism", "cyberpunk", "cyberpunkcartoon", "darksurrealism", "dream", "expressionism", "fantasy", "filmnoir", "fluidwatercolor", "game", "gothicfuturism", "grisaille", "illustration", "impressionism", "jewelry", "kawaii", "kidscartoon", "lowpoly", "macrophoto", "mystical", "naiveart", "neon", "nostyle", "origami", "papercut", "pixelart", "pixelarthd", "popart", "popsurrealism", "porcelainfigurine", "poster", "productphoto", "psychedelic", "realistic", "renaissance", "retrofuturism", "sketch", "stainedglass", "sticker", "surrealism", "synthwave", "textile", "ukiyoe", "vangogh", "vectorart", "vividcolors", "watercolor", "woodsculpture", "wool", "neonpunk", "cartoon"];
     this.baseUrl = "https://api.creartai.com";
+    this.options = options;
   }
-  randomID(length = 16) {
+  setVersion(version) {
+    this.version = version;
+    this.apiUrl = `https://api.creartai.com/api/${version}/text2image`;
+  }
+  id(length = 16) {
     return crypto.randomBytes(length).toString("hex");
   }
-  buildHeaders(extra = {}) {
+  headers(extra = {}) {
     return {
       origin: this.baseUrl,
       referer: `${this.baseUrl}/`,
       "user-agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126.0.0.0 Safari/537.36",
-      "x-request-id": this.randomID(8),
+      "x-request-id": this.id(8),
       ...SpoofHead(),
       ...extra
     };
   }
-  async _getImageBase64FromUrl(url) {
-    console.log(`[PROSES] Mengambil gambar dari URL: ${url}`);
+  async getImg(url) {
     try {
       const response = await axios.get(url, {
         responseType: "arraybuffer"
       });
-      console.log(`[INFO] Berhasil mengambil gambar dari URL.`);
-      return Buffer.from(response.data).toString("base64");
+      return Buffer.from(response.data);
     } catch (error) {
-      console.error(`[ERROR] Gagal mengambil gambar dari URL (${url}): ${error?.message}`);
-      throw new Error(`Gagal mengambil gambar dari URL: ${error?.message}`);
+      throw new Error(`Gagal mengambil gambar: ${error?.message}`);
     }
   }
-  async _generateImageInternal(prompt, style, options = {}) {
+  async genImg(prompt, style, {
+    input_image_type,
+    input_image_base64,
+    ...rest
+  } = {}) {
     if (!this.allowedStyles.includes(style)) {
-      const errorMessage = `Gaya tidak valid. Gaya yang diizinkan: ${this.allowedStyles.join(", ")}`;
-      console.error(`[ERROR] ${errorMessage}`);
-      throw new Error(errorMessage);
+      throw new Error(`Gaya tidak valid. Gaya yang diizinkan: ${this.allowedStyles.join(", ")}`);
     }
-    console.log(`[PROSES] Menerjemahkan prompt: "${prompt}"`);
     let translatedPrompt;
     try {
-      const translationResult = await this.translate({
+      const translationResult = await this.trs({
         text: prompt,
         from: "id",
         to: "en-UK"
       });
       translatedPrompt = translationResult?.target?.text ?? prompt;
-      console.log(`[INFO] Prompt diterjemahkan menjadi: "${translatedPrompt}"`);
     } catch (error) {
-      console.warn(`[PERINGATAN] Gagal menerjemahkan prompt, menggunakan prompt asli. Error: ${error?.message}`);
       translatedPrompt = prompt;
     }
-    console.log(`[PROSES] Menyiapkan data untuk ${options?.input_image_type ?? "text2image"} dengan gaya: ${style}`);
     try {
       let data = qs.stringify({
         prompt: `${translatedPrompt}, ${style}, cinematic`,
-        input_image_type: options?.input_image_type ?? "text2image",
-        input_image_base64: options?.input_image_base64 ?? "",
-        negative_prompt: options?.negative_prompt ?? "",
-        aspect_ratio: options?.aspect_ratio ?? "16x9",
-        num_inference_steps: options?.num_inference_steps ?? "",
-        controlnet_conditioning_scale: options?.controlnet_conditioning_scale ?? "0.5",
-        guidance_scale: options?.guidance_scale ?? "9.5",
-        scheduler: options?.scheduler ?? "",
-        seed: options?.seed ?? ""
+        input_image_type: input_image_type ?? "text2image",
+        input_image_base64: input_image_base64 ?? "",
+        negative_prompt: rest.negative_prompt ?? "",
+        aspect_ratio: rest.aspect_ratio ?? "16x9",
+        num_inference_steps: rest.num_inference_steps ?? "",
+        controlnet_conditioning_scale: rest.controlnet_conditioning_scale ?? "0.5",
+        guidance_scale: rest.guidance_scale ?? "9.5",
+        scheduler: rest.scheduler ?? "",
+        seed: rest.seed ?? "",
+        ...rest
       });
-      const headers = this.buildHeaders({
-        "Content-Type": "application/x-www-form-urlencoded"
-      });
-      let config = {
+      const config = {
         method: "post",
         maxBodyLength: Infinity,
         url: this.apiUrl,
-        headers: headers,
+        headers: this.headers({
+          "Content-Type": "application/x-www-form-urlencoded"
+        }),
         data: data
       };
-      console.log(`[PROSES] Mengirim permintaan ke API CreartAI...`);
       const response = await axios.request(config);
-      console.log(`[INFO] Permintaan pembuatan gambar berhasil.`);
-      const imageBase64 = response.data?.image_base64;
-      if (!imageBase64) {
-        throw new Error("API CreartAI tidak mengembalikan data image_base64.");
+      if (this.version === "v2") {
+        const imageBuffer = Buffer.from(response.data, "binary");
+        return await this.upImg(imageBuffer);
+      } else {
+        const imageBase64 = response.data?.image_base64;
+        if (!imageBase64) throw new Error("Tidak ada data gambar yang dikembalikan.");
+        return await this.upImg(this.toBuf(imageBase64));
       }
-      console.log(`[PROSES] Mengunggah gambar yang dihasilkan ke Supa.codes...`);
-      const uploadResult = await this.uploadImage(this.toBuffer(imageBase64));
-      console.log(`[INFO] Gambar berhasil diunggah.`);
-      return uploadResult;
     } catch (error) {
-      console.error("[ERROR] Error saat menghasilkan atau mengunggah gambar:", error?.message);
-      throw new Error(`Pembuatan dan/atau pengunggahan gambar gagal: ${error?.message}`);
+      throw new Error(`Pembuatan gambar gagal: ${error?.message}`);
     }
   }
-  async translate({
-    text = "cowo",
+  async trs({
+    text = "",
     from = "id",
     to = "en-UK",
     ...rest
   }) {
-    console.log(`[PROSES] Memulai terjemahan teks: "${text}" dari ${from} ke ${to}`);
     try {
       let data = JSON.stringify({
         source: {
@@ -116,9 +116,10 @@ class CreartAI {
         },
         target: {
           dialect: to
-        }
+        },
+        ...rest
       });
-      const headers = this.buildHeaders({
+      const headers = this.headers({
         "API-Key": "dd71d7f0a905ecc757dae71156c8d2de",
         GUDID: "ab55e939-ddbf-4200-8bd5-bc0db1074260",
         "X-Correlation-ID": "ab55e939-ddbf-4200-8bd5-bc0db1074260",
@@ -126,9 +127,9 @@ class CreartAI {
         Secure: "1",
         "Input-Source": "0",
         "Content-Type": "application/json",
-        ...rest
+        ...rest.headers
       });
-      let config = {
+      const config = {
         method: "post",
         maxBodyLength: Infinity,
         url: this.translateUrl,
@@ -136,10 +137,8 @@ class CreartAI {
         data: data
       };
       const response = await axios.request(config);
-      console.log(`[INFO] Terjemahan berhasil.`);
       return response.data;
     } catch (error) {
-      console.error("[ERROR] Error saat menerjemahkan teks:", error?.message);
       throw new Error(`Terjemahan gagal: ${error?.message}`);
     }
   }
@@ -152,15 +151,11 @@ class CreartAI {
     guidance_scale = "9.5",
     scheduler = "",
     negative_prompt = "",
-    seed = ""
+    seed = "",
+    ...rest
   }) {
-    console.log(`\n[PROSES] Memulai permintaan Text-to-Image.`);
-    if (!prompt || !style) {
-      const errorMessage = "Prompt dan gaya wajib diisi untuk text-to-image.";
-      console.error(`[ERROR] ${errorMessage}`);
-      throw new Error(errorMessage);
-    }
-    return await this._generateImageInternal(prompt, style, {
+    if (!prompt || !style) throw new Error("Prompt dan gaya wajib diisi");
+    return await this.genImg(prompt, style, {
       input_image_type: "text2image",
       aspect_ratio: aspect_ratio,
       num_inference_steps: num_inference_steps,
@@ -168,7 +163,8 @@ class CreartAI {
       guidance_scale: guidance_scale,
       scheduler: scheduler,
       negative_prompt: negative_prompt,
-      seed: seed
+      seed: seed,
+      ...rest
     });
   }
   async img2img({
@@ -181,24 +177,20 @@ class CreartAI {
     guidance_scale = "9.5",
     scheduler = "",
     negative_prompt = "",
-    seed = ""
+    seed = "",
+    ...rest
   }) {
-    console.log(`\n[PROSES] Memulai permintaan Image-to-Image.`);
-    if (!imageUrl || !prompt || !style) {
-      const errorMessage = "imageUrl, prompt, dan gaya wajib diisi untuk image-to-image.";
-      console.error(`[ERROR] ${errorMessage}`);
-      throw new Error(errorMessage);
-    }
+    if (!imageUrl || !prompt || !style) throw new Error("imageUrl, prompt, dan gaya wajib diisi");
     let imageBase64 = imageUrl;
     if (imageUrl.startsWith("http")) {
       try {
-        imageBase64 = await this._getImageBase64FromUrl(imageUrl);
+        const buffer = await this.getImg(imageUrl);
+        imageBase64 = buffer.toString("base64");
       } catch (error) {
-        console.error(`[ERROR] Gagal menyiapkan gambar masukan dari URL untuk img2img: ${error?.message}`);
-        throw new Error(`Gagal menyiapkan gambar masukan untuk img2img: ${error?.message}`);
+        throw new Error(`Gagal menyiapkan gambar: ${error?.message}`);
       }
     }
-    return await this._generateImageInternal(prompt, style, {
+    return await this.genImg(prompt, style, {
       input_image_type: "image2image",
       input_image_base64: imageBase64,
       aspect_ratio: aspect_ratio,
@@ -207,24 +199,15 @@ class CreartAI {
       guidance_scale: guidance_scale,
       scheduler: scheduler,
       negative_prompt: negative_prompt,
-      seed: seed
+      seed: seed,
+      ...rest
     });
   }
-  conUri(base64Data) {
-    if (!base64Data) {
-      return "";
-    }
-    if (base64Data.startsWith("data:image/")) {
-      return base64Data;
-    }
-    const imageMimeType = "image/png";
-    return `data:${imageMimeType};base64,${base64Data}`;
-  }
-  toBuffer(inputString) {
+  toBuf(inputString) {
     const base64Data = inputString.startsWith("data:") ? inputString.split(",")[1] : inputString;
     return Buffer.from(base64Data, "base64");
   }
-  async uploadImage(buffer, mimeType = "image/png", fileName = "image.png") {
+  async upImg(buffer, mimeType = "image/png", fileName = "image.png") {
     try {
       const formData = new FormData();
       formData.append("file", new Blob([buffer], {
@@ -233,21 +216,15 @@ class CreartAI {
       const {
         data: uploadResponse
       } = await axios.post(this.uploadUrl, formData, {
-        headers: {
-          ...formData.headers ? formData.headers : {}
-        }
+        headers: formData.headers ? formData.headers : {}
       });
-      if (!uploadResponse) {
-        throw new Error("Upload failed");
-      }
+      if (!uploadResponse) throw new Error("Upload gagal");
       return uploadResponse;
     } catch (error) {
       if (error.response) {
-        throw new Error(`Error uploading image: Server responded with status ${error.response.status} - ${JSON.stringify(error.response.data)}`);
-      } else if (error.request) {
-        throw new Error("Error uploading image: No response received from server.");
+        throw new Error(`Error upload: ${error.response.status} - ${JSON.stringify(error.response.data)}`);
       } else {
-        throw new Error("Error uploading image: " + error.message);
+        throw new Error("Error upload: " + error.message);
       }
     }
   }
@@ -255,6 +232,7 @@ class CreartAI {
 export default async function handler(req, res) {
   const {
     action,
+    version = "v1",
     ...params
   } = req.method === "POST" ? req.body : req.query;
   const allowedActions = ["txt2img", "img2img", "translate"];
@@ -273,7 +251,9 @@ export default async function handler(req, res) {
   }
   try {
     let result;
-    const creartAI = new CreartAI();
+    const creartAI = new CreartAI({
+      version: version
+    });
     switch (action) {
       case "txt2img":
         if (!params.prompt) {
@@ -281,14 +261,16 @@ export default async function handler(req, res) {
             error: `Missing required fields: prompt (for action: ${action})`
           });
         }
+        if (!params.style) params.style = "realistic";
         result = await creartAI.txt2img(params);
         break;
       case "img2img":
-        if (!params.imageUrl) {
+        if (!params.imageUrl || !params.prompt) {
           return res.status(400).json({
-            error: `Missing required fields: imageUrl (for action: ${action})`
+            error: `Missing required fields: imageUrl and prompt (for action: ${action})`
           });
         }
+        if (!params.style) params.style = "realistic";
         result = await creartAI.img2img(params);
         break;
       case "translate":
@@ -297,7 +279,7 @@ export default async function handler(req, res) {
             error: `Missing required field: text (for action: ${action})`
           });
         }
-        result = await creartAI.translate(params);
+        result = await creartAI.trs(params);
         break;
       default:
         return res.status(400).json({

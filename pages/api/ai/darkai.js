@@ -39,7 +39,7 @@ async function Chat(prompt, model) {
     const result = await response.text();
     return extractData(result);
   } catch (error) {
-    console.error("Error during chat request:", error);
+    console.error("Internal Server Error:", error);
     throw error;
   }
 }
