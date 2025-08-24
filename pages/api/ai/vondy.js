@@ -1,104 +1,230 @@
 import axios from "axios";
+import CryptoJS from "crypto-js";
 import SpoofHead from "@/lib/spoof-head";
-class VondyChat {
+class VondyAPI {
   constructor() {
-    this.apiUrl = "https://vondyapi-proxy.com/bot/8e5fddc2-d5bb-42be-9f63-3142d73ccfd6/chat-stream-assistant-dfp/";
-    this.headers = {
-      accept: "text/event-stream",
+    this.baseUrl = "https://vondyapi-proxy.com";
+    this.defaultHeaders = {
+      accept: "*/*",
+      "accept-language": "id-ID,id;q=0.9",
       "content-type": "application/json",
-      "User-Agent": "Mozilla/5.0 (Linux; Android 10; K) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Mobile Safari/537.36",
-      Referer: "https://www.vondy.com/assistant?chat=SGFp&lc=5",
+      origin: "https://www.vondy.com",
+      priority: "u=1, i",
+      referer: "https://www.vondy.com/",
+      "sec-ch-ua": '"Lemur";v="135", "", "", "Microsoft Edge Simulate";v="135"',
+      "sec-ch-ua-mobile": "?1",
+      "sec-ch-ua-platform": '"Android"',
+      "sec-fetch-dest": "empty",
+      "sec-fetch-mode": "cors",
+      "sec-fetch-site": "cross-site",
+      "user-agent": "Mozilla/5.0 (Linux; Android 10; K) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/135.0.0.0 Mobile Safari/537.36",
       ...SpoofHead()
     };
   }
+  _encryptInput(input) {
+    const key = CryptoJS.enc.Utf8.parse("1234567890abcdef");
+    return CryptoJS.AES.encrypt(input, key, {
+      mode: CryptoJS.mode.ECB
+    }).toString();
+  }
+  async _apiCall(endpoint, options = {}, stream = false) {
+    try {
+      const config = {
+        method: options.method || "POST",
+        url: `${this.baseUrl}/${endpoint}`,
+        headers: {
+          ...this.defaultHeaders,
+          ...options.headers
+        },
+        data: options.data,
+        responseType: stream ? "stream" : "json"
+      };
+      const response = await axios(config);
+      if (stream) {
+        return response.data;
+      } else {
+        return {
+          responseData: response.data,
+          status: response.status
+        };
+      }
+    } catch (error) {
+      console.error("[VondyAPI] API call error:", error);
+      throw error;
+    }
+  }
   async chat({
+    prompt,
+    bot_id = "8e5fddc2-d5bb-42be-9f63-3142d73ccfd6",
+    messages = [],
+    ...rest
+  }) {
+    const chatEndpoint = `bot/${bot_id}/chat-stream-assistant-dfp/`;
+    const payload = {
+      messages: prompt ? [{
+        role: "user",
+        content: [{
+          type: "text",
+          text: prompt
+        }]
+      }] : messages,
+      context: {
+        url: rest?.url || ""
+      },
+      mod: rest?.mod ?? true,
+      useCredit: rest?.useCredit ?? true,
+      fp: rest?.fp || "",
+      isVision: rest?.isVision ?? 1,
+      claude: rest?.claude ?? false,
+      mini: rest?.mini ?? true,
+      variety: rest?.variety ?? true,
+      ...rest
+    };
+    if (rest.inputImageUrl && payload.messages.length > 0) {
+      if (Array.isArray(payload.messages[0].content)) {
+        payload.messages[0].content.push({
+          type: "image_url",
+          image_url: {
+            url: rest.inputImageUrl
+          }
+        });
+      }
+    }
+    try {
+      const response = await this._apiCall(chatEndpoint, {
+        method: "POST",
+        headers: {
+          accept: "text/event-stream",
+          "Content-Type": "application/json"
+        },
+        data: payload
+      }, true);
+      return await this._parseStreamResponse(response);
+    } catch (error) {
+      console.error("[VondyAPI] Chat error:", error);
+      throw error;
+    }
+  }
+  async image({
     prompt,
     ...rest
   }) {
-    try {
-      const payload = this._createPayload({
-        prompt: prompt,
-        ...rest
-      });
-      const response = await axios.post(this.apiUrl, payload, {
-        headers: this.headers,
-        responseType: "text"
-      });
-      return this._parse(response.data);
-    } catch (error) {
-      console.error("[VondyChat] Chat error:", error);
-      throw error;
+    const encryptedInput = this._encryptInput(prompt);
+    const payload = {
+      model: "text-davinci-003",
+      maxTokens: 3e3,
+      input: encryptedInput,
+      temperature: rest.temperature ?? .5,
+      e: true,
+      summarizeInput: rest.summarizeInput ?? prompt.length > 300,
+      inHTML: rest.inHTML ?? false,
+      size: rest.size ?? "1024x1024",
+      numImages: rest.numImages ?? 1,
+      useCredits: rest.useCredits ?? false,
+      titan: rest.titan ?? false,
+      quality: rest.quality ?? "standard",
+      embedToken: rest.embedToken ?? null,
+      edit: rest.edit ?? prompt,
+      flux: rest.flux ?? true,
+      pro: rest.pro ?? false,
+      face: rest.face ?? false,
+      useGPT: rest.useGPT ?? false,
+      ...rest
+    };
+    if (rest.inputImageUrl) {
+      payload.inputImageUrl = rest.inputImageUrl;
+      payload.similarityStrength = rest.similarityStrength ?? .7138044797189446;
+      payload.seed = rest.seed ?? 91875;
     }
-  }
-  _createPayload({
-    prompt = "Hello",
-    messages,
-    ...opts
-  }) {
     try {
-      return {
-        messages: prompt ? [{
-          role: "user",
-          content: [{
-            type: "text",
-            text: prompt
-          }]
-        }] : messages || [],
-        context: {
-          url: opts?.url || "https://www.vondy.com/assistant?chat=SGFp"
+      const {
+        responseData
+      } = await this._apiCall("images/", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json"
         },
-        mod: opts?.mod ?? true,
-        useCredit: opts?.useCredit ?? true,
-        fp: opts?.fp ?? null,
-        isVision: opts?.isVision ?? 0,
-        claude: opts?.claude ?? false,
-        mini: opts?.mini ?? true,
-        ...opts
-      };
+        data: payload
+      });
+      return responseData?.data || responseData;
     } catch (error) {
-      console.error("[VondyChat] Payload error:", error);
+      console.error("[VondyAPI] Image generation error:", error);
       throw error;
     }
   }
-  _parse(data) {
-    try {
+  async _parseStreamResponse(stream) {
+    return new Promise((resolve, reject) => {
       let result = "";
-      for (const event of data.split("\n")) {
-        if (!event.startsWith("data:")) continue;
-        const content = event.slice(6);
-        if (!content) continue;
-        try {
-          const parsed = JSON.parse(content);
-          if (parsed?.content) {
-            result += parsed.content.replace(/\\n/g, "\n");
+      stream.on("data", chunk => {
+        const lines = chunk.toString().split("\n");
+        for (const line of lines) {
+          if (line.startsWith("data:")) {
+            const data = line.slice(6);
+            if (data === "[DONE]") continue;
+            try {
+              const parsed = JSON.parse(data);
+              if (parsed?.content) {
+                result += parsed.content.replace(/\\n/g, "\n");
+              }
+            } catch (error) {
+              result += data.replace(/\\n/g, "\n");
+            }
           }
-        } catch {
-          result += content.replace(/\\n/g, "\n");
         }
-      }
-      return {
-        result: result.trim()
-      };
-    } catch (error) {
-      console.error("[VondyChat] Parse error:", error);
-      throw error;
-    }
+      });
+      stream.on("end", () => {
+        resolve({
+          result: result.trim()
+        });
+      });
+      stream.on("error", error => {
+        reject(error);
+      });
+    });
   }
 }
 export default async function handler(req, res) {
-  const params = req.method === "GET" ? req.query : req.body;
-  if (!params.prompt) {
+  const {
+    action,
+    ...params
+  } = req.method === "GET" ? req.query : req.body;
+  if (!action) {
     return res.status(400).json({
-      error: "Prompt are required"
+      error: "Missing required field: action",
+      required: {
+        action: "chat | image"
+      }
     });
   }
+  const vondy = new VondyAPI();
   try {
-    const vondy = new VondyChat();
-    const response = await vondy.chat(params);
-    return res.status(200).json(response);
+    let result;
+    switch (action) {
+      case "chat":
+        if (!params.prompt) {
+          return res.status(400).json({
+            error: `Missing required field: prompt (required for ${action})`
+          });
+        }
+        result = await vondy[action](params);
+        break;
+      case "image":
+        if (!params.prompt) {
+          return res.status(400).json({
+            error: `Missing required field: prompt (required for ${action})`
+          });
+        }
+        result = await vondy[action](params);
+        break;
+      default:
+        return res.status(400).json({
+          error: `Invalid action: ${action}. Allowed: chat | image`
+        });
+    }
+    return res.status(200).json(result);
   } catch (error) {
-    res.status(500).json({
-      error: error.message || "Internal Server Error"
+    return res.status(500).json({
+      error: `Processing error: ${error.message}`
     });
   }
 }
