@@ -408,95 +408,70 @@ class VheerAPI {
       if (!type) {
         throw new Error("No type found in decrypted data");
       }
-      const typeNumber = this.getTypeNumber(type);
-      console.log("🔢 Type number:", typeNumber, "for type:", type);
-      if (typeNumber === null || typeNumber === undefined) {
-        throw new Error(`Invalid type: ${type}`);
-      }
-      const statusPayload = {
-        type: typeNumber,
-        code: String(taskCode),
-        email: String(email || ""),
-        ...rest
-      };
-      console.log("📤 Status payload:", statusPayload);
-      const encryptedStatus = await this.encryption.encrypt(JSON.stringify(statusPayload));
-      const endpoint = this.getStatusEndpoint(type);
-      console.log("🌐 Using endpoint:", endpoint);
-      console.log("🌐 Sending status request...");
-      const response = await axios.post(`${this.baseURL}${endpoint}`, [{
-        params: encryptedStatus
-      }], {
-        headers: {
-          ...this.headers,
-          accept: "text/x-component",
-          "content-type": "text/plain;charset=UTF-8",
-          "next-action": "1eeefc61e5469e1a173b48743a3cb8dd77eed91b",
-          referer: `${this.baseURL}${endpoint}`
+      const fileExtension = type === "img2vid" ? "mp4" : "jpg";
+      const mediaUrl = `https://access.vheer.com/results/${taskCode}.${fileExtension}`;
+      console.log("🔗 Checking media URL:", mediaUrl);
+      try {
+        const headResponse = await axios.head(mediaUrl, {
+          headers: this.headers,
+          timeout: 1e4
+        });
+        console.log("✅ Media found - Status:", headResponse.status);
+        if (headResponse.status === 200) {
+          const contentLength = headResponse.headers["content-length"];
+          const contentType = headResponse.headers["content-type"];
+          const result = {
+            success: true,
+            status: "completed",
+            result: mediaUrl,
+            taskCode: taskCode,
+            type: type,
+            detail: {
+              url: mediaUrl,
+              size: contentLength ? parseInt(contentLength) : null,
+              contentType: contentType,
+              filename: `${taskCode}.${fileExtension}`
+            }
+          };
+          console.log("✅ Media available:", result);
+          return result;
         }
-      });
-      console.log("📥 Raw status response type:", typeof response.data);
-      console.log("📥 Raw status response:", response.data);
-      if (typeof response.data === "string") {
-        try {
-          let jsonString = null;
-          const jsonStringStartIndex = response.data.indexOf("1:");
-          if (jsonStringStartIndex !== -1) {
-            jsonString = response.data.substring(jsonStringStartIndex + 2).trim();
-            console.log("📋 Found JSON with '1:' pattern:", jsonString);
-          }
-          if (!jsonString) {
-            const jsonMatch = response.data.match(/\{[^}]*\}/);
-            if (jsonMatch) {
-              jsonString = jsonMatch[0];
-              console.log("📋 Found JSON with regex pattern:", jsonString);
+      } catch (headError) {
+        if (headError.response && headError.response.status === 404) {
+          console.log("⏳ Media not ready yet - still processing");
+          return {
+            success: true,
+            status: "processing",
+            taskCode: taskCode,
+            type: type,
+            message: "Task is still being processed",
+            detail: {
+              url: mediaUrl,
+              expected: `https://access.vheer.com/results/${taskCode}.${fileExtension}`
             }
-          }
-          if (!jsonString) {
-            const lines = response.data.split("\n");
-            for (const line of lines) {
-              const trimmed = line.trim();
-              if (trimmed.startsWith("{") && trimmed.endsWith("}")) {
-                jsonString = trimmed;
-                console.log("📋 Found JSON in line:", jsonString);
-                break;
-              }
-            }
-          }
-          if (jsonString) {
-            const parsedData = JSON.parse(jsonString);
-            console.log("✅ Parsed status response:", parsedData);
-            return parsedData;
-          } else {
-            console.log("⚠️ No JSON pattern found, returning raw response");
-            return {
-              success: false,
-              error: "No valid JSON found in response",
-              raw: response.data
-            };
-          }
-        } catch (e) {
-          console.error("❌ Failed to parse string response:", e);
-          console.error("❌ Raw response sample:", response.data.substring(0, 200));
+          };
+        } else {
+          console.log("⚠️ HEAD request error:", headError.message);
           return {
             success: false,
-            error: "Failed to parse response",
-            parseError: e.message,
-            raw: response.data.substring(0, 500)
+            status: "error",
+            taskCode: taskCode,
+            type: type,
+            error: "Failed to check media status",
+            detail: {
+              url: mediaUrl,
+              error: headError.message
+            }
           };
         }
-      } else if (typeof response.data === "object") {
-        console.log("✅ Direct object response:", response.data);
-        return response.data;
-      } else {
-        console.log("⚠️ Unexpected response type:", typeof response.data);
-        return {
-          success: false,
-          error: "Unexpected response type",
-          type: typeof response.data,
-          data: response.data
-        };
       }
+      return {
+        success: false,
+        status: "unknown",
+        taskCode: taskCode,
+        type: type,
+        error: "Unexpected status response"
+      };
     } catch (error) {
       console.error("❌ Status check error:", error);
       return {

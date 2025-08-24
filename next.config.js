@@ -28,7 +28,6 @@ const securityHeaders = [...createSecureHeaders({
 const nextConfig = withPWA({
   reactStrictMode: true,
   swcMinify: true,
-  exportTrailingSlash: true,
   productionBrowserSourceMaps: false,
   compress: true,
   poweredByHeader: false,

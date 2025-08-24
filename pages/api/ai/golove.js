@@ -189,7 +189,7 @@ class GoloveAI {
   }
   async chat({
     prompt,
-    char_id = "afe368c6-1f04-4806-87a2-b8794399a365",
+    char_id = "324de707-0363-4616-b74b-76052bffde6b",
     ...rest
   }) {
     try {

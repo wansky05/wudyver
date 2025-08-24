@@ -6,6 +6,7 @@ import {
   CookieJar
 } from "tough-cookie";
 import apiConfig from "@/configs/apiConfig";
+import SpoofHead from "@/lib/spoof-head";
 class ImagesArtAiClient {
   constructor() {
     this.emailBase = `https://${apiConfig.DOMAIN_URL}/api/mails/v9`;
@@ -31,7 +32,8 @@ class ImagesArtAiClient {
         "sec-ch-ua-platform": '"Android"',
         "sec-fetch-dest": "empty",
         "sec-fetch-mode": "cors",
-        "sec-fetch-site": "same-origin"
+        "sec-fetch-site": "same-origin",
+        ...SpoofHead()
       },
       timeout: 3e4
     }));
@@ -210,7 +212,7 @@ class ImagesArtAiClient {
       throw new Error(`Failed to enhance prompt: ${error.response?.data?.message || error.message}`);
     }
   }
-  async generate({
+  async txt2img({
     prompt,
     model = "flux-dev-fp8",
     aspect_ratio = "9:16",
@@ -246,6 +248,132 @@ class ImagesArtAiClient {
         console.error("DEBUG: 400 Bad Request response data:", error.response.data);
       }
       throw new Error(`Failed to generate image: ${error.response?.data?.message || error.message}`);
+    }
+  }
+  async edit({
+    editPrompt,
+    imageUrl,
+    ...rest
+  }) {
+    await this.ensureAuth();
+    try {
+      console.log("START: Editing image...");
+      if (!editPrompt) {
+        throw new Error("editPrompt is required for image editing.");
+      }
+      if (!imageUrl) {
+        throw new Error("imageUrl is required for image editing.");
+      }
+      console.log(`INFO: Fetching image from URL: ${imageUrl}`);
+      const imageResponse = await axios.get(imageUrl, {
+        responseType: "arraybuffer"
+      });
+      const imageBuffer = Buffer.from(imageResponse.data);
+      const imageBase64 = imageBuffer.toString("base64");
+      const res = await this.axiosInstance.post(`${this.apiBase}/image-edit`, {
+        editPrompt: editPrompt,
+        images: [{
+          id: `file-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
+          base64: imageBase64
+        }],
+        ...rest
+      }, {
+        headers: {
+          referer: "https://imagesart.ai/ai-edit-image"
+        }
+      });
+      console.log("SUCCESS: Image edited.");
+      return res.data;
+    } catch (error) {
+      console.error("ERROR: Failed to edit image.", error.message);
+      if (error.response && error.config && error.config.responseType === "arraybuffer") {
+        throw new Error(`Failed to fetch or process image from URL: ${imageUrl}. Details: ${error.message}`);
+      }
+      throw new Error(`Failed to edit image: ${error.response?.data?.message || error.message}`);
+    }
+  }
+  async cartoon({
+    imageUrl,
+    aspect_ratio = "2:3",
+    watermark = true,
+    custom_prompt = "focus",
+    isPublic = true,
+    ...rest
+  }) {
+    await this.ensureAuth();
+    try {
+      console.log("START: Converting photo to cartoon...");
+      if (!imageUrl) {
+        throw new Error("imageUrl is required for cartoon conversion.");
+      }
+      console.log(`INFO: Fetching image from URL: ${imageUrl}`);
+      const imageResponse = await axios.get(imageUrl, {
+        responseType: "arraybuffer"
+      });
+      const imageBuffer = Buffer.from(imageResponse.data);
+      const imageBase64 = `data:image/jpeg;base64,${imageBuffer.toString("base64")}`;
+      const res = await this.axiosInstance.post(`${this.apiBase}/photo-to-cartoon`, {
+        input_image: imageBase64,
+        aspect_ratio: aspect_ratio,
+        watermark: watermark,
+        custom_prompt: custom_prompt,
+        isPublic: isPublic,
+        ...rest
+      }, {
+        headers: {
+          referer: "https://imagesart.ai/photo-to-cartoon"
+        }
+      });
+      console.log("SUCCESS: Photo converted to cartoon.");
+      return res.data;
+    } catch (error) {
+      console.error("ERROR: Failed to convert photo to cartoon.", error.message);
+      if (error.response && error.config && error.config.responseType === "arraybuffer") {
+        throw new Error(`Failed to fetch or process image from URL: ${imageUrl}. Details: ${error.message}`);
+      }
+      throw new Error(`Failed to convert photo to cartoon: ${error.response?.data?.message || error.message}`);
+    }
+  }
+  async anime({
+    imageUrl,
+    aspect_ratio = "2:3",
+    watermark = true,
+    custom_prompt = "focus",
+    isPublic = true,
+    ...rest
+  }) {
+    await this.ensureAuth();
+    try {
+      console.log("START: Converting photo to anime...");
+      if (!imageUrl) {
+        throw new Error("imageUrl is required for anime conversion.");
+      }
+      console.log(`INFO: Fetching image from URL: ${imageUrl}`);
+      const imageResponse = await axios.get(imageUrl, {
+        responseType: "arraybuffer"
+      });
+      const imageBuffer = Buffer.from(imageResponse.data);
+      const imageBase64 = `data:image/jpeg;base64,${imageBuffer.toString("base64")}`;
+      const res = await this.axiosInstance.post(`${this.apiBase}/photo-to-anime`, {
+        input_image: imageBase64,
+        aspect_ratio: aspect_ratio,
+        watermark: watermark,
+        custom_prompt: custom_prompt,
+        isPublic: isPublic,
+        ...rest
+      }, {
+        headers: {
+          referer: "https://imagesart.ai/photo-to-anime"
+        }
+      });
+      console.log("SUCCESS: Photo converted to anime.");
+      return res.data;
+    } catch (error) {
+      console.error("ERROR: Failed to convert photo to anime.", error.message);
+      if (error.response && error.config && error.config.responseType === "arraybuffer") {
+        throw new Error(`Failed to fetch or process image from URL: ${imageUrl}. Details: ${error.message}`);
+      }
+      throw new Error(`Failed to convert photo to anime: ${error.response?.data?.message || error.message}`);
     }
   }
   async buzzcut({
@@ -335,7 +463,7 @@ export default async function handler(req, res) {
     return res.status(400).json({
       error: "Missing required field: action",
       required: {
-        action: "generate | enhance | buzzcut"
+        action: "txt2img | enhance | buzzcut | edit | cartoon | anime"
       }
     });
   }
@@ -343,7 +471,7 @@ export default async function handler(req, res) {
   try {
     let result;
     switch (action) {
-      case "generate":
+      case "txt2img":
         if (!params.prompt) {
           return res.status(400).json({
             error: `Missing required field: prompt (required for ${action})`
@@ -367,9 +495,38 @@ export default async function handler(req, res) {
         }
         result = await client[action](params);
         break;
+      case "edit":
+        if (!params.editPrompt) {
+          return res.status(400).json({
+            error: `Missing required field: editPrompt (required for ${action})`
+          });
+        }
+        if (!params.imageUrl) {
+          return res.status(400).json({
+            error: `Missing required field: imageUrl (required for ${action})`
+          });
+        }
+        result = await client[action](params);
+        break;
+      case "cartoon":
+        if (!params.imageUrl) {
+          return res.status(400).json({
+            error: `Missing required field: imageUrl (required for ${action})`
+          });
+        }
+        result = await client[action](params);
+        break;
+      case "anime":
+        if (!params.imageUrl) {
+          return res.status(400).json({
+            error: `Missing required field: imageUrl (required for ${action})`
+          });
+        }
+        result = await client[action](params);
+        break;
       default:
         return res.status(400).json({
-          error: `Invalid action: ${action}. Allowed: generate | enhance | buzzcut`
+          error: `Invalid action: ${action}. Allowed: txt2img | enhance | buzzcut | edit | cartoon | anime`
         });
     }
     return res.status(200).json(result);
