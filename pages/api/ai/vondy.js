@@ -146,7 +146,9 @@ class VondyAPI {
         },
         data: payload
       });
-      return responseData?.data || responseData;
+      return {
+        result: responseData?.data || responseData
+      };
     } catch (error) {
       console.error("[VondyAPI] Image generation error:", error);
       throw error;

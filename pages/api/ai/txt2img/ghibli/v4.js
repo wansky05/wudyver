@@ -4,6 +4,7 @@ import {
   Blob
 } from "formdata-node";
 import apiConfig from "@/configs/apiConfig";
+import SpoofHead from "@/lib/spoof-head";
 class GhibliImageGenerator {
   constructor() {
     this.apiUrl = "https://ghibliimagegenerator.net/api/generate-image";
@@ -11,7 +12,8 @@ class GhibliImageGenerator {
     this.headers = {
       "Content-Type": "application/json",
       "User-Agent": "Mozilla/5.0 (Linux; Android 10; K) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/134.0.0.0 Mobile Safari/537.36",
-      Referer: "https://ghibliimagegenerator.net/generator"
+      Referer: "https://ghibliimagegenerator.net/generator",
+      ...SpoofHead()
     };
   }
   async generate({

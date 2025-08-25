@@ -1,4 +1,5 @@
 import axios from "axios";
+import SpoofHead from "@/lib/spoof-head";
 class GhibliStyleImageNet {
   constructor() {
     this.headers = {
@@ -7,7 +8,8 @@ class GhibliStyleImageNet {
       "content-type": "application/json",
       origin: "https://ghiblistyleimage.net",
       referer: "https://ghiblistyleimage.net/",
-      "user-agent": "Mozilla/5.0 (Linux; Android 10; K) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Mobile Safari/537.36"
+      "user-agent": "Mozilla/5.0 (Linux; Android 10; K) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Mobile Safari/537.36",
+      ...SpoofHead()
     };
     this.txt2imgUrl = "https://ghiblistyleimage.net/api/text-to-image";
   }

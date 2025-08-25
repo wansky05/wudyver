@@ -1,4 +1,6 @@
 import axios from "axios";
+import apiConfig from "@/configs/apiConfig";
+import SpoofHead from "@/lib/spoof-head";
 const TEMPLATES = [{
   templateId: "4fe010c9-d24a-40ab-9db8-55b3ae2b7db1",
   toolName: "mini_cartoon"
@@ -117,7 +119,8 @@ class FacewowClient {
       "sec-fetch-mode": "cors",
       "sec-fetch-site": "same-site",
       "user-agent": "Mozilla/5.0 (Linux; Android 10; K) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/135.0.0.0 Mobile Safari/537.36",
-      "x-app-id": "app-facewow-web"
+      "x-app-id": "app-facewow-web",
+      ...SpoofHead()
     };
     return {
       ...baseHeaders,

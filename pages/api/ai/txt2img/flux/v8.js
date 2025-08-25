@@ -2,6 +2,7 @@ import axios from "axios";
 import crypto from "crypto";
 import * as cheerio from "cheerio";
 import apiConfig from "@/configs/apiConfig";
+import SpoofHead from "@/lib/spoof-head";
 class AIFluxGenerator {
   constructor() {
     this.axiosInstance = axios.create({
@@ -10,8 +11,7 @@ class AIFluxGenerator {
         "User-Agent": "Mozilla/5.0 (Linux; Android 10; K) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/135.0.0.0 Mobile Safari/537.36",
         "Accept-Language": "id-ID,id;q=0.9",
         Accept: "*/*",
-        "X-Forwarded-For": this.generateRandomIp(),
-        "X-Client-IP": this.generateRandomIp()
+        ...SpoofHead()
       }
     });
     this.setupInterceptors();
@@ -21,11 +21,6 @@ class AIFluxGenerator {
     this.emailUuid = null;
     this.password = `P@ssw0rd${Math.floor(Math.random() * 1e6)}`;
     this.userName = `User${Math.floor(Math.random() * 1e6)}`;
-  }
-  generateRandomIp() {
-    return Array.from({
-      length: 4
-    }, () => Math.floor(Math.random() * 255) + 1).join(".");
   }
   setupInterceptors() {
     this.axiosInstance.interceptors.request.use(config => {
