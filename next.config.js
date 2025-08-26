@@ -15,7 +15,7 @@ const withPWA = require("@ducanh2912/next-pwa").default({
 const { createSecureHeaders } = require("next-secure-headers");
 
 // Import konfigurasi API
-const apiConfig = require("@/configs/apiConfig");
+const apiConfig = { DOMAIN_URL: process.env.MY_DOMAIN_URL || "wudysoft.xyz" };
 
 const securityHeaders = [
   ...createSecureHeaders({
