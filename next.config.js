@@ -11,20 +11,28 @@ const withPWA = require("@ducanh2912/next-pwa").default({
     disableDevLogs: true
   }
 });
-const {
-  createSecureHeaders
-} = require("next-secure-headers");
-const securityHeaders = [...createSecureHeaders({
-  frameGuard: "sameorigin",
-  xssProtection: "block-rendering",
-  referrerPolicy: "no-referrer-when-downgrade"
-}), {
-  key: "Content-Security-Policy",
-  value: "upgrade-insecure-requests"
-}, {
-  key: "Permissions-Policy",
-  value: "camera=(), microphone=(), geolocation=(), Browse-topics=()"
-}];
+
+const { createSecureHeaders } = require("next-secure-headers");
+
+// Import konfigurasi API
+const apiConfig = require("@/configs/apiConfig");
+
+const securityHeaders = [
+  ...createSecureHeaders({
+    frameGuard: "sameorigin",
+    xssProtection: "block-rendering",
+    referrerPolicy: "no-referrer-when-downgrade"
+  }), 
+  {
+    key: "Content-Security-Policy",
+    value: "upgrade-insecure-requests"
+  }, 
+  {
+    key: "Permissions-Policy",
+    value: "camera=(), microphone=(), geolocation=(), browsing-topics=()"
+  }
+];
+
 const nextConfig = withPWA({
   reactStrictMode: true,
   swcMinify: true,
@@ -33,7 +41,6 @@ const nextConfig = withPWA({
   poweredByHeader: false,
   experimental: {
     appDir: true,
-    swcMinify: true,
     nextScriptWorkers: true,
     serverActions: {
       bodySizeLimit: "5gb"
@@ -43,22 +50,50 @@ const nextConfig = withPWA({
     }
   },
   images: {
-    domains: ["wudysoft.xyz", "cdn.weatherapi.com", "tile.openstreetmap.org", "www.chess.com", "deckofcardsapi.com", "raw.githubusercontent.com"],
+    domains: [apiConfig.DOMAIN_URL, "cdn.weatherapi.com", "tile.openstreetmap.org", "www.chess.com", "deckofcardsapi.com", "raw.githubusercontent.com"],
     minimumCacheTTL: 60
   },
   async headers() {
-    return [{
-      source: "/(.*)",
-      headers: securityHeaders
-    }];
+    return [
+      {
+        // Apply security headers untuk semua route
+        source: "/(.*)",
+        headers: securityHeaders
+      },
+      {
+        // Apply CORS headers khusus untuk API routes
+        source: "/api/:path*",
+        headers: [
+          {
+            key: "Access-Control-Allow-Credentials",
+            value: "true"
+          },
+          {
+            key: "Access-Control-Allow-Origin",
+            value: `https://${apiConfig.DOMAIN_URL}`
+          },
+          {
+            key: "Access-Control-Allow-Methods",
+            value: "GET, POST, PUT, DELETE, OPTIONS"
+          },
+          {
+            key: "Access-Control-Allow-Headers",
+            value: "X-CSRF-Token, X-Requested-With, Accept, Accept-Version, Content-Length, Content-MD5, Content-Type, Date, X-Api-Version, Authorization"
+          }
+        ]
+      }
+    ];
   },
-  webpack: (config, {
-    buildId,
-    dev,
-    isServer,
-    defaultLoaders,
-    webpack
-  }) => {
+  async rewrites() {
+    return [
+      {
+        source: '/api/:path*',
+        has: [{ type: 'header', key: 'access-control-request-method' }],
+        destination: '/api/:path*'
+      }
+    ];
+  },
+  webpack: (config, { dev, isServer }) => {
     config.externals.push({
       "utf-8-validate": "commonjs utf-8-validate",
       bufferutil: "commonjs bufferutil"
@@ -68,7 +103,7 @@ const nextConfig = withPWA({
       config.plugins.push(new WebpackObfuscator({
         rotateStringArray: true,
         stringArray: true,
-        stringArrayThreshold: .75,
+        stringArrayThreshold: 0.75,
         disableConsoleOutput: true,
         renameGlobals: true,
         identifierNamesGenerator: "mangled"
@@ -77,4 +112,5 @@ const nextConfig = withPWA({
     return config;
   }
 });
+
 module.exports = nextConfig;
