@@ -250,7 +250,7 @@ class AxiosClient {
     }
   }
   async status({
-    cookies
+    task_id
   }) {
     try {
       this.log("📊 Checking video status...");

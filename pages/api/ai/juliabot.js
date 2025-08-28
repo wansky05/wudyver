@@ -2,6 +2,7 @@ import axios from "axios";
 import {
   v4 as uuidv4
 } from "uuid";
+import SpoofHead from "@/lib/spoof-head";
 class JuliaBotAPI {
   constructor() {
     this.baseURL = "https://core.juliabot.com/api/v1/bot/";
@@ -14,7 +15,8 @@ class JuliaBotAPI {
         Accept: "application/json",
         origin: "https://ai.juliabot.com",
         referer: "https://ai.juliabot.com/",
-        "user-agent": "Mozilla/5.0 (Linux; Android 10; K) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/135.0.0.0 Mobile Safari/537.36"
+        "user-agent": "Mozilla/5.0 (Linux; Android 10; K) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/135.0.0.0 Mobile Safari/537.36",
+        ...SpoofHead()
       }
     });
   }

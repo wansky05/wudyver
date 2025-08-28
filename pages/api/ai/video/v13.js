@@ -1,6 +1,8 @@
 import axios from "axios";
 import FormData from "form-data";
-import EventSource from "eventsource";
+import {
+  EventSource
+} from "eventsource";
 import {
   randomBytes
 } from "crypto";

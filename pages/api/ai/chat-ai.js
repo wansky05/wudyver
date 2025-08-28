@@ -1,4 +1,5 @@
 import axios from "axios";
+import SpoofHead from "@/lib/spoof-head";
 class ChatAI {
   constructor() {
     this.baseURL = "http://api.chatai.click/v1/chat2";
@@ -6,7 +7,8 @@ class ChatAI {
       "User-Agent": "Dalvik/2.1.0 (Linux; U; Android 14; RMX3890 Build/UKQ1.230917.001)",
       Connection: "Keep-Alive",
       "Accept-Encoding": "gzip",
-      "Content-Type": "application/x-www-form-urlencoded"
+      "Content-Type": "application/x-www-form-urlencoded",
+      ...SpoofHead()
     };
     this.templates = {
       1: "653b5fd1003600001b005769",

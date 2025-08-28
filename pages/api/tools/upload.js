@@ -50,7 +50,7 @@ const createSpinner = text => ora({
   text: text,
   spinner: "moon"
 });
-const Provider = ["Catbox", "Doodstream", "Fexnet", "FileDitch", "Filebin", "Fileio", "Filezone", "FreeImage", "Gofile", "Gozic", "Hostfile", "Imgbb", "Kitc", "Kraken", "MediaUpload", "Eax", "Nullbyte", "Vello", "Lusia", "Pomf2", "Sazumi", "Sohu", "Gizai", "Sojib", "Instantiated", "Exonity", "Zcy", "BltokProject", "Maricon", "Nauval", "Supa", "Knowee", "Puticu", "Stylar", "Telegraph", "Tmpfiles", "Cloudmini", "Babup", "Transfersh", "Ucarecdn", "Uguu", "UploadEE", "Uploadify", "Videy", "ZippyShare", "Quax"];
+const Provider = ["Catbox", "Doodstream", "Fexnet", "FileDitch", "Filebin", "Fileio", "Filezone", "FreeImage", "Gofile", "Gozic", "Hostfile", "Imgbb", "Kitc", "Kraken", "MediaUpload", "Eax", "Nullbyte", "Vello", "Lusia", "Pomf2", "Sazumi", "Sohu", "Gizai", "Sojib", "Instantiated", "Exonity", "Zcy", "BltokProject", "Maricon", "Nauval", "Supa", "Knowee", "Puticu", "Stylar", "Telegraph", "Tmpfiles", "Cloudmini", "Babup", "Transfersh", "Ucarecdn", "Uguu", "UploadEE", "Uploadify", "Videy", "ZippyShare", "Quax", "Aceimg"];
 class Uploader {
   constructor() {
     this.Provider = Provider;
@@ -917,6 +917,31 @@ class Uploader {
           file_url
         } = await response.json();
       return spinner.succeed(chalk.green("Uploaded to Nauval")), `${file_url}`;
+    } catch (error) {
+      handleError(error, spinner);
+    }
+  }
+  async Aceimg(content) {
+    const spinner = createSpinner("Uploading to Aceimg").start();
+    try {
+      const {
+        formData
+      } = await createFormData(content, "file");
+      const response = await fetch("https://api.aceimg.com/api/upload", {
+          method: "POST",
+          body: formData,
+          headers: {
+            "User-Agent": fakeUa()
+          }
+        }),
+        {
+          link
+        } = await response.json();
+      const urlObject = new URL(link);
+      const searchParams = urlObject.search;
+      const urlParams = new URLSearchParams(searchParams);
+      const filename = urlParams.get("f");
+      return spinner.succeed(chalk.green("Uploaded to Aceimg")), `https://cdn.aceimg.com/${filename}`;
     } catch (error) {
       handleError(error, spinner);
     }
