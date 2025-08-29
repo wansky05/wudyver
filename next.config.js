@@ -8,44 +8,31 @@ const withPWA = require("@ducanh2912/next-pwa").default({
   swcMinify: true,
   disable: false,
   workboxOptions: {
-    disableDevLogs: true,
-    skipWaiting: true,
-    clientsClaim: true
+    disableDevLogs: true
   }
 });
-const {
-  createSecureHeaders
-} = require("next-secure-headers");
-const apiConfig = {
-  DOMAIN_URL: "wudysoft.xyz",
-  API_BASE_URL: "https://wudysoft.xyz"
-};
-const allowedOrigins = [`https://${apiConfig.DOMAIN_URL}`, `https://www.${apiConfig.DOMAIN_URL}`];
-const cspHeader = `
-  frame-ancestors 'none';
-    block-all-mixed-content;
-    upgrade-insecure-requests;
-`.replace(/\s{2,}/g, " ").trim();
-const securityHeaders = [...createSecureHeaders({
-  frameGuard: "sameorigin",
-  xssProtection: "block-rendering",
-  referrerPolicy: "strict-origin-when-cross-origin"
-}), {
-  key: "Content-Security-Policy",
-  value: cspHeader
-}, {
-  key: "Permissions-Policy",
-  value: "camera=(), microphone=(), geolocation=(), browsing-topics=(), interest-cohort=()"
-}, {
-  key: "X-Content-Type-Options",
-  value: "nosniff"
-}, {
-  key: "X-DNS-Prefetch-Control",
-  value: "on"
-}];
-const isAllowedOrigin = origin => {
-  return allowedOrigins.includes(origin) || allowedOrigins.some(allowed => origin && origin.endsWith(allowed.replace("https://", "")));
-};
+
+const { createSecureHeaders } = require("next-secure-headers");
+
+// Import konfigurasi API
+const apiConfig = { DOMAIN_URL: "wudysoft.xyz" };
+
+const securityHeaders = [
+  ...createSecureHeaders({
+    frameGuard: "sameorigin",
+    xssProtection: "block-rendering",
+    referrerPolicy: "no-referrer-when-downgrade"
+  }), 
+  {
+    key: "Content-Security-Policy",
+    value: "upgrade-insecure-requests"
+  }, 
+  {
+    key: "Permissions-Policy",
+    value: "camera=(), microphone=(), geolocation=(), browsing-topics=()"
+  }
+];
+
 const corsHeaders = [{
   key: "Access-Control-Allow-Credentials",
   value: "true"
@@ -62,6 +49,7 @@ const corsHeaders = [{
   key: "Vary",
   value: "Origin"
 }];
+
 const nextConfig = withPWA({
   reactStrictMode: true,
   swcMinify: true,
@@ -72,8 +60,7 @@ const nextConfig = withPWA({
     appDir: true,
     nextScriptWorkers: true,
     serverActions: {
-      bodySizeLimit: "5gb",
-      allowedOrigins: allowedOrigins
+      bodySizeLimit: "5gb"
     },
     amp: {
       skipValidation: true
@@ -81,19 +68,7 @@ const nextConfig = withPWA({
   },
   images: {
     domains: [apiConfig.DOMAIN_URL, "cdn.weatherapi.com", "tile.openstreetmap.org", "www.chess.com", "deckofcardsapi.com", "raw.githubusercontent.com"],
-    remotePatterns: [{
-      protocol: "https",
-      hostname: apiConfig.DOMAIN_URL
-    }, {
-      protocol: "https",
-      hostname: "cdn.weatherapi.com"
-    }, {
-      protocol: "https",
-      hostname: "tile.openstreetmap.org"
-    }],
-    minimumCacheTTL: 60,
-    dangerouslyAllowSVG: false,
-    contentSecurityPolicy: "default-src 'self'; script-src 'none'; sandbox;"
+    minimumCacheTTL: 60
   },
   async headers() {
     return [{
@@ -120,22 +95,15 @@ const nextConfig = withPWA({
     }];
   },
   async rewrites() {
-    return [{
-      source: "/api/:path*",
-      destination: "/api/:path*"
-    }];
+    return [
+      {
+        source: '/api/:path*',
+        has: [{ type: 'header', key: 'access-control-request-method' }],
+        destination: '/api/:path*'
+      }
+    ];
   },
-  async redirects() {
-    return [{
-      source: "/home",
-      destination: "/",
-      permanent: true
-    }];
-  },
-  webpack: (config, {
-    dev,
-    isServer
-  }) => {
+  webpack: (config, { dev, isServer }) => {
     config.externals.push({
       "utf-8-validate": "commonjs utf-8-validate",
       bufferutil: "commonjs bufferutil"
@@ -145,16 +113,14 @@ const nextConfig = withPWA({
       config.plugins.push(new WebpackObfuscator({
         rotateStringArray: true,
         stringArray: true,
-        stringArrayThreshold: .75,
+        stringArrayThreshold: 0.75,
         disableConsoleOutput: true,
         renameGlobals: true,
         identifierNamesGenerator: "mangled"
       }));
     }
     return config;
-  },
-  env: {
-    API_VERSION: "1.0.0"
   }
 });
+
 module.exports = nextConfig;

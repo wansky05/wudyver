@@ -5,26 +5,18 @@ import {
 import {
   getToken
 } from "next-auth/jwt";
+import apiConfig from "@/configs/apiConfig";
+import axios from "axios";
 import {
   RateLimiterMemory
 } from "rate-limiter-flexible";
-import axios from "axios";
-import apiConfig from "@/configs/apiConfig";
+
+function getClientIp(req) {
+  return req.ip || req.headers.get("x-forwarded-for") || "unknown";
+}
 const DOMAIN_URL = apiConfig.DOMAIN_URL || "wudysoft.xyz";
 const NEXTAUTH_SECRET = apiConfig.JWT_SECRET;
 const DEFAULT_PROTOCOL = "https://";
-const allowedOrigins = [`https://${DOMAIN_URL}`, `https://www.${DOMAIN_URL}`];
-const rateLimiter = new RateLimiterMemory({
-  points: apiConfig.LIMIT_POINTS || 100,
-  duration: apiConfig.LIMIT_DURATION || 60,
-  blockDuration: 60,
-  execEvenly: true
-});
-const apiRateLimiter = new RateLimiterMemory({
-  points: Math.floor((apiConfig.LIMIT_POINTS || 100) * .7),
-  duration: apiConfig.LIMIT_DURATION || 60,
-  blockDuration: 120
-});
 const axiosInstance = axios.create({
   timeout: 1e4,
   headers: {
@@ -32,69 +24,22 @@ const axiosInstance = axios.create({
     "Accept-Encoding": "gzip, deflate, br, zstd",
     "User-Agent": "NextJS-Middleware/1.0"
   },
-  maxRedirects: 3,
-  validateStatus: status => status < 500
 });
-const cspHeader = `
-  frame-ancestors 'none';
-    block-all-mixed-content;
-    upgrade-insecure-requests;
-`.replace(/\s{2,}/g, " ").trim();
+const rateLimiter = new RateLimiterMemory({
+  points: apiConfig.LIMIT_POINTS,
+  duration: apiConfig.LIMIT_DURATION
+});
+export const config = {
+  matcher: ["/((?!api|_next/static|_next/image|favicon.ico|manifest.json|sw.js|workbox-.*).*)"]
+};
 
-function getClientIp(req) {
-  const forwarded = req.headers.get("x-forwarded-for");
-  const realIp = req.headers.get("x-real-ip");
-  const cfConnectingIp = req.headers.get("cf-connecting-ip");
-  return cfConnectingIp || realIp || forwarded?.split(",")[0].trim() || req.ip || "unknown";
-}
-
-function isValidOrigin(origin) {
-  if (!origin) return false;
-  return allowedOrigins.some(allowed => {
-    if (allowed === origin) return true;
-    if (origin.endsWith(`.${DOMAIN_URL}`)) return true;
-    return false;
-  });
-}
-
-function ensureProtocol(url, defaultProtocol = DEFAULT_PROTOCOL) {
-  if (!url || typeof url !== "string") {
-    return defaultProtocol + (DOMAIN_URL || "localhost");
-  }
+function ensureProtocol(url, defaultProtocol) {
   if (!url.startsWith("http://") && !url.startsWith("https://")) {
     return defaultProtocol + url;
   }
   return url;
 }
 
-function setCorsHeaders(response, origin) {
-  if (isValidOrigin(origin)) {
-    response.headers.set("Access-Control-Allow-Origin", origin);
-  } else if (process.env.NODE_ENV === "development") {
-    response.headers.set("Access-Control-Allow-Origin", "*");
-  }
-  response.headers.set("Access-Control-Allow-Methods", "GET, POST, PUT, DELETE, OPTIONS, PATCH");
-  response.headers.set("Access-Control-Allow-Headers", "Content-Type, Authorization, X-Requested-With, Accept, Accept-Version, Content-Length, Content-MD5, Date, X-Api-Version, Origin, X-CSRF-Token");
-  response.headers.set("Access-Control-Allow-Credentials", "true");
-  response.headers.set("Access-Control-Max-Age", "86400");
-  response.headers.set("Vary", "Origin");
-}
-
-function setSecurityHeaders(response) {
-  const securityHeaders = {
-    "X-Content-Type-Options": "nosniff",
-    "X-Frame-Options": "DENY",
-    "X-XSS-Protection": "1; mode=block",
-    "Referrer-Policy": "strict-origin-when-cross-origin",
-    "Permissions-Policy": "camera=(), microphone=(), geolocation=(), browsing-topics=(), interest-cohort=()",
-    "Content-Security-Policy": cspHeader,
-    "Strict-Transport-Security": "max-age=31536000; includeSubDomains; preload",
-    "X-DNS-Prefetch-Control": "on"
-  };
-  Object.entries(securityHeaders).forEach(([key, value]) => {
-    response.headers.set(key, value);
-  });
-}
 async function performTracking(req) {
   try {
     const currentUrl = new URL(req.url);
@@ -105,85 +50,36 @@ async function performTracking(req) {
     const isAuthApi = currentPathname.includes("/api/auth");
     const isGeneralApi = currentPathname.includes("/api/general");
     const isAuthPage = currentPathname === "/login" || currentPathname === "/register";
-    const skipTracking = ["/api/health", "/api/ping", "/favicon.ico"].includes(currentPathname);
-    if (skipTracking) return;
     if (isApiRoute && !isVisitorApi && !isAuthApi && !isGeneralApi) {
-      console.log(`[Middleware-Tracking] Tracking API request: ${currentPathname}`);
-      await axiosInstance.get(`${baseURL}/api/visitor/req`, {
-        timeout: 5e3,
-        headers: {
-          "X-Tracking-Source": "middleware",
-          "X-Route-Type": "api"
-        }
-      });
+      console.log(`[Middleware-Tracking] Mengirim data permintaan API untuk tracking: ${currentPathname}`);
+      await axiosInstance.get(`${baseURL}/api/visitor/req`);
     } else if (!isApiRoute && !isAuthPage) {
-      console.log(`[Middleware-Tracking] Tracking page visit: ${currentPathname}`);
-      await Promise.allSettled([axiosInstance.get(`${baseURL}/api/visitor/visit`, {
-        timeout: 5e3,
-        headers: {
-          "X-Tracking-Source": "middleware",
-          "X-Route-Type": "page"
-        }
-      }), axiosInstance.post(`${baseURL}/api/visitor/info`, {
+      console.log(`[Middleware-Tracking] Mengirim data kunjungan halaman untuk tracking: ${currentPathname}`);
+      await axiosInstance.get(`${baseURL}/api/visitor/visit`);
+      await axiosInstance.post(`${baseURL}/api/visitor/info`, {
         route: currentPathname,
         time: new Date().toISOString(),
-        hit: 1,
-        userAgent: req.headers.get("user-agent") || "Unknown",
-        referer: req.headers.get("referer") || null
-      }, {
-        timeout: 5e3,
-        headers: {
-          "X-Tracking-Source": "middleware"
-        }
-      })]);
+        hit: 1
+      });
     }
-  } catch (error) {
-    const errorMessage = error.response ? `Status ${error.response.status}: ${error.response.data?.message || error.message}` : error.message;
-    console.error(`[Middleware-Tracking] Failed to track visitor for ${req.url}: ${errorMessage}`);
+  } catch (err) {
+    const errorMessage = err.response ? `Status ${err.response.status}: ${err.response.data?.message || err.message}` : err.message;
+    console.error(`[Middleware-Tracking] Gagal mencatat pengunjung untuk ${req.url}: ${errorMessage}`);
   }
 }
-async function handleRateLimit(ipAddress, rateLimiter, config) {
-  try {
-    const result = await rateLimiter.consume(ipAddress, 1);
-    return {
-      success: true,
-      result: result
-    };
-  } catch (error) {
-    return {
-      success: false,
-      error: error
-    };
-  }
-}
-
-function performAsyncTracking(req) {
-  Promise.resolve().then(async () => {
-    try {
-      await performTracking(req);
-    } catch (error) {
-      console.error("[Middleware-Tracking] Async tracking error:", error);
-    }
-  }).catch(() => {});
-}
+const cspHeader = `
+    frame-ancestors 'none';
+    block-all-mixed-content;
+    upgrade-insecure-requests;
+`;
 export async function middleware(req) {
   const url = new URL(req.url);
   const {
     pathname
   } = url;
   const ipAddress = getClientIp(req);
-  const origin = req.headers.get("origin");
-  const method = req.method;
-  console.log(`[Middleware-Main] ${method} ${pathname} from IP: ${ipAddress}, Origin: ${origin || "none"}`);
-  console.log("[Middleware-Main] NEXTAUTH_SECRET:", NEXTAUTH_SECRET ? "✅ Set" : "❌ Not set");
-  if (method === "OPTIONS") {
-    const response = new NextResponse(null, {
-      status: 200
-    });
-    setCorsHeaders(response, origin);
-    setSecurityHeaders(response);
-    return response;
-  }
+  console.log(`[Middleware-Main] Menerima permintaan untuk: ${pathname} dari IP: ${ipAddress}`);
+  console.log("[Middleware-Main] NEXTAUTH_SECRET (first 5 chars):", NEXTAUTH_SECRET ? NEXTAUTH_SECRET.substring(0, 5) + "..." : "Not set");
   let response = NextResponse.next();
   try {
     const isApiRoute = pathname.startsWith("/api");
@@ -195,37 +91,45 @@ export async function middleware(req) {
     const isVisitorApi = pathname.includes("/api/visitor");
     const isAuthApi = pathname.includes("/api/auth");
     const isGeneralApi = pathname.includes("/api/general");
-    const isHealthCheck = pathname === "/api/health" || pathname === "/api/ping";
-    setCorsHeaders(response, origin);
-    setSecurityHeaders(response);
-    console.log("[Middleware-Main] Security and CORS headers set.");
-    if (isHealthCheck) {
-      return response;
-    }
+    const nextAuthToken = await getToken({
+      req: req,
+      secret: NEXTAUTH_SECRET
+    });
+    console.log("[Middleware-Main] nextAuthToken:", nextAuthToken);
+    const isAuthenticated = !!nextAuthToken;
+    console.log(`[Middleware-Main] Pathname: ${pathname}, Autentikasi: ${isAuthenticated ? "Ya" : "Tidak"}`);
+    response.headers.set("X-Content-Type-Options", "nosniff");
+    response.headers.set("X-Frame-Options", "DENY");
+    response.headers.set("X-XSS-Protection", "1; mode=block");
+    response.headers.set("Referrer-Policy", "strict-origin-when-cross-origin");
+    response.headers.set("Permissions-Policy", "camera=(), microphone=(), geolocation=()");
+    response.headers.set("Content-Security-Policy", cspHeader.replace(/\s{2,}/g, " ").trim());
+    response.headers.set("Access-Control-Allow-Origin", "*");
+  response.headers.set("Access-Control-Allow-Methods", "GET, POST, PUT, DELETE, OPTIONS, PATCH");
+  response.headers.set("Access-Control-Allow-Headers", "Content-Type, Authorization, X-Requested-With, Accept, Accept-Version, Content-Length, Content-MD5, Date, X-Api-Version, Origin, X-CSRF-Token");
+  response.headers.set("Access-Control-Allow-Credentials", "true");
+  response.headers.set("Access-Control-Max-Age", "86400");
+  response.headers.set("Vary", "Origin");
+    console.log("[Middleware-Main] Header keamanan telah diatur.");
     if (isApiRoute && !isVisitorApi && !isAuthApi && !isGeneralApi) {
-      console.log(`[Middleware-RateLimit] Applying API rate limiting: ${pathname}`);
-      const {
-        success,
-        result,
-        error
-      } = await handleRateLimit(ipAddress, apiRateLimiter, apiConfig);
-      if (success) {
-        response.headers.set("X-RateLimit-Limit", (apiConfig.LIMIT_POINTS || 100).toString());
-        response.headers.set("X-RateLimit-Remaining", result.remainingPoints.toString());
-        response.headers.set("X-RateLimit-Reset", Math.ceil((Date.now() + result.msBeforeNext) / 1e3).toString());
-        console.log(`[Middleware-RateLimit] Rate limit passed. Remaining: ${result.remainingPoints}`);
-      } else {
-        const retryAfterSeconds = Math.ceil(error.msBeforeNext / 1e3);
-        const totalLimit = apiConfig.LIMIT_POINTS || 100;
-        console.warn(`[Middleware-RateLimit] API rate limit exceeded for IP: ${ipAddress}. Retry after ${retryAfterSeconds} seconds.`);
+      console.log(`[Middleware-RateLimit] Menerapkan Rate Limiting untuk API: ${pathname}`);
+      try {
+        const rateLimiterRes = await rateLimiter.consume(ipAddress, 1);
+        response.headers.set("X-RateLimit-Limit", apiConfig.LIMIT_POINTS);
+        response.headers.set("X-RateLimit-Remaining", rateLimiterRes.remainingPoints);
+        response.headers.set("X-RateLimit-Reset", Math.ceil((Date.now() + rateLimiterRes.msBeforeNext) / 1e3));
+        console.log(`[Middleware-RateLimit] Rate limit berhasil. Sisa permintaan: ${rateLimiterRes.remainingPoints}`);
+      } catch (rateLimiterError) {
+        const retryAfterSeconds = Math.ceil(rateLimiterError.msBeforeNext / 1e3);
+        const totalLimit = apiConfig.LIMIT_POINTS;
+        console.warn(`[Middleware-RateLimit] Rate limit terlampaui untuk IP: ${ipAddress}. Coba lagi dalam ${retryAfterSeconds} detik.`);
         const errorResponse = new NextResponse(JSON.stringify({
           status: "error",
           code: 429,
-          message: `Too many API requests. You have exceeded the limit of ${totalLimit} requests per ${apiConfig.LIMIT_DURATION || 60} seconds. Please try again in ${retryAfterSeconds} seconds.`,
+          message: `Terlalu banyak permintaan. Anda telah melampaui batas ${totalLimit} permintaan per ${apiConfig.LIMIT_DURATION} detik. Silakan coba lagi dalam ${retryAfterSeconds} detik.`,
           limit: totalLimit,
           remaining: 0,
-          retryAfter: retryAfterSeconds,
-          type: "api_rate_limit"
+          retryAfter: retryAfterSeconds
         }), {
           status: 429,
           headers: {
@@ -233,94 +137,67 @@ export async function middleware(req) {
             "Retry-After": retryAfterSeconds.toString(),
             "X-RateLimit-Limit": totalLimit.toString(),
             "X-RateLimit-Remaining": "0",
-            "X-RateLimit-Reset": Math.ceil((Date.now() + error.msBeforeNext) / 1e3).toString()
+            "X-RateLimit-Reset": Math.ceil((Date.now() + rateLimiterError.msBeforeNext) / 1e3).toString(),
+            "Content-Security-Policy": cspHeader.replace(/\s{2,}/g, " ").trim(),
+            "X-Content-Type-Options": "nosniff",
+            "X-Frame-Options": "DENY",
+            "X-XSS-Protection": "1; mode=block",
+            "Referrer-Policy": "strict-origin-when-cross-origin",
+            "Permissions-Policy": "camera=(), microphone=(), geolocation=()"
           }
         });
-        setCorsHeaders(errorResponse, origin);
-        setSecurityHeaders(errorResponse);
-        performAsyncTracking(req);
+        await performTracking(req);
         return errorResponse;
       }
     }
-    const generalRateLimit = await handleRateLimit(ipAddress, rateLimiter, apiConfig);
-    if (!generalRateLimit.success && !isApiRoute) {
-      const retryAfterSeconds = Math.ceil(generalRateLimit.error.msBeforeNext / 1e3);
-      console.warn(`[Middleware-RateLimit] General rate limit exceeded for IP: ${ipAddress}`);
-      const errorResponse = new NextResponse(JSON.stringify({
-        status: "error",
-        code: 429,
-        message: "Too many requests. Please wait before trying again.",
-        retryAfter: retryAfterSeconds,
-        type: "general_rate_limit"
-      }), {
-        status: 429,
-        headers: {
-          "Content-Type": "application/json",
-          "Retry-After": retryAfterSeconds.toString()
-        }
-      });
-      setCorsHeaders(errorResponse, origin);
-      setSecurityHeaders(errorResponse);
-      return errorResponse;
-    }
     const redirectUrlWithProtocol = ensureProtocol(DOMAIN_URL, DEFAULT_PROTOCOL);
     if (isApiRoute) {
-      console.log(`[Middleware-Auth] API route ${pathname} accessed, continuing without auth check.`);
-      performAsyncTracking(req);
+      console.log(`[Middleware-Auth] API route ${pathname} diakses, melanjutkan tanpa pengecekan autentikasi.`);
+      await performTracking(req);
       return response;
     }
-    let nextAuthToken;
-    try {
-      nextAuthToken = await getToken({
-        req: req,
-        secret: NEXTAUTH_SECRET
-      });
-    } catch (tokenError) {
-      console.error("[Middleware-Auth] Error getting token:", tokenError);
-      nextAuthToken = null;
-    }
-    const isAuthenticated = !!nextAuthToken;
-    console.log(`[Middleware-Auth] Path: ${pathname}, Authenticated: ${isAuthenticated ? "Yes" : "No"}`);
     if (isAuthenticated) {
       if (isAuthPage) {
-        console.log(`[Middleware-Auth] Authenticated user accessing auth page (${pathname}). Redirecting to /analytics.`);
-        performAsyncTracking(req);
+        console.log(`[Middleware-Auth] Pengguna terautentikasi mencoba mengakses halaman otentikasi (${pathname}). Mengarahkan ke /analytics.`);
+        await performTracking(req);
         return NextResponse.redirect(`${redirectUrlWithProtocol}/analytics`);
       } else if (isRootRoute) {
-        console.log(`[Middleware-Auth] Authenticated user accessing root (/). Redirecting to /analytics.`);
-        performAsyncTracking(req);
+        console.log(`[Middleware-Auth] Pengguna terautentikasi mengakses halaman home (/). Mengarahkan ke /analytics.`);
+        await performTracking(req);
         return NextResponse.redirect(`${redirectUrlWithProtocol}/analytics`);
       }
-      console.log(`[Middleware-Auth] Authenticated user continuing to ${pathname}.`);
+      console.log(`[Middleware-Auth] Pengguna terautentikasi melanjutkan ke ${pathname}.`);
+      await performTracking(req);
+      return response;
     } else {
-      const isPublicPath = isAuthPage || isRootRoute;
+      const isPublicPath = isAuthPage;
       if (!isPublicPath) {
-        console.log(`[Middleware-Auth] Unauthenticated user trying to access ${pathname}. Redirecting to /login.`);
-        performAsyncTracking(req);
+        console.log(`[Middleware-Auth] Pengguna belum terautentikasi mencoba mengakses ${pathname}. Mengarahkan ke /login.`);
+        await performTracking(req);
         return NextResponse.redirect(`${redirectUrlWithProtocol}/login`);
       }
-      console.log(`[Middleware-Auth] Unauthenticated user continuing to ${pathname}.`);
+      console.log(`[Middleware-Auth] Pengguna belum terautentikasi melanjutkan ke ${pathname}.`);
+      await performTracking(req);
+      return response;
     }
-    performAsyncTracking(req);
-    return response;
   } catch (error) {
-    console.error("[Middleware-Error] Unhandled error:", error);
+    console.error("[Middleware-Error] Kesalahan tidak tertangani:", error);
     const errorResponse = new NextResponse(JSON.stringify({
       status: "error",
       code: 500,
-      message: "Internal Server Error",
-      timestamp: new Date().toISOString()
+      message: "Kesalahan Server Internal"
     }), {
       status: 500,
       headers: {
-        "Content-Type": "application/json"
+        "Content-Type": "application/json",
+        "Content-Security-Policy": cspHeader.replace(/\s{2,}/g, " ").trim(),
+        "X-Content-Type-Options": "nosniff",
+        "X-Frame-Options": "DENY",
+        "X-XSS-Protection": "1; mode=block",
+        "Referrer-Policy": "strict-origin-when-cross-origin",
+        "Permissions-Policy": "camera=(), microphone=(), geolocation=()"
       }
     });
-    setCorsHeaders(errorResponse, origin);
-    setSecurityHeaders(errorResponse);
     return errorResponse;
   }
 }
-export const config = {
-  matcher: ["/((?!api|_next/static|_next/image|favicon.ico|manifest.json|sw.js|workbox-.*).*)"]
-};
