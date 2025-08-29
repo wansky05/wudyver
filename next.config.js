@@ -135,8 +135,6 @@ const nextConfig = withPWA({
     amp: {
       skipValidation: true,
     },
-    optimizeCss: true,
-    scrollRestoration: true,
   },
 
   // Image optimization
@@ -231,47 +229,21 @@ const nextConfig = withPWA({
 
   // Webpack configuration
   webpack: (config, { dev, isServer }) => {
-    // External dependencies
     config.externals.push({
       "utf-8-validate": "commonjs utf-8-validate",
-      "bufferutil": "commonjs bufferutil",
-      "canvas": "commonjs canvas",
+      bufferutil: "commonjs bufferutil"
     });
-
-    // Client-side fallbacks
-    if (!isServer) {
-      config.resolve.fallback = {
-        ...config.resolve.fallback,
-        fs: false,
-        net: false,
-        tls: false,
-      };
-    }
-
-    // Webpack obfuscation for production client-side builds
     if (!dev && !isServer) {
-      try {
-        const WebpackObfuscator = require("webpack-obfuscator");
-        config.plugins.push(
-          new WebpackObfuscator(
-            {
-              rotateStringArray: true,
-              stringArray: true,
-              stringArrayThreshold: 0.75,
-              disableConsoleOutput: true,
-              renameGlobals: true,
-              identifierNamesGenerator: "mangled",
-              transformObjectKeys: true,
-              unicodeEscapeSequence: false,
-            },
-            ["excluded_bundle_name.js"]
-          )
-        );
-      } catch (error) {
-        console.warn("WebpackObfuscator not available:", error.message);
-      }
+      const WebpackObfuscator = require("webpack-obfuscator");
+      config.plugins.push(new WebpackObfuscator({
+        rotateStringArray: true,
+        stringArray: true,
+        stringArrayThreshold: 0.75,
+        disableConsoleOutput: true,
+        renameGlobals: true,
+        identifierNamesGenerator: "mangled"
+      }));
     }
-
     return config;
   },
 
