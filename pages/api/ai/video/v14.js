@@ -263,8 +263,8 @@ class AxiosClient {
         csrf
       } = decryptedData;
       this.csrfToken = csrf;
-      if (!base64) {
-        throw new Error("Invalid task_id: Missing videoId after decryption.");
+      if (!cookies) {
+        throw new Error("Invalid task_id: Missing cookies after decryption.");
       }
       if (cookies) {
         this.log("🍪 Setting cookies from parameter...");
