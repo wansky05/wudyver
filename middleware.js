@@ -195,6 +195,20 @@ async function handleRateLimit(ipAddress, rateLimiter, config) {
   }
 }
 
+// Function to perform async tracking without blocking the response
+function performAsyncTracking(req) {
+  // Use a promise that resolves immediately but starts the tracking in the background
+  Promise.resolve().then(async () => {
+    try {
+      await performTracking(req);
+    } catch (error) {
+      console.error("[Middleware-Tracking] Async tracking error:", error);
+    }
+  }).catch(() => {
+    // Swallow any unhandled promise rejections to prevent crashing the app
+  });
+}
+
 export async function middleware(req) {
   const url = new URL(req.url);
   const { pathname } = url;
@@ -277,14 +291,8 @@ export async function middleware(req) {
         setCorsHeaders(errorResponse, origin);
         setSecurityHeaders(errorResponse);
         
-        // Track rate limit error
-        setImmediate(async () => {
-          try {
-            await performTracking(req);
-          } catch (trackingError) {
-            console.error("[Middleware-Tracking] Error during rate limit tracking:", trackingError);
-          }
-        });
+        // Track rate limit error (async)
+        performAsyncTracking(req);
         
         return errorResponse;
       }
@@ -323,13 +331,7 @@ export async function middleware(req) {
       console.log(`[Middleware-Auth] API route ${pathname} accessed, continuing without auth check.`);
       
       // Async tracking for API routes
-      setImmediate(async () => {
-        try {
-          await performTracking(req);
-        } catch (error) {
-          console.error("[Middleware-Tracking] Async tracking error:", error);
-        }
-      });
+      performAsyncTracking(req);
       
       return response;
     }
@@ -354,25 +356,13 @@ export async function middleware(req) {
       if (isAuthPage) {
         console.log(`[Middleware-Auth] Authenticated user accessing auth page (${pathname}). Redirecting to /analytics.`);
         
-        setImmediate(async () => {
-          try {
-            await performTracking(req);
-          } catch (trackingError) {
-            console.error("[Middleware-Tracking] Error during authenticated redirect tracking:", trackingError);
-          }
-        });
+        performAsyncTracking(req);
         
         return NextResponse.redirect(`${redirectUrlWithProtocol}/analytics`);
       } else if (isRootRoute) {
         console.log(`[Middleware-Auth] Authenticated user accessing root (/). Redirecting to /analytics.`);
         
-        setImmediate(async () => {
-          try {
-            await performTracking(req);
-          } catch (trackingError) {
-            console.error("[Middleware-Tracking] Error during root redirect tracking:", trackingError);
-          }
-        });
+        performAsyncTracking(req);
         
         return NextResponse.redirect(`${redirectUrlWithProtocol}/analytics`);
       }
@@ -385,13 +375,7 @@ export async function middleware(req) {
       if (!isPublicPath) {
         console.log(`[Middleware-Auth] Unauthenticated user trying to access ${pathname}. Redirecting to /login.`);
         
-        setImmediate(async () => {
-          try {
-            await performTracking(req);
-          } catch (trackingError) {
-            console.error("[Middleware-Tracking] Error during unauthenticated redirect tracking:", trackingError);
-          }
-        });
+        performAsyncTracking(req);
         
         return NextResponse.redirect(`${redirectUrlWithProtocol}/login`);
       }
@@ -400,13 +384,7 @@ export async function middleware(req) {
     }
     
     // Async tracking for successful requests
-    setImmediate(async () => {
-      try {
-        await performTracking(req);
-      } catch (error) {
-        console.error("[Middleware-Tracking] Async tracking error:", error);
-      }
-    });
+    performAsyncTracking(req);
     
     return response;
     
@@ -432,7 +410,6 @@ export async function middleware(req) {
 }
 
 export const config = {
-runtime: 'nodejs',
   matcher: [
     "/((?!api|_next/static|_next/image|favicon.ico|manifest.json|sw.js|workbox-.*).*)"
   ],
