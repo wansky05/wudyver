@@ -31,26 +31,28 @@ const apiConfig = {
   API_BASE_URL: process.env.NEXT_PUBLIC_API_URL || "https://wudysoft.xyz"
 };
 const allowedOrigins = [`https://${apiConfig.DOMAIN_URL}`, `https://www.${apiConfig.DOMAIN_URL}`, "http://localhost:3000", "http://localhost:3001"];
+const cspHeader = `
+    default-src 'self';
+    script-src 'self' 'unsafe-eval' 'unsafe-inline' https://cdn.weatherapi.com;
+    style-src 'self' 'unsafe-inline' https://fonts.googleapis.com;
+    img-src 'self' data: https://cdn.weatherapi.com http://*;
+    font-src 'self' data: https://fonts.gstatic.com;
+    connect-src 'self' https://api.weatherapi.com wss: ws:;
+    media-src 'self';
+    object-src 'none';
+    base-uri 'self';
+    form-action 'self';
+    frame-ancestors 'none';
+    block-all-mixed-content;
+    upgrade-insecure-requests;
+`.replace(/\s{2,}/g, " ").trim();
 const securityHeaders = [...createSecureHeaders({
   frameGuard: "sameorigin",
   xssProtection: "block-rendering",
   referrerPolicy: "strict-origin-when-cross-origin"
 }), {
   key: "Content-Security-Policy",
-  value: `
-      default-src 'self';
-      script-src 'self' 'unsafe-eval' 'unsafe-inline' https://cdn.weatherapi.com;
-      style-src 'self' 'unsafe-inline';
-      img-src 'self' data: https: http:;
-      font-src 'self' data:;
-      connect-src 'self' https://cdn.weatherapi.com https://api.weatherapi.com wss: ws:;
-      media-src 'self';
-      object-src 'none';
-      base-uri 'self';
-      form-action 'self';
-      frame-ancestors 'self';
-      upgrade-insecure-requests;
-    `.replace(/\s+/g, " ").trim()
+  value: cspHeader
 }, {
   key: "Permissions-Policy",
   value: "camera=(), microphone=(), geolocation=(), browsing-topics=(), interest-cohort=()"

@@ -52,7 +52,7 @@ const apiRateLimiter = new RateLimiterMemory({
   blockDuration: 120
 });
 export const config = {
-  matcher: ["/((?!_next/static|_next/image|favicon.ico|robots.txt|sitemap.xml|manifest.json|sw.js|workbox-.*|.*\\.(png|jpg|jpeg|gif|svg|ico|webp|woff|woff2|ttf|eot|otf|mp4|webm|ogg|mp3|wav|flac|aac)).*)"]
+  matcher: ["/((?:(?!_next/static|_next/image|favicon.ico|robots.txt|sitemap.xml|manifest.json|sw.js|workbox-.*|.*\\.(png|jpg|jpeg|gif|svg|ico|webp|woff|woff2|ttf|eot|otf|mp4|webm|ogg|mp3|wav|flac|aac)).*)"]
 };
 
 function ensureProtocol(url, defaultProtocol) {
@@ -112,10 +112,10 @@ async function performTracking(req) {
 const cspHeader = `
     default-src 'self';
     script-src 'self' 'unsafe-eval' 'unsafe-inline' https://cdn.weatherapi.com;
-    style-src 'self' 'unsafe-inline';
-    img-src 'self' data: https: http:;
-    font-src 'self' data:;
-    connect-src 'self' https://cdn.weatherapi.com https://api.weatherapi.com wss: ws:;
+    style-src 'self' 'unsafe-inline' https://fonts.googleapis.com;
+    img-src 'self' data: https://cdn.weatherapi.com http://*;
+    font-src 'self' data: https://fonts.gstatic.com;
+    connect-src 'self' https://api.weatherapi.com wss: ws:;
     media-src 'self';
     object-src 'none';
     base-uri 'self';
@@ -123,7 +123,7 @@ const cspHeader = `
     frame-ancestors 'none';
     block-all-mixed-content;
     upgrade-insecure-requests;
-`.replace(/\s+/g, " ").trim();
+`.replace(/\s{2,}/g, " ").trim();
 
 function setCorsHeaders(response, origin) {
   if (isValidOrigin(origin)) {
