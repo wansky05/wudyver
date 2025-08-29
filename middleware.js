@@ -3,7 +3,7 @@ import { getToken } from "next-auth/jwt";
 import { RateLimiterMemory } from "rate-limiter-flexible";
 
 // Configuration
-const config = {
+const setting = {
   DOMAIN_URL: process.env.DOMAIN_URL || "wudysoft.xyz",
   JWT_SECRET: process.env.NEXTAUTH_SECRET,
   RATE_LIMIT_POINTS: parseInt(process.env.RATE_LIMIT_POINTS) || 100,
@@ -13,8 +13,8 @@ const config = {
 
 // Rate limiter
 const rateLimiter = new RateLimiterMemory({
-  points: config.RATE_LIMIT_POINTS,
-  duration: config.RATE_LIMIT_DURATION
+  points: setting.RATE_LIMIT_POINTS,
+  duration: setting.RATE_LIMIT_DURATION
 });
 
 // Utility functions
@@ -43,7 +43,7 @@ const securityHeaders = {
 
 // CORS headers  
 const corsHeaders = {
-  "Access-Control-Allow-Origin": config.NODE_ENV === "production" ? `https://${config.DOMAIN_URL}` : "*",
+  "Access-Control-Allow-Origin": setting.NODE_ENV === "production" ? `https://${setting.DOMAIN_URL}` : "*",
   "Access-Control-Allow-Credentials": "true",
   "Access-Control-Allow-Methods": "GET, POST, PUT, DELETE, OPTIONS, PATCH",
   "Access-Control-Allow-Headers": "Content-Type, Authorization, X-Requested-With, Accept, Origin, X-CSRF-Token",
@@ -52,12 +52,12 @@ const corsHeaders = {
 
 // Tracking function
 async function performTracking(req) {
-  if (config.NODE_ENV === "development") return;
+  if (setting.NODE_ENV === "development") return;
   
   try {
     const url = new URL(req.url);
     const pathname = url.pathname;
-    const baseURL = ensureProtocol(config.DOMAIN_URL);
+    const baseURL = ensureProtocol(setting.DOMAIN_URL);
     
     const isApiRoute = pathname.startsWith("/api");
     const isVisitorApi = pathname.includes("/api/visitor");
@@ -121,7 +121,7 @@ async function handleRateLimit(ipAddress) {
         headers: {
           "Content-Type": "application/json",
           "Retry-After": retryAfter.toString(),
-          "X-RateLimit-Limit": config.RATE_LIMIT_POINTS.toString(),
+          "X-RateLimit-Limit": setting.RATE_LIMIT_POINTS.toString(),
           "X-RateLimit-Remaining": "0",
           "X-RateLimit-Reset": Math.ceil((Date.now() + error.msBeforeNext) / 1000).toString(),
           ...securityHeaders
@@ -193,7 +193,7 @@ export async function middleware(req) {
           return rateLimitResult.response;
         }
 
-        response.headers.set("X-RateLimit-Limit", config.RATE_LIMIT_POINTS.toString());
+        response.headers.set("X-RateLimit-Limit", setting.RATE_LIMIT_POINTS.toString());
         response.headers.set("X-RateLimit-Remaining", rateLimitResult.remaining.toString());
         response.headers.set("X-RateLimit-Reset", rateLimitResult.reset.toString());
       }
@@ -205,11 +205,11 @@ export async function middleware(req) {
     // Authentication check for non-API routes
     const token = await getToken({
       req,
-      secret: config.JWT_SECRET
+      secret: setting.JWT_SECRET
     });
 
     const isAuthenticated = !!token;
-    const redirectBase = ensureProtocol(config.DOMAIN_URL);
+    const redirectBase = ensureProtocol(setting.DOMAIN_URL);
 
     console.log(`[Middleware] Authentication: ${isAuthenticated ? "Yes" : "No"}`);
 
