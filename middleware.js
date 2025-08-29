@@ -52,7 +52,7 @@ const apiRateLimiter = new RateLimiterMemory({
   blockDuration: 120
 });
 export const config = {
-  matcher: ["/((?:(?!_next/static|_next/image|favicon.ico|robots.txt|sitemap.xml|manifest.json|sw.js|workbox-.*|.*\\.(png|jpg|jpeg|gif|svg|ico|webp|woff|woff2|ttf|eot|otf|mp4|webm|ogg|mp3|wav|flac|aac)).*)"]
+  matcher: ["/((?!api|_next/static|_next/image|favicon.ico|manifest.json|sw.js|workbox-.*).*)"]
 };
 
 function ensureProtocol(url, defaultProtocol) {
