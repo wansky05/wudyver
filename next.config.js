@@ -6,58 +6,41 @@ const withPWA = require("@ducanh2912/next-pwa").default({
   aggressiveFrontEndNavCaching: true,
   reloadOnOnline: true,
   swcMinify: true,
-  disable: process.env.NODE_ENV === "development",
+  disable: false,
   workboxOptions: {
-    disableDevLogs: process.env.NODE_ENV === "production"
+    disableDevLogs: true,
+    // Menambahkan runtime caching untuk API jika diperlukan
+    runtimeCaching: [
+      {
+        urlPattern: /\/api\/visitor\//,
+        handler: 'NetworkFirst',
+        options: {
+          cacheName: 'visitor-api-cache',
+          expiration: {
+            maxEntries: 50,
+            maxAgeSeconds: 24 * 60 * 60, // 24 jam
+          },
+          cacheableResponse: {
+            statuses: [0, 200],
+          },
+        },
+      },
+    ],
   }
 });
 
-const { createSecureHeaders } = require("next-secure-headers");
+// Import konfigurasi API
+const apiConfig = { DOMAIN_URL: process.env.MY_DOMAIN_URL || "wudysoft.xyz" };
 
-// Configuration
-const config = {
-  DOMAIN_URL: process.env.DOMAIN_URL || "wudysoft.xyz",
-  NODE_ENV: process.env.NODE_ENV || "development"
-};
-
-// Security Headers
+// Header keamanan yang tidak akan bentrok dengan middleware
 const securityHeaders = [
-  ...createSecureHeaders({
-    frameGuard: "deny",
-    xssProtection: "block-rendering", 
-    referrerPolicy: "strict-origin-when-cross-origin"
-  }),
   {
-    key: "Content-Security-Policy",
-    value: "default-src 'self'; script-src 'self' 'unsafe-eval' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; img-src 'self' data: https:; connect-src 'self' https:; upgrade-insecure-requests;"
+    key: "X-DNS-Prefetch-Control",
+    value: "on"
   },
   {
-    key: "Permissions-Policy", 
-    value: "camera=(), microphone=(), geolocation=()"
-  }
-];
-
-// CORS Headers
-const corsHeaders = [
-  {
-    key: "Access-Control-Allow-Origin",
-    value: config.NODE_ENV === "production" ? `https://${config.DOMAIN_URL}` : "*"
-  },
-  {
-    key: "Access-Control-Allow-Credentials",
-    value: "true"
-  },
-  {
-    key: "Access-Control-Allow-Methods", 
-    value: "GET, POST, PUT, DELETE, OPTIONS, PATCH"
-  },
-  {
-    key: "Access-Control-Allow-Headers",
-    value: "Content-Type, Authorization, X-Requested-With, Accept, Origin, X-CSRF-Token"
-  },
-  {
-    key: "Access-Control-Max-Age",
-    value: "86400"
+    key: "Strict-Transport-Security",
+    value: "max-age=63072000; includeSubDomains; preload"
   }
 ];
 
@@ -67,88 +50,74 @@ const nextConfig = withPWA({
   productionBrowserSourceMaps: false,
   compress: true,
   poweredByHeader: false,
-  
   experimental: {
     appDir: true,
+    nextScriptWorkers: true,
     serverActions: {
-      bodySizeLimit: "10mb"
+      bodySizeLimit: "5gb"
+    },
+    amp: {
+      skipValidation: true
     }
   },
-
   images: {
-    domains: [
-      config.DOMAIN_URL,
-      "cdn.weatherapi.com", 
-      "tile.openstreetmap.org",
-      "www.chess.com",
-      "deckofcardsapi.com",
-      "raw.githubusercontent.com"
-    ],
-    formats: ["image/webp"],
+    domains: [apiConfig.DOMAIN_URL, "cdn.weatherapi.com", "tile.openstreetmap.org", "www.chess.com", "deckofcardsapi.com", "raw.githubusercontent.com"],
     minimumCacheTTL: 60
   },
-
   async headers() {
     return [
       {
+        // Header keamanan dasar untuk semua route
         source: "/(.*)",
         headers: securityHeaders
       },
       {
-        source: "/api/:path*", 
+        // Header khusus untuk file PWA
+        source: "/:path*(sw.js|workbox-*.js|manifest.json)",
         headers: [
-          ...corsHeaders,
           {
             key: "Cache-Control",
-            value: "no-store, no-cache, must-revalidate"
-          }
-        ]
+            value: "public, max-age=0, must-revalidate",
+          },
+          {
+            key: "Service-Worker-Allowed",
+            value: "/",
+          },
+        ],
       },
       {
-        source: "/((?!api|_next/static|_next/image|favicon.ico|manifest.json|sw.js|workbox-.*).*)",
+        // Header CORS untuk API routes - lebih sederhana karena middleware sudah menangani
+        source: "/api/:path*",
         headers: [
           {
-            key: "Cache-Control",
-            value: "public, max-age=31536000, immutable"
+            key: "Access-Control-Allow-Credentials",
+            value: "true"
+          },
+          {
+            key: "Access-Control-Allow-Origin",
+            value: `https://${apiConfig.DOMAIN_URL}`
           }
         ]
       }
     ];
   },
-
-  async rewrites() {
-    return [
-      {
-        source: "/api/:path*",
-        has: [{ type: "header", key: "access-control-request-method" }],
-        destination: "/api/:path*"
-      }
-    ];
-  },
-
+  // Menghapus rewrites yang tidak diperlukan karena middleware sudah menangani CORS
   webpack: (config, { dev, isServer }) => {
     config.externals.push({
       "utf-8-validate": "commonjs utf-8-validate",
-      "bufferutil": "commonjs bufferutil"
+      bufferutil: "commonjs bufferutil"
     });
-
     if (!dev && !isServer) {
-      // Production optimizations
-      config.optimization = {
-        ...config.optimization,
-        splitChunks: {
-          chunks: "all",
-          cacheGroups: {
-            vendor: {
-              test: /[\\/]node_modules[\\/]/,
-              name: "vendors",
-              chunks: "all"
-            }
-          }
-        }
-      };
+      const WebpackObfuscator = require("webpack-obfuscator");
+      config.plugins.push(new WebpackObfuscator({
+        rotateStringArray: true,
+        stringArray: true,
+        stringArrayThreshold: 0.75,
+        disableConsoleOutput: true,
+        renameGlobals: true,
+        identifierNamesGenerator: "mangled"
+      }));
     }
-
     return config;
   }
 });
