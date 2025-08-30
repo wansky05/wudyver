@@ -25,9 +25,16 @@ const withPWA = require("@ducanh2912/next-pwa").default({
     }]
   }
 });
+
+const withTM = require('next-transpile-modules')([
+  // Tambahkan modul yang perlu di-transpile di sini
+]);
+
+const webpack = require('webpack');
 const apiConfig = {
   DOMAIN_URL: process.env.MY_DOMAIN_URL || "wudysoft.xyz"
 };
+
 const securityHeaders = [{
   key: "X-DNS-Prefetch-Control",
   value: "on"
@@ -35,12 +42,15 @@ const securityHeaders = [{
   key: "Strict-Transport-Security",
   value: "max-age=63072000; includeSubDomains; preload"
 }];
-const nextConfig = withPWA({
+
+const nextConfig = withTM(withPWA({
   reactStrictMode: true,
   swcMinify: true,
   productionBrowserSourceMaps: false,
   compress: true,
   poweredByHeader: false,
+  
+  // Tambahkan experimental flags
   experimental: {
     appDir: true,
     nextScriptWorkers: true,
@@ -49,12 +59,15 @@ const nextConfig = withPWA({
     },
     amp: {
       skipValidation: true
-    }
+    },
+    esmExternals: 'loose' // Penting untuk modul ESM
   },
+  
   images: {
     domains: [apiConfig.DOMAIN_URL, "cdn.weatherapi.com", "tile.openstreetmap.org", "www.chess.com", "deckofcardsapi.com", "raw.githubusercontent.com"],
     minimumCacheTTL: 60
   },
+  
   async headers() {
     return [{
       source: "/(.*)",
@@ -79,14 +92,53 @@ const nextConfig = withPWA({
       }]
     }];
   },
-  webpack: (config, {
-    dev,
-    isServer
-  }) => {
+  
+  webpack: (config, { dev, isServer }) => {
+    // Konfigurasi resolve untuk handle node: scheme
+    config.resolve = {
+      ...config.resolve,
+      alias: {
+        ...config.resolve.alias,
+        'node:module': 'module',
+        'node:buffer': 'buffer',
+        'node:util': 'util',
+        'node:process': 'process',
+      },
+      fallback: {
+        ...config.resolve.fallback,
+        module: false,
+        fs: false,
+        path: false,
+        os: false,
+        crypto: false,
+        stream: require.resolve('stream-browserify'),
+        util: require.resolve('util/'),
+        buffer: require.resolve('buffer/'),
+        process: require.resolve('process/browser'),
+      }
+    };
+
+    // Tambahkan plugin untuk provide polyfills
+    config.plugins.push(
+      new webpack.ProvidePlugin({
+        process: 'process/browser',
+        Buffer: ['buffer', 'Buffer'],
+      })
+    );
+
+    // Define global variables
+    config.plugins.push(
+      new webpack.DefinePlugin({
+        'process.env.NODE_DEBUG': JSON.stringify(false),
+        'process.browser': JSON.stringify(true),
+      })
+    );
+
     config.externals.push({
       "utf-8-validate": "commonjs utf-8-validate",
       bufferutil: "commonjs bufferutil"
     });
+    
     if (!dev && !isServer) {
       const WebpackObfuscator = require("webpack-obfuscator");
       config.plugins.push(new WebpackObfuscator({
@@ -98,7 +150,9 @@ const nextConfig = withPWA({
         identifierNamesGenerator: "mangled"
       }));
     }
+    
     return config;
   }
-});
+}));
+
 module.exports = nextConfig;
