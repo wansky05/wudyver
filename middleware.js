@@ -1,8 +1,25 @@
+/**
+ * Next.js Middleware with CORS and VPN/Proxy Detection
+ * 
+ * Required packages:
+ * npm install nextjs-cors@latest @lock-sdk/main
+ * 
+ * Features:
+ * - CORS handling using nextjs-cors
+ * - VPN/Proxy/Tor detection and blocking
+ * - Rate limiting
+ * - Authentication checks
+ * - Security headers
+ * - Visitor tracking
+ */
+
 import { NextResponse, NextRequest } from "next/server";
 import { getToken } from "next-auth/jwt";
 import apiConfig from "@/configs/apiConfig";
 import axios from "axios";
 import { RateLimiterMemory } from "rate-limiter-flexible";
+import NextCors from 'nextjs-cors';
+import { secure, vpnDetector } from '@lock-sdk/vpn-detection';
 
 function getClientIp(req) {
   return req.ip || req.headers.get("x-forwarded-for") || "unknown";
@@ -23,6 +40,33 @@ const rateLimiter = new RateLimiterMemory({
   points: apiConfig.LIMIT_POINTS,
   duration: apiConfig.LIMIT_DURATION,
 });
+
+// Configure VPN Detector
+const vpnBlocker = secure()(
+  vpnDetector({
+    provider: 'ipapi',
+    blockVpn: true,
+    blockProxy: true,
+    blockTor: true,
+    blockDatacenter: true,
+    vpnScoreThreshold: 0.7,
+    proxyScoreThreshold: 0.7,
+    torScoreThreshold: 0.7,
+    datacenterScoreThreshold: 0.7,
+    failBehavior: 'open', // Allow on provider/cache error
+    blockStatusCode: 403,
+    blockMessage: 'Access denied: VPN, proxy, or Tor detected. Please disable your VPN/proxy and try again.',
+    logResults: true,
+    ipHeaders: ['cf-connecting-ip', 'x-forwarded-for', 'x-real-ip'],
+    useRemoteAddress: true,
+    storage: 'memory',
+    cacheTtl: 3600000, // 1 hour cache
+    cacheSize: 10000,
+    logFunction: (msg, data) => {
+      console.log(`[VPN-Detector] ${msg}`, data);
+    }
+  })
+);
 
 // Perbaikan matcher untuk PWA - memperbolehkan file penting PWA
 export const config = {
@@ -69,6 +113,65 @@ async function performTracking(req) {
   }
 }
 
+// Helper function to check VPN/Proxy with error handling
+async function checkVpnProxy(req) {
+  try {
+    // Create a mock response object for VPN detector
+    const mockRes = {
+      status: (code) => {
+        return {
+          json: (data) => ({ statusCode: code, data }),
+          send: (data) => ({ statusCode: code, data })
+        };
+      },
+      json: (data) => ({ data }),
+      send: (data) => ({ data }),
+      setHeader: () => {},
+      end: () => {}
+    };
+
+    // Run VPN detection
+    const result = await new Promise((resolve, reject) => {
+      vpnBlocker(req, mockRes, (error) => {
+        if (error) {
+          reject(error);
+        } else {
+          resolve(true);
+        }
+      });
+    });
+
+    return { allowed: true, blocked: false };
+  } catch (error) {
+    console.error('[VPN-Detector] Error during VPN detection:', error);
+    
+    // Check if it's a blocking error (VPN/Proxy detected)
+    if (error.statusCode === 403 || error.message?.includes('VPN') || error.message?.includes('proxy')) {
+      return {
+        allowed: false,
+        blocked: true,
+        reason: error.message || 'VPN or proxy detected',
+        statusCode: error.statusCode || 403
+      };
+    }
+    
+    // For other errors, allow access (fail-open behavior)
+    console.warn('[VPN-Detector] Non-blocking error, allowing access:', error.message);
+    return { allowed: true, blocked: false };
+  }
+}
+
+// Helper function to apply CORS using nextjs-cors
+async function applyCors(req, res) {
+  await NextCors(req, res, {
+    methods: ['GET', 'HEAD', 'PUT', 'PATCH', 'POST', 'DELETE', 'OPTIONS'],
+    origin: '*', // You can customize this based on your needs
+    optionsSuccessStatus: 200, // some legacy browsers (IE11, various SmartTVs) choke on 204
+    credentials: true, // if you need to support credentials
+    allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With'],
+  });
+}
+
 const cspHeader = `
   frame-ancestors 'none';
   block-all-mixed-content;
@@ -86,6 +189,36 @@ export async function middleware(req) {
     NEXTAUTH_SECRET ? NEXTAUTH_SECRET.substring(0, 5) + "..." : "Not set"
   );
 
+  // Check for VPN/Proxy/Tor before processing request
+  console.log(`[VPN-Detector] Checking IP ${ipAddress} for VPN/Proxy/Tor`);
+  const vpnCheck = await checkVpnProxy(req);
+  
+  if (!vpnCheck.allowed && vpnCheck.blocked) {
+    console.warn(`[VPN-Detector] Blocked request from IP ${ipAddress}: ${vpnCheck.reason}`);
+    
+    return new NextResponse(
+      JSON.stringify({
+        status: "error",
+        code: vpnCheck.statusCode || 403,
+        message: vpnCheck.reason || "Access denied: VPN, proxy, or Tor detected",
+        details: "Please disable your VPN/proxy service and try again.",
+      }),
+      {
+        status: vpnCheck.statusCode || 403,
+        headers: {
+          "Content-Type": "application/json",
+          "X-Content-Type-Options": "nosniff",
+          "X-Frame-Options": "DENY",
+          "X-XSS-Protection": "1; mode=block",
+          "Referrer-Policy": "strict-origin-when-cross-origin",
+          "Permissions-Policy": "camera=(), microphone=(), geolocation=()",
+          "Access-Control-Allow-Origin": "*",
+        },
+      }
+    );
+  }
+
+  console.log(`[VPN-Detector] IP ${ipAddress} passed VPN/Proxy check`);
   let response = NextResponse.next();
 
   try {
@@ -107,11 +240,35 @@ export async function middleware(req) {
     response.headers.set("Permissions-Policy", "camera=(), microphone=(), geolocation=()");
     response.headers.set("Content-Security-Policy", cspHeader.replace(/\s{2,}/g, " ").trim());
 
-    // Hanya atur header CORS untuk permintaan API
+    // Apply CORS using nextjs-cors for API routes
     if (isApiRoute) {
-      response.headers.set("Access-Control-Allow-Origin", "*");
-      response.headers.set("Access-Control-Allow-Methods", "GET, POST, PUT, DELETE, OPTIONS");
-      response.headers.set("Access-Control-Allow-Headers", "Content-Type, Authorization");
+      // Create a mock response object that nextjs-cors can work with
+      const mockRes = {
+        setHeader: (name, value) => {
+          response.headers.set(name, value);
+        },
+        getHeader: (name) => {
+          return response.headers.get(name);
+        },
+        status: (code) => {
+          response = NextResponse.json({}, { status: code, headers: Object.fromEntries(response.headers) });
+          return mockRes;
+        },
+        end: () => {
+          // Mock end function
+        }
+      };
+
+      try {
+        await applyCors(req, mockRes);
+        console.log("[Middleware-CORS] CORS headers applied using nextjs-cors");
+      } catch (corsError) {
+        console.error("[Middleware-CORS] Error applying CORS:", corsError);
+        // Fallback to manual CORS headers if nextjs-cors fails
+        response.headers.set("Access-Control-Allow-Origin", "*");
+        response.headers.set("Access-Control-Allow-Methods", "GET, POST, PUT, DELETE, OPTIONS");
+        response.headers.set("Access-Control-Allow-Headers", "Content-Type, Authorization");
+      }
       
       // Untuk permintaan OPTIONS, langsung kembalikan respons 200
       if (req.method === "OPTIONS") {

@@ -32,6 +32,8 @@
     "leaflet": "^1.9.4",
     "next": "^13.2.4",
     "rate-limiter-flexible": "latest",
+    "nextjs-cors": "latest",
+    "@lock-sdk/vpn-detection": "latest",
     "@builder.io/partytown": "latest",
     "react": "18.2.0",
     "react-apexcharts": "^1.4.1",
