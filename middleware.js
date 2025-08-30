@@ -6,12 +6,12 @@ import {
   getToken
 } from "next-auth/jwt";
 import apiConfig from "@/configs/apiConfig";
-import axios from "axios";
 import NextCors from "nextjs-cors";
 import {
   createRequire
 } from "module";
 const require = createRequire(import.meta.url);
+const axios = require("axios");
 const os = require("os");
 async function getClientIp(req) {
   try {

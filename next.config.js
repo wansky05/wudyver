@@ -94,6 +94,8 @@ const nextConfig = withTM(withPWA({
   },
   
   webpack: (config, { dev, isServer }) => {
+    // Remove the manual process.browser definition - Next.js handles this automatically
+    
     // Konfigurasi resolve untuk handle node: scheme
     config.resolve = {
       ...config.resolve,
@@ -126,11 +128,11 @@ const nextConfig = withTM(withPWA({
       })
     );
 
-    // Define global variables
+    // Define global variables - REMOVE process.browser definition
     config.plugins.push(
       new webpack.DefinePlugin({
         'process.env.NODE_DEBUG': JSON.stringify(false),
-        'process.browser': JSON.stringify(true),
+        // 'process.browser' is automatically set by Next.js, don't define it manually
       })
     );
 
