@@ -1,28 +1,71 @@
 /**
- * Next.js Middleware with CORS and VPN/Proxy Detection
+ * Next.js Middleware with CORS and VPN/Proxy Detection (Edge Runtime Compatible)
  * 
  * Required packages:
- * npm install nextjs-cors@latest @lock-sdk/main
+ * npm install nextjs-cors@latest static-vpn-check rate-limiter-flexible request-ip
  * 
  * Features:
  * - CORS handling using nextjs-cors
- * - VPN/Proxy/Tor detection and blocking
- * - Rate limiting
+ * - VPN/Proxy detection using static-vpn-check (with Edge Runtime compatibility)
+ * - Rate limiting (with Edge Runtime compatibility)
  * - Authentication checks
  * - Security headers
  * - Visitor tracking
+ * - Uses request-ip for client IP detection
  */
 
 import { NextResponse, NextRequest } from "next/server";
 import { getToken } from "next-auth/jwt";
 import apiConfig from "@/configs/apiConfig";
 import axios from "axios";
-import { RateLimiterMemory } from "rate-limiter-flexible";
 import NextCors from 'nextjs-cors';
-import { secure, vpnDetector } from '@lock-sdk/vpn-detection';
 
-function getClientIp(req) {
-  return req.ip || req.headers.get("x-forwarded-for") || "unknown";
+// Create a mock require function for Edge Runtime
+const createRequire = (modulePath) => {
+  return (id) => {
+    if (typeof globalThis.process === 'undefined') {
+      // Edge Runtime environment
+      globalThis.process = { env: {} };
+    }
+    
+    // Dynamic import wrapped in a function to simulate require
+    switch (id) {
+      case 'rate-limiter-flexible':
+        return import('rate-limiter-flexible').then(mod => mod.default || mod);
+      case 'static-vpn-check':
+        return import('static-vpn-check').then(mod => mod.default || mod);
+      case 'request-ip':
+        return import('request-ip').then(mod => mod.default || mod);
+      default:
+        throw new Error(`Module ${id} not found`);
+    }
+  };
+};
+
+// Initialize require for Edge Runtime
+const require = createRequire(import.meta.url);
+
+// Edge Runtime compatible IP detection using request-ip
+async function getClientIp(req) {
+  try {
+    // Try to dynamically import request-ip for Edge Runtime
+    const requestIp = await require('request-ip');
+    
+    // Create a mock request object that request-ip can work with
+    const mockReq = {
+      headers: Object.fromEntries(req.headers.entries()),
+      connection: { remoteAddress: req.ip },
+      socket: { remoteAddress: req.ip },
+      ip: req.ip,
+      ips: req.ips || []
+    };
+    
+    const clientIp = requestIp.getClientIp(mockReq);
+    return clientIp || req.headers.get("x-forwarded-for") || req.headers.get("x-real-ip") || "unknown";
+  } catch (error) {
+    console.warn('[IP-Detection] Failed to use request-ip, falling back to header detection:', error.message);
+    return req.headers.get("x-forwarded-for") || req.headers.get("x-real-ip") || req.ip || "unknown";
+  }
 }
 
 const DOMAIN_URL = apiConfig.DOMAIN_URL || "localhost";
@@ -36,39 +79,112 @@ const axiosInstance = axios.create({
   },
 });
 
-const rateLimiter = new RateLimiterMemory({
-  points: apiConfig.LIMIT_POINTS,
-  duration: apiConfig.LIMIT_DURATION,
-});
+// Edge Runtime compatible rate limiter
+let rateLimiter = null;
 
-// Configure VPN Detector
-const vpnBlocker = secure()(
-  vpnDetector({
-    provider: 'ipapi',
-    blockVpn: true,
-    blockProxy: true,
-    blockTor: true,
-    blockDatacenter: true,
-    vpnScoreThreshold: 0.7,
-    proxyScoreThreshold: 0.7,
-    torScoreThreshold: 0.7,
-    datacenterScoreThreshold: 0.7,
-    failBehavior: 'open', // Allow on provider/cache error
-    blockStatusCode: 403,
-    blockMessage: 'Access denied: VPN, proxy, or Tor detected. Please disable your VPN/proxy and try again.',
-    logResults: true,
-    ipHeaders: ['cf-connecting-ip', 'x-forwarded-for', 'x-real-ip'],
-    useRemoteAddress: true,
-    storage: 'memory',
-    cacheTtl: 3600000, // 1 hour cache
-    cacheSize: 10000,
-    logFunction: (msg, data) => {
-      console.log(`[VPN-Detector] ${msg}`, data);
+async function initRateLimiter() {
+  if (!rateLimiter) {
+    try {
+      const { RateLimiterMemory } = await require('rate-limiter-flexible');
+      rateLimiter = new RateLimiterMemory({
+        points: apiConfig.LIMIT_POINTS,
+        duration: apiConfig.LIMIT_DURATION,
+      });
+      console.log('[Rate-Limiter] Initialized successfully for Edge Runtime');
+    } catch (error) {
+      console.error('[Rate-Limiter] Failed to initialize:', error.message);
+      // Fallback to simple in-memory rate limiter
+      rateLimiter = createSimpleRateLimiter();
     }
-  })
-);
+  }
+  return rateLimiter;
+}
 
-// Perbaikan matcher untuk PWA - memperbolehkan file penting PWA
+// Simple fallback rate limiter for Edge Runtime
+function createSimpleRateLimiter() {
+  const requests = new Map();
+  
+  return {
+    async consume(key, points = 1) {
+      const now = Date.now();
+      const windowStart = now - (apiConfig.LIMIT_DURATION * 1000);
+      
+      if (!requests.has(key)) {
+        requests.set(key, []);
+      }
+      
+      const userRequests = requests.get(key);
+      // Remove old requests
+      const validRequests = userRequests.filter(timestamp => timestamp > windowStart);
+      
+      if (validRequests.length >= apiConfig.LIMIT_POINTS) {
+        const oldestRequest = Math.min(...validRequests);
+        const msBeforeNext = (oldestRequest + (apiConfig.LIMIT_DURATION * 1000)) - now;
+        
+        const error = new Error('Rate limit exceeded');
+        error.msBeforeNext = msBeforeNext;
+        throw error;
+      }
+      
+      validRequests.push(now);
+      requests.set(key, validRequests);
+      
+      return {
+        remainingPoints: apiConfig.LIMIT_POINTS - validRequests.length,
+        msBeforeNext: 0
+      };
+    }
+  };
+}
+
+// VPN Detection Configuration
+const VPN_DETECTION_CONFIG = {
+  enabled: apiConfig.VPN_DETECTION_ENABLED !== false,
+  blockVpn: true,
+  cacheTimeout: 3600000, // 1 hour cache
+  maxCacheSize: 10000,
+  blockMessage: 'Access denied: VPN or proxy detected. Please disable your VPN/proxy and try again.',
+};
+
+// In-memory cache for IP detection results (Edge Runtime compatible)
+const ipDetectionCache = new Map();
+
+// Edge Runtime compatible VPN checker initialization
+let staticVpnCheck = null;
+
+async function initVpnChecker() {
+  if (!staticVpnCheck) {
+    try {
+      staticVpnCheck = await require('static-vpn-check');
+      console.log('[VPN-Detector] Static VPN checker initialized for Edge Runtime');
+    } catch (error) {
+      console.warn('[VPN-Detector] Failed to initialize static-vpn-check:', error.message);
+      staticVpnCheck = null;
+    }
+  }
+  return staticVpnCheck;
+}
+
+// Periodic cache cleanup (Edge Runtime compatible)
+let cacheCleanupInterval = null;
+
+function startCacheCleanup() {
+  if (!cacheCleanupInterval && typeof setInterval !== 'undefined') {
+    cacheCleanupInterval = setInterval(() => {
+      if (ipDetectionCache.size > VPN_DETECTION_CONFIG.maxCacheSize) {
+        const entries = Array.from(ipDetectionCache.entries());
+        const toRemove = entries.slice(0, Math.floor(entries.length / 2));
+        toRemove.forEach(([key]) => ipDetectionCache.delete(key));
+        console.log(`[VPN-Detector] Cleaned cache, removed ${toRemove.length} entries`);
+      }
+    }, VPN_DETECTION_CONFIG.cacheTimeout);
+  }
+}
+
+// Start cache cleanup
+startCacheCleanup();
+
+// Improved matcher for PWA compatibility
 export const config = {
   matcher: [
     "/((?!_next/static|_next/image|favicon.ico|manifest.json|sw.js|workbox-*.js|.*\\.(?:json$|ico$|js$|css$|png$|jpg$|jpeg$|gif$|svg$|woff$|woff2$|ttf$|eot$)).*)",
@@ -94,10 +210,10 @@ async function performTracking(req) {
     const isAuthPage = currentPathname === "/login" || currentPathname === "/register";
 
     if (isApiRoute && !isVisitorApi && !isAuthApi && !isGeneralApi) {
-      console.log(`[Middleware-Tracking] Mengirim data permintaan API untuk tracking: ${currentPathname}`);
+      console.log(`[Middleware-Tracking] Sending API request data for tracking: ${currentPathname}`);
       await axiosInstance.get(`${baseURL}/api/visitor/req`);
     } else if (!isApiRoute && !isAuthPage) {
-      console.log(`[Middleware-Tracking] Mengirim data kunjungan halaman untuk tracking: ${currentPathname}`);
+      console.log(`[Middleware-Tracking] Sending page visit data for tracking: ${currentPathname}`);
       await axiosInstance.get(`${baseURL}/api/visitor/visit`);
       await axiosInstance.post(`${baseURL}/api/visitor/info`, {
         route: currentPathname,
@@ -109,67 +225,174 @@ async function performTracking(req) {
     const errorMessage = err.response
       ? `Status ${err.response.status}: ${err.response.data?.message || err.message}`
       : err.message;
-    console.error(`[Middleware-Tracking] Gagal mencatat pengunjung untuk ${req.url}: ${errorMessage}`);
+    console.error(`[Middleware-Tracking] Failed to log visitor for ${req.url}: ${errorMessage}`);
   }
 }
 
-// Helper function to check VPN/Proxy with error handling
-async function checkVpnProxy(req) {
+// Edge Runtime compatible VPN/Proxy detection
+async function checkVpnProxy(ipAddress) {
+  if (!VPN_DETECTION_CONFIG.enabled) {
+    return { allowed: true, blocked: false };
+  }
+
+  // Check cache first
+  const cacheKey = `ip_${ipAddress}`;
+  const cached = ipDetectionCache.get(cacheKey);
+  if (cached && (Date.now() - cached.timestamp) < VPN_DETECTION_CONFIG.cacheTimeout) {
+    console.log(`[VPN-Detector] Using cached result for IP: ${ipAddress}`);
+    return cached.result;
+  }
+
   try {
-    // Create a mock response object for VPN detector
-    const mockRes = {
-      status: (code) => {
-        return {
-          json: (data) => ({ statusCode: code, data }),
-          send: (data) => ({ statusCode: code, data })
-        };
-      },
-      json: (data) => ({ data }),
-      send: (data) => ({ data }),
-      setHeader: () => {},
-      end: () => {}
+    console.log(`[VPN-Detector] Checking IP: ${ipAddress} using static-vpn-check`);
+
+    // Initialize VPN checker
+    const vpnChecker = await initVpnChecker();
+    
+    let isVpn = false;
+    
+    if (vpnChecker && typeof vpnChecker.checkIp === 'function') {
+      console.log(`[VPN-Detector] Using static-vpn-check for IP: ${ipAddress}`);
+      isVpn = vpnChecker.checkIp(ipAddress);
+      console.log(`[VPN-Detector] Static VPN check result for ${ipAddress}: ${isVpn}`);
+    } else if (vpnChecker && vpnChecker.default && typeof vpnChecker.default.checkIp === 'function') {
+      // Handle ES module default export
+      console.log(`[VPN-Detector] Using static-vpn-check (default export) for IP: ${ipAddress}`);
+      isVpn = vpnChecker.default.checkIp(ipAddress);
+      console.log(`[VPN-Detector] Static VPN check result for ${ipAddress}: ${isVpn}`);
+    } else {
+      // Fallback to API-based detection
+      console.log(`[VPN-Detector] Fallback to API detection for IP: ${ipAddress}`);
+      const apiResult = await checkVpnWithApi(ipAddress);
+      return apiResult;
+    }
+
+    const shouldBlock = VPN_DETECTION_CONFIG.blockVpn && isVpn;
+
+    const result = {
+      allowed: !shouldBlock,
+      blocked: shouldBlock,
+      reason: shouldBlock ? VPN_DETECTION_CONFIG.blockMessage : null,
+      statusCode: shouldBlock ? 403 : 200,
+      details: {
+        isVpn: isVpn,
+        method: 'static-vpn-check',
+        ip: ipAddress
+      }
     };
 
-    // Run VPN detection
-    const result = await new Promise((resolve, reject) => {
-      vpnBlocker(req, mockRes, (error) => {
-        if (error) {
-          reject(error);
-        } else {
-          resolve(true);
-        }
-      });
+    // Cache the result
+    ipDetectionCache.set(cacheKey, {
+      result,
+      timestamp: Date.now()
     });
 
-    return { allowed: true, blocked: false };
-  } catch (error) {
-    console.error('[VPN-Detector] Error during VPN detection:', error);
-    
-    // Check if it's a blocking error (VPN/Proxy detected)
-    if (error.statusCode === 403 || error.message?.includes('VPN') || error.message?.includes('proxy')) {
-      return {
-        allowed: false,
-        blocked: true,
-        reason: error.message || 'VPN or proxy detected',
-        statusCode: error.statusCode || 403
-      };
+    if (shouldBlock) {
+      console.warn(`[VPN-Detector] Blocked IP ${ipAddress}: VPN detected via static-vpn-check`);
+    } else {
+      console.log(`[VPN-Detector] Allowed IP ${ipAddress} - not a VPN (static-vpn-check)`);
     }
+
+    return result;
+
+  } catch (error) {
+    console.error(`[VPN-Detector] Error checking IP ${ipAddress} with static-vpn-check:`, error.message);
     
-    // For other errors, allow access (fail-open behavior)
-    console.warn('[VPN-Detector] Non-blocking error, allowing access:', error.message);
-    return { allowed: true, blocked: false };
+    // Try API fallback
+    try {
+      console.log(`[VPN-Detector] Attempting API fallback for IP: ${ipAddress}`);
+      return await checkVpnWithApi(ipAddress);
+    } catch (fallbackError) {
+      console.error(`[VPN-Detector] API fallback also failed for ${ipAddress}:`, fallbackError.message);
+      
+      // Fail-open: Allow access on all errors
+      const result = { 
+        allowed: true, 
+        blocked: false, 
+        error: `Both static-vpn-check and API fallback failed: ${error.message}`,
+        details: {
+          method: 'error-fallback',
+          ip: ipAddress
+        }
+      };
+
+      // Cache error result for shorter time
+      ipDetectionCache.set(cacheKey, {
+        result,
+        timestamp: Date.now() - (VPN_DETECTION_CONFIG.cacheTimeout * 0.8)
+      });
+
+      return result;
+    }
   }
 }
 
-// Helper function to apply CORS using nextjs-cors
-async function applyCors(req, res) {
-  await NextCors(req, res, {
-    methods: ['GET', 'HEAD', 'PUT', 'PATCH', 'POST', 'DELETE', 'OPTIONS'],
-    origin: '*', // You can customize this based on your needs
-    optionsSuccessStatus: 200, // some legacy browsers (IE11, various SmartTVs) choke on 204
-    credentials: true, // if you need to support credentials
-    allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With'],
+// Fallback API-based VPN detection
+async function checkVpnWithApi(ipAddress) {
+  const response = await fetch(`https://ipapi.co/${ipAddress}/json/`, {
+    method: 'GET',
+    headers: {
+      'User-Agent': 'Mozilla/5.0 (compatible; VPN-Detector/1.0)',
+    },
+    signal: AbortSignal.timeout(5000), // 5 second timeout
   });
+
+  if (!response.ok) {
+    throw new Error(`IP API request failed: ${response.status}`);
+  }
+
+  const data = await response.json();
+  
+  if (data.error) {
+    throw new Error(`IP API error: ${data.reason}`);
+  }
+
+  // Simple VPN detection based on organization
+  const org = (data.org || '').toLowerCase();
+  const vpnIndicators = [
+    'vpn', 'proxy', 'tunnel', 'anonymous', 'privacy',
+    'expressvpn', 'nordvpn', 'surfshark', 'cyberghost', 'purevpn',
+    'protonvpn', 'hotspot shield', 'windscribe', 'tunnelbear'
+  ];
+
+  const isVpn = vpnIndicators.some(indicator => org.includes(indicator));
+  const shouldBlock = VPN_DETECTION_CONFIG.blockVpn && isVpn;
+
+  console.log(`[VPN-Detector] API check for ${ipAddress}: ${data.country_name} (${data.org}) - VPN: ${isVpn}`);
+
+  return {
+    allowed: !shouldBlock,
+    blocked: shouldBlock,
+    reason: shouldBlock ? `VPN detected: ${data.org}` : null,
+    statusCode: shouldBlock ? 403 : 200,
+    details: {
+      country: data.country_name,
+      org: data.org,
+      isVpn: isVpn,
+      method: 'api-fallback',
+      ip: ipAddress
+    }
+  };
+}
+
+// Edge Runtime compatible CORS helper
+async function applyCors(req, res) {
+  try {
+    await NextCors(req, res, {
+      methods: ['GET', 'HEAD', 'PUT', 'PATCH', 'POST', 'DELETE', 'OPTIONS'],
+      origin: '*',
+      optionsSuccessStatus: 200,
+      credentials: true,
+      allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With'],
+    });
+  } catch (error) {
+    console.warn('[CORS] NextCors failed, using manual CORS headers:', error.message);
+    // Manual CORS headers as fallback
+    res.setHeader('Access-Control-Allow-Origin', '*');
+    res.setHeader('Access-Control-Allow-Methods', 'GET, HEAD, PUT, PATCH, POST, DELETE, OPTIONS');
+    res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization, X-Requested-With');
+    res.setHeader('Access-Control-Allow-Credentials', 'true');
+  }
 }
 
 const cspHeader = `
@@ -181,9 +404,9 @@ const cspHeader = `
 export async function middleware(req) {
   const url = new URL(req.url);
   const { pathname } = url;
-  const ipAddress = getClientIp(req);
+  const ipAddress = await getClientIp(req);
   
-  console.log(`[Middleware-Main] Menerima permintaan untuk: ${pathname} dari IP: ${ipAddress}`);
+  console.log(`[Middleware-Main] Receiving request for: ${pathname} from IP: ${ipAddress}`);
   console.log(
     "[Middleware-Main] NEXTAUTH_SECRET (first 5 chars):",
     NEXTAUTH_SECRET ? NEXTAUTH_SECRET.substring(0, 5) + "..." : "Not set"
@@ -191,7 +414,7 @@ export async function middleware(req) {
 
   // Check for VPN/Proxy/Tor before processing request
   console.log(`[VPN-Detector] Checking IP ${ipAddress} for VPN/Proxy/Tor`);
-  const vpnCheck = await checkVpnProxy(req);
+  const vpnCheck = await checkVpnProxy(ipAddress);
   
   if (!vpnCheck.allowed && vpnCheck.blocked) {
     console.warn(`[VPN-Detector] Blocked request from IP ${ipAddress}: ${vpnCheck.reason}`);
@@ -232,7 +455,7 @@ export async function middleware(req) {
     const isAuthApi = pathname.includes("/api/auth");
     const isGeneralApi = pathname.includes("/api/general");
 
-    // Atur header keamanan dasar untuk semua respons
+    // Set basic security headers for all responses
     response.headers.set("X-Content-Type-Options", "nosniff");
     response.headers.set("X-Frame-Options", "DENY");
     response.headers.set("X-XSS-Protection", "1; mode=block");
@@ -240,9 +463,8 @@ export async function middleware(req) {
     response.headers.set("Permissions-Policy", "camera=(), microphone=(), geolocation=()");
     response.headers.set("Content-Security-Policy", cspHeader.replace(/\s{2,}/g, " ").trim());
 
-    // Apply CORS using nextjs-cors for API routes
+    // Apply CORS for API routes
     if (isApiRoute) {
-      // Create a mock response object that nextjs-cors can work with
       const mockRes = {
         setHeader: (name, value) => {
           response.headers.set(name, value);
@@ -254,23 +476,21 @@ export async function middleware(req) {
           response = NextResponse.json({}, { status: code, headers: Object.fromEntries(response.headers) });
           return mockRes;
         },
-        end: () => {
-          // Mock end function
-        }
+        end: () => {}
       };
 
       try {
         await applyCors(req, mockRes);
-        console.log("[Middleware-CORS] CORS headers applied using nextjs-cors");
+        console.log("[Middleware-CORS] CORS headers applied");
       } catch (corsError) {
         console.error("[Middleware-CORS] Error applying CORS:", corsError);
-        // Fallback to manual CORS headers if nextjs-cors fails
+        // Fallback to manual CORS headers
         response.headers.set("Access-Control-Allow-Origin", "*");
         response.headers.set("Access-Control-Allow-Methods", "GET, POST, PUT, DELETE, OPTIONS");
         response.headers.set("Access-Control-Allow-Headers", "Content-Type, Authorization");
       }
       
-      // Untuk permintaan OPTIONS, langsung kembalikan respons 200
+      // Handle OPTIONS requests
       if (req.method === "OPTIONS") {
         return new NextResponse(null, { 
           status: 200, 
@@ -279,26 +499,28 @@ export async function middleware(req) {
       }
     }
 
-    console.log("[Middleware-Main] Header keamanan telah diatur.");
+    console.log("[Middleware-Main] Security headers have been set.");
 
+    // Apply rate limiting for API routes (excluding certain APIs)
     if (isApiRoute && !isVisitorApi && !isAuthApi && !isGeneralApi) {
-      console.log(`[Middleware-RateLimit] Menerapkan Rate Limiting untuk API: ${pathname}`);
+      console.log(`[Middleware-RateLimit] Applying Rate Limiting for API: ${pathname}`);
       try {
-        const rateLimiterRes = await rateLimiter.consume(ipAddress, 1);
-        response.headers.set("X-RateLimit-Limit", apiConfig.LIMIT_POINTS);
-        response.headers.set("X-RateLimit-Remaining", rateLimiterRes.remainingPoints);
-        response.headers.set("X-RateLimit-Reset", Math.ceil((Date.now() + rateLimiterRes.msBeforeNext) / 1e3));
-        console.log(`[Middleware-RateLimit] Rate limit berhasil. Sisa permintaan: ${rateLimiterRes.remainingPoints}`);
+        const rateLimiterInstance = await initRateLimiter();
+        const rateLimiterRes = await rateLimiterInstance.consume(ipAddress, 1);
+        response.headers.set("X-RateLimit-Limit", apiConfig.LIMIT_POINTS.toString());
+        response.headers.set("X-RateLimit-Remaining", rateLimiterRes.remainingPoints.toString());
+        response.headers.set("X-RateLimit-Reset", Math.ceil((Date.now() + rateLimiterRes.msBeforeNext) / 1e3).toString());
+        console.log(`[Middleware-RateLimit] Rate limit successful. Remaining requests: ${rateLimiterRes.remainingPoints}`);
       } catch (rateLimiterError) {
         const retryAfterSeconds = Math.ceil(rateLimiterError.msBeforeNext / 1e3);
         const totalLimit = apiConfig.LIMIT_POINTS;
-        console.warn(`[Middleware-RateLimit] Rate limit terlampaui untuk IP: ${ipAddress}. Coba lagi dalam ${retryAfterSeconds} detik.`);
+        console.warn(`[Middleware-RateLimit] Rate limit exceeded for IP: ${ipAddress}. Retry in ${retryAfterSeconds} seconds.`);
         
         const errorResponse = new NextResponse(
           JSON.stringify({
             status: "error",
             code: 429,
-            message: `Terlalu banyak permintaan. Anda telah melampaui batas ${totalLimit} permintaan per ${apiConfig.LIMIT_DURATION} detik. Silakan coba lagi dalam ${retryAfterSeconds} detik.`,
+            message: `Too many requests. You have exceeded the limit of ${totalLimit} requests per ${apiConfig.LIMIT_DURATION} seconds. Please try again in ${retryAfterSeconds} seconds.`,
             limit: totalLimit,
             remaining: 0,
             retryAfter: retryAfterSeconds,
@@ -327,6 +549,7 @@ export async function middleware(req) {
       }
     }
 
+    // Authentication logic
     const nextAuthToken = await getToken({
       req: req,
       secret: NEXTAUTH_SECRET,
@@ -334,51 +557,51 @@ export async function middleware(req) {
     
     console.log("[Middleware-Main] nextAuthToken:", nextAuthToken);
     const isAuthenticated = !!nextAuthToken;
-    console.log(`[Middleware-Main] Pathname: ${pathname}, Autentikasi: ${isAuthenticated ? "Ya" : "Tidak"}`);
+    console.log(`[Middleware-Main] Pathname: ${pathname}, Authentication: ${isAuthenticated ? "Yes" : "No"}`);
 
     const redirectUrlWithProtocol = ensureProtocol(DOMAIN_URL, DEFAULT_PROTOCOL);
 
     if (isApiRoute) {
-      console.log(`[Middleware-Auth] API route ${pathname} diakses, melanjutkan tanpa pengecekan autentikasi.`);
+      console.log(`[Middleware-Auth] API route ${pathname} accessed, continuing without authentication check.`);
       await performTracking(req);
       return response;
     }
 
     if (isAuthenticated) {
       if (isAuthPage) {
-        console.log(`[Middleware-Auth] Pengguna terautentikasi mencoba mengakses halaman otentikasi (${pathname}). Mengarahkan ke /analytics.`);
+        console.log(`[Middleware-Auth] Authenticated user trying to access auth page (${pathname}). Redirecting to /analytics.`);
         await performTracking(req);
         return NextResponse.redirect(`${redirectUrlWithProtocol}/analytics`);
       } else if (isRootRoute) {
-        console.log(`[Middleware-Auth] Pengguna terautentikasi mengakses halaman home (/). Mengarahkan ke /analytics.`);
+        console.log(`[Middleware-Auth] Authenticated user accessing home page (/). Redirecting to /analytics.`);
         await performTracking(req);
         return NextResponse.redirect(`${redirectUrlWithProtocol}/analytics`);
       }
       
-      console.log(`[Middleware-Auth] Pengguna terautentikasi melanjutkan ke ${pathname}.`);
+      console.log(`[Middleware-Auth] Authenticated user continuing to ${pathname}.`);
       await performTracking(req);
       return response;
     } else {
       const isPublicPath = isAuthPage;
       
       if (!isPublicPath) {
-        console.log(`[Middleware-Auth] Pengguna belum terautentikasi mencoba mengakses ${pathname}. Mengarahkan ke /login.`);
+        console.log(`[Middleware-Auth] Unauthenticated user trying to access ${pathname}. Redirecting to /login.`);
         await performTracking(req);
         return NextResponse.redirect(`${redirectUrlWithProtocol}/login`);
       }
       
-      console.log(`[Middleware-Auth] Pengguna belum terautentikasi melanjutkan ke ${pathname}.`);
+      console.log(`[Middleware-Auth] Unauthenticated user continuing to ${pathname}.`);
       await performTracking(req);
       return response;
     }
   } catch (error) {
-    console.error("[Middleware-Error] Kesalahan tidak tertangani:", error);
+    console.error("[Middleware-Error] Unhandled error:", error);
     
     const errorResponse = new NextResponse(
       JSON.stringify({
         status: "error",
         code: 500,
-        message: "Kesalahan Server Internal",
+        message: "Internal Server Error",
       }),
       {
         status: 500,
