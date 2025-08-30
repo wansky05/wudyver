@@ -35,6 +35,7 @@
     "nextjs-cors": "latest",
     "request-ip": "latest",
     "os": "latest",
+    "next-transpile-modules": "latest",
     "stream-browserify": "latest",
     "static-vpn-check": "latest",
     "@builder.io/partytown": "latest",
