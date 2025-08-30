@@ -82,7 +82,8 @@ const securityHeaders = [
   }
 ];
 
-const nextConfig = withPWA({
+// Create base config first
+let nextConfig = withPWA({
   reactStrictMode: true,
   swcMinify: true,
   productionBrowserSourceMaps: false,
@@ -345,23 +346,21 @@ const nextConfig = withPWA({
 
 // Remove console.log in production
 if (process.env.NODE_ENV !== 'development') {
-  const originalConfig = nextConfig;
-  nextConfig = {
-    ...originalConfig,
-    webpack: (config, options) => {
-      if (!options.isServer) {
-        config.optimization.minimizer.forEach((plugin) => {
-          if (plugin.constructor.name === 'TerserPlugin') {
-            plugin.options.terserOptions.compress.drop_console = true;
-          }
-        });
-      }
-      
-      if (originalConfig.webpack) {
-        return originalConfig.webpack(config, options);
-      }
-      return config;
-    },
+  const originalWebpack = nextConfig.webpack;
+  
+  nextConfig.webpack = (config, options) => {
+    if (!options.isServer) {
+      config.optimization.minimizer.forEach((plugin) => {
+        if (plugin.constructor.name === 'TerserPlugin') {
+          plugin.options.terserOptions.compress.drop_console = true;
+        }
+      });
+    }
+    
+    if (originalWebpack) {
+      return originalWebpack(config, options);
+    }
+    return config;
   };
 }
 
