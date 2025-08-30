@@ -1,5 +1,6 @@
 const webpack = require('webpack');
 const WebpackObfuscator = require('webpack-obfuscator');
+const { BundleAnalyzerPlugin } = require('webpack-bundle-analyzer');
 
 const withPWA = require("@ducanh2912/next-pwa").default({
   dest: "public",
@@ -180,8 +181,8 @@ const nextConfig = withPWA({
     ];
   },
   
-  // Webpack configuration
-  webpack: (config, { dev, isServer, buildId, defaultLoaders }) => {
+  // Webpack configuration - FIXED
+  webpack: (config, { dev, isServer, buildId, defaultLoaders, webpack }) => {
     // Only add obfuscation in production and client-side
     if (!dev && !isServer) {
       console.log('🔒 Applying webpack obfuscation for production build...');
@@ -189,18 +190,42 @@ const nextConfig = withPWA({
       // Add webpack obfuscator
       config.plugins.push(
         new WebpackObfuscator({
-          rotateStringArray: true,
-          stringArray: true,
-          stringArrayThreshold: 0.75,
-          disableConsoleOutput: false, // Set to false to avoid issues
-          debugProtection: false, // Disable debug protection to avoid issues
-          selfDefending: true,
           compact: true,
-          // Exclude certain files from obfuscation
-          exclude: [
-            'node_modules/**',
-            '**/*.map'
-          ]
+          controlFlowFlattening: false,
+          deadCodeInjection: false,
+          debugProtection: false,
+          debugProtectionInterval: 0,
+          disableConsoleOutput: true,
+          identifierNamesGenerator: 'hexadecimal',
+          log: false, // Fixed: isLog was not defined
+          numbersToExpressions: false,
+          renameGlobals: false,
+          selfDefending: true,
+          simplify: true,
+          splitStrings: false,
+          stringArray: true,
+          stringArrayCallsTransform: false,
+          stringArrayEncoding: [],
+          stringArrayIndexShift: true,
+          stringArrayRotate: true,
+          stringArrayShuffle: true,
+          stringArrayWrappersCount: 1,
+          stringArrayWrappersChainedCalls: true,
+          stringArrayWrappersParametersMaxCount: 2,
+          stringArrayWrappersType: 'variable',
+          stringArrayThreshold: 0.75,
+          unicodeEscapeSequence: false
+        })
+      );
+    }
+    
+    // Add Bundle Analyzer in production (optional)
+    if (process.env.ANALYZE && !isServer) {
+      config.plugins.push(
+        new BundleAnalyzerPlugin({
+          analyzerMode: 'static',
+          openAnalyzer: true,
+          reportFilename: isServer ? '../analyze/server.html' : './analyze/client.html'
         })
       );
     }
@@ -264,6 +289,7 @@ const nextConfig = withPWA({
         splitChunks: {
           ...config.optimization.splitChunks,
           chunks: 'all',
+          maxSize: 200000, // 200KB - Added to limit chunk size
           cacheGroups: {
             ...config.optimization.splitChunks.cacheGroups,
             vendor: {
@@ -271,6 +297,7 @@ const nextConfig = withPWA({
               name: 'vendors',
               chunks: 'all',
               priority: 10,
+              enforce: true,
             },
             common: {
               name: 'common',
@@ -278,6 +305,7 @@ const nextConfig = withPWA({
               chunks: 'all',
               priority: 5,
               reuseExistingChunk: true,
+              enforce: true,
             },
           },
         },
@@ -294,8 +322,8 @@ const nextConfig = withPWA({
     // Performance hints
     config.performance = {
       ...config.performance,
-      maxAssetSize: 1000000, // 1MB
-      maxEntrypointSize: 1000000, // 1MB
+      maxAssetSize: 500000, // Reduced from 1MB to 500KB
+      maxEntrypointSize: 500000, // Reduced from 1MB to 500KB
     };
     
     console.log(`📦 Webpack config applied for ${dev ? 'development' : 'production'} ${isServer ? 'server' : 'client'} build`);
@@ -303,10 +331,38 @@ const nextConfig = withPWA({
     return config;
   },
   
-  // Environment variables
-  // Redirects
+  // Compress and optimize more aggressively
+  compress: true,
   
-  // Rewrites for API routes
+  // Enable gzip compression
+  onDemandEntries: {
+    maxInactiveAge: 25 * 1000,
+    pagesBufferLength: 2,
+  },
+  
+  // Environment variables
 });
+
+// Remove console.log in production
+if (process.env.NODE_ENV !== 'development') {
+  const originalConfig = nextConfig;
+  nextConfig = {
+    ...originalConfig,
+    webpack: (config, options) => {
+      if (!options.isServer) {
+        config.optimization.minimizer.forEach((plugin) => {
+          if (plugin.constructor.name === 'TerserPlugin') {
+            plugin.options.terserOptions.compress.drop_console = true;
+          }
+        });
+      }
+      
+      if (originalConfig.webpack) {
+        return originalConfig.webpack(config, options);
+      }
+      return config;
+    },
+  };
+}
 
 module.exports = nextConfig;
