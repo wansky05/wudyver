@@ -15,7 +15,9 @@ const {
   createSecureHeaders
 } = require("next-secure-headers");
 const apiConfig = {
-  DOMAIN_URL: "wudysoft.xyz"
+  DOMAIN_URL: "wudysoft.xyz",
+  LIMIT_POINTS: 100,
+  LIMIT_DURATION: 60
 };
 const securityHeaders = [...createSecureHeaders({
   frameGuard: "deny",
@@ -23,16 +25,16 @@ const securityHeaders = [...createSecureHeaders({
   referrerPolicy: "strict-origin-when-cross-origin"
 }), {
   key: "Content-Security-Policy",
-  value: "frame-ancestors 'none'; block-all-mixed-content; upgrade-insecure-requests;"
+  value: "default-src 'self'; script-src 'self' 'unsafe-eval' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; font-src 'self'; object-src 'none'; base-uri 'self'; form-action 'self'; frame-ancestors 'none'; block-all-mixed-content; upgrade-insecure-requests;"
 }, {
   key: "Permissions-Policy",
-  value: "camera=(), microphone=(), geolocation=(), browsing-topics=()"
+  value: "camera=(), microphone=(), geolocation=(), interest-cohort=()"
 }, {
   key: "X-DNS-Prefetch-Control",
   value: "on"
 }, {
   key: "Strict-Transport-Security",
-  value: "max-age=63072000; includeSubDomains; preload"
+  value: "max-age=31536000; includeSubDomains"
 }, {
   key: "X-Content-Type-Options",
   value: "nosniff"
@@ -97,6 +99,18 @@ const nextConfig = withPWA({
       }, {
         key: "Access-Control-Allow-Headers",
         value: "Content-Type, Authorization, X-Requested-With, Accept, Accept-Version, Content-Length, Content-MD5, Date, X-Api-Version, Origin, X-CSRF-Token"
+      }, {
+        key: "X-RateLimit-Limit",
+        value: apiConfig.LIMIT_POINTS.toString()
+      }, {
+        key: "X-RateLimit-Remaining",
+        value: apiConfig.LIMIT_POINTS.toString()
+      }, {
+        key: "X-RateLimit-Reset",
+        value: Math.ceil(Date.now() / 1e3 + apiConfig.LIMIT_DURATION).toString()
+      }, {
+        key: "X-RateLimit-Type",
+        value: "api"
       }]
     }, {
       source: "/_next/static/(.*)",

@@ -10,8 +10,11 @@ import axios from "axios";
 import {
   RateLimiterMemory
 } from "rate-limiter-flexible";
-import NextCors from "nextjs-cors";
 import requestIp from "request-ip";
+import NextCors from "nextjs-cors";
+export const config = {
+  matcher: ["/api/:path*", "/((?!api|_next/static|_next/image|favicon.ico|manifest.json|sw.js|workbox-.*).*)"]
+};
 
 function getClientIp(req) {
   try {
@@ -55,12 +58,13 @@ const axiosInstance = axios.create({
   }
 });
 const rateLimiter = new RateLimiterMemory({
-  points: apiConfig.LIMIT_POINTS,
-  duration: apiConfig.LIMIT_DURATION
+  points: apiConfig.LIMIT_POINTS || 100,
+  duration: apiConfig.LIMIT_DURATION || 60
 });
-export const config = {
-  matcher: ["/((?!api|_next/static|_next/image|favicon.ico|manifest.json|sw.js|workbox-.*).*)"]
-};
+const pageRateLimiter = new RateLimiterMemory({
+  points: apiConfig.LIMIT_POINTS || 30,
+  duration: apiConfig.LIMIT_DURATION || 60
+});
 
 function ensureProtocol(url, defaultProtocol) {
   if (!url.startsWith("http://") && !url.startsWith("https://")) {
@@ -71,6 +75,14 @@ function ensureProtocol(url, defaultProtocol) {
 
 function addSecurityHeaders(response) {
   const cspHeader = `
+    default-src 'self';
+    script-src 'self' 'unsafe-eval' 'unsafe-inline';
+    style-src 'self' 'unsafe-inline';
+    img-src 'self' data: blob:;
+    font-src 'self';
+    object-src 'none';
+    base-uri 'self';
+    form-action 'self';
     frame-ancestors 'none';
     block-all-mixed-content;
     upgrade-insecure-requests;
@@ -79,8 +91,9 @@ function addSecurityHeaders(response) {
   response.headers.set("X-Frame-Options", "DENY");
   response.headers.set("X-XSS-Protection", "1; mode=block");
   response.headers.set("Referrer-Policy", "strict-origin-when-cross-origin");
-  response.headers.set("Permissions-Policy", "camera=(), microphone=(), geolocation=()");
+  response.headers.set("Permissions-Policy", "camera=(), microphone=(), geolocation=(), interest-cohort=()");
   response.headers.set("Content-Security-Policy", cspHeader);
+  response.headers.set("Strict-Transport-Security", "max-age=31536000; includeSubDomains");
   return response;
 }
 
@@ -100,16 +113,20 @@ function addCorsHeaders(response) {
   return response;
 }
 
-function addRateLimitHeaders(response, rateLimiterRes = null, totalLimit = null) {
+function addRateLimitHeaders(response, rateLimiterRes = null, totalLimit = null, rateLimitType = "api") {
+  const limit = totalLimit || (rateLimitType === "api" ? apiConfig.LIMIT_POINTS : apiConfig.PAGE_LIMIT_POINTS);
   if (rateLimiterRes) {
-    response.headers.set("X-RateLimit-Limit", totalLimit || apiConfig.LIMIT_POINTS);
-    response.headers.set("X-RateLimit-Remaining", rateLimiterRes.remainingPoints);
-    response.headers.set("X-RateLimit-Reset", Math.ceil((Date.now() + rateLimiterRes.msBeforeNext) / 1e3));
+    response.headers.set("X-RateLimit-Limit", limit.toString());
+    response.headers.set("X-RateLimit-Remaining", rateLimiterRes.remainingPoints.toString());
+    response.headers.set("X-RateLimit-Reset", Math.ceil((Date.now() + rateLimiterRes.msBeforeNext) / 1e3).toString());
+    response.headers.set("X-RateLimit-Type", rateLimitType);
   } else {
-    response.headers.set("X-RateLimit-Limit", totalLimit || apiConfig.LIMIT_POINTS);
-    response.headers.set("X-RateLimit-Remaining", apiConfig.LIMIT_POINTS);
-    response.headers.set("X-RateLimit-Reset", Math.ceil(Date.now() / 1e3) + apiConfig.LIMIT_DURATION);
+    response.headers.set("X-RateLimit-Limit", limit.toString());
+    response.headers.set("X-RateLimit-Remaining", limit.toString());
+    response.headers.set("X-RateLimit-Reset", Math.ceil(Date.now() / 1e3 + (rateLimitType === "api" ? apiConfig.LIMIT_DURATION : apiConfig.PAGE_LIMIT_DURATION)).toString());
+    response.headers.set("X-RateLimit-Type", rateLimitType);
   }
+  response.headers.set("X-RateLimit-Policy", `${limit};w=${rateLimitType === "api" ? apiConfig.LIMIT_DURATION : apiConfig.PAGE_LIMIT_DURATION}`);
   return response;
 }
 async function performTracking(req) {
@@ -151,6 +168,15 @@ export async function middleware(req) {
   let response = NextResponse.next();
   try {
     const isApiRoute = pathname.startsWith("/api");
+    if (isApiRoute) {
+      await NextCors(req, response, {
+        methods: ["GET", "HEAD", "PUT", "PATCH", "POST", "DELETE", "OPTIONS"],
+        origin: "*",
+        credentials: true,
+        optionsSuccessStatus: 200,
+        allowedHeaders: ["Content-Type", "Authorization", "X-Requested-With", "Accept", "Accept-Version", "Content-Length", "Content-MD5", "Date", "X-Api-Version", "Origin", "X-CSRF-Token"]
+      });
+    }
     const isLoginRoute = pathname === "/login";
     const isRegisterRoute = pathname === "/register";
     const isAuthPage = isLoginRoute || isRegisterRoute;
@@ -173,48 +199,52 @@ export async function middleware(req) {
       });
       response = addCorsHeaders(response);
       response = addSecurityHeaders(response);
+      response = addRateLimitHeaders(response, null, null, isApiRoute ? "api" : "page");
       return response;
     }
     let rateLimiterRes = null;
-    if (isApiRoute && !isVisitorApi && !isAuthApi && !isGeneralApi) {
-      console.log(`[Middleware-RateLimit] Menerapkan Rate Limiting untuk API: ${pathname}`);
-      try {
+    let rateLimitType = isApiRoute ? "api" : "page";
+    try {
+      if (isApiRoute && !isVisitorApi && !isAuthApi && !isGeneralApi) {
+        console.log(`[Middleware-RateLimit] Menerapkan Rate Limiting untuk API: ${pathname}`);
         rateLimiterRes = await rateLimiter.consume(ipAddress, 1);
         console.log(`[Middleware-RateLimit] Rate limit berhasil. Sisa permintaan: ${rateLimiterRes.remainingPoints}`);
-      } catch (rateLimiterError) {
-        const retryAfterSeconds = Math.ceil(rateLimiterError.msBeforeNext / 1e3);
-        const totalLimit = apiConfig.LIMIT_POINTS;
-        console.warn(`[Middleware-RateLimit] Rate limit terlampaui untuk IP: ${ipAddress}. Coba lagi dalam ${retryAfterSeconds} detik.`);
-        response = new NextResponse(JSON.stringify({
-          status: "error",
-          code: 429,
-          message: `Terlalu banyak permintaan. Anda telah melampaui batas ${totalLimit} permintaan per ${apiConfig.LIMIT_DURATION} detik. Silakan coba lagi dalam ${retryAfterSeconds} detik.`,
-          limit: totalLimit,
-          remaining: 0,
-          retryAfter: retryAfterSeconds
-        }), {
-          status: 429,
-          headers: {
-            "Content-Type": "application/json",
-            "Retry-After": retryAfterSeconds.toString()
-          }
-        });
-        response = addSecurityHeaders(response);
-        response = addCorsHeaders(response);
-        response = addRateLimitHeaders(response, null, totalLimit);
-        response.headers.set("X-RateLimit-Remaining", "0");
-        response.headers.set("X-RateLimit-Reset", Math.ceil((Date.now() + rateLimiterError.msBeforeNext) / 1e3).toString());
-        await performTracking(req);
-        return response;
+      } else if (!isApiRoute) {
+        console.log(`[Middleware-RateLimit] Menerapkan Rate Limiting untuk Halaman: ${pathname}`);
+        rateLimiterRes = await pageRateLimiter.consume(ipAddress, 1);
+        console.log(`[Middleware-RateLimit] Rate limit halaman berhasil. Sisa permintaan: ${rateLimiterRes.remainingPoints}`);
       }
+    } catch (rateLimiterError) {
+      const retryAfterSeconds = Math.ceil(rateLimiterError.msBeforeNext / 1e3);
+      const totalLimit = rateLimitType === "api" ? apiConfig.LIMIT_POINTS : apiConfig.PAGE_LIMIT_POINTS;
+      console.warn(`[Middleware-RateLimit] Rate limit terlampaui untuk IP: ${ipAddress}. Coba lagi dalam ${retryAfterSeconds} detik.`);
+      response = new NextResponse(JSON.stringify({
+        status: "error",
+        code: 429,
+        message: `Terlalu banyak permintaan. Anda telah melampaui batas ${totalLimit} permintaan per ${rateLimitType === "api" ? apiConfig.LIMIT_DURATION : apiConfig.PAGE_LIMIT_DURATION} detik. Silakan coba lagi dalam ${retryAfterSeconds} detik.`,
+        limit: totalLimit,
+        remaining: 0,
+        retryAfter: retryAfterSeconds
+      }), {
+        status: 429,
+        headers: {
+          "Content-Type": "application/json",
+          "Retry-After": retryAfterSeconds.toString()
+        }
+      });
+      response = addSecurityHeaders(response);
+      if (isApiRoute) response = addCorsHeaders(response);
+      response = addRateLimitHeaders(response, null, totalLimit, rateLimitType);
+      response.headers.set("X-RateLimit-Remaining", "0");
+      response.headers.set("X-RateLimit-Reset", Math.ceil((Date.now() + rateLimiterError.msBeforeNext) / 1e3).toString());
+      await performTracking(req);
+      return response;
     }
     response = addSecurityHeaders(response);
     if (isApiRoute) {
       response = addCorsHeaders(response);
     }
-    if (isApiRoute && !isVisitorApi && !isAuthApi && !isGeneralApi) {
-      response = addRateLimitHeaders(response, rateLimiterRes);
-    }
+    response = addRateLimitHeaders(response, rateLimiterRes, null, rateLimitType);
     const redirectUrlWithProtocol = ensureProtocol(DOMAIN_URL, DEFAULT_PROTOCOL);
     if (isApiRoute) {
       console.log(`[Middleware-Auth] API route ${pathname} diakses, melanjutkan tanpa pengecekan autentikasi.`);
@@ -227,12 +257,14 @@ export async function middleware(req) {
         await performTracking(req);
         response = NextResponse.redirect(`${redirectUrlWithProtocol}/analytics`);
         response = addSecurityHeaders(response);
+        response = addRateLimitHeaders(response, rateLimiterRes, null, rateLimitType);
         return response;
       } else if (isRootRoute) {
         console.log(`[Middleware-Auth] Pengguna terautentikasi mengakses halaman home (/). Mengarahkan ke /analytics.`);
         await performTracking(req);
         response = NextResponse.redirect(`${redirectUrlWithProtocol}/analytics`);
         response = addSecurityHeaders(response);
+        response = addRateLimitHeaders(response, rateLimiterRes, null, rateLimitType);
         return response;
       }
       console.log(`[Middleware-Auth] Pengguna terautentikasi melanjutkan ke ${pathname}.`);
@@ -245,6 +277,7 @@ export async function middleware(req) {
         await performTracking(req);
         response = NextResponse.redirect(`${redirectUrlWithProtocol}/login`);
         response = addSecurityHeaders(response);
+        response = addRateLimitHeaders(response, rateLimiterRes, null, rateLimitType);
         return response;
       }
       console.log(`[Middleware-Auth] Pengguna belum terautentikasi melanjutkan ke ${pathname}.`);
@@ -267,6 +300,7 @@ export async function middleware(req) {
     if (pathname.startsWith("/api")) {
       response = addCorsHeaders(response);
     }
+    response = addRateLimitHeaders(response, null, null, pathname.startsWith("/api") ? "api" : "page");
     return response;
   }
 }
