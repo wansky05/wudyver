@@ -1,376 +1,268 @@
 import apiConfig from "@/configs/apiConfig";
 import axios from "axios";
+
 export default async function handler(req, res) {
-  const domainName = apiConfig.DOMAIN_URL.replace(/^https?:\/\//, "").replace(/\/$/, "");
-  res.setHeader("Access-Control-Allow-Origin", "*");
-  res.setHeader("Access-Control-Allow-Methods", "GET, POST, PUT, DELETE, OPTIONS, PATCH");
-  res.setHeader("Access-Control-Allow-Headers", "Content-Type, X-Requested-With");
+  // Tidak perlu CORS headers karena kita ingin tanpa CORS
   if (req.method === "OPTIONS") {
     return res.status(200).end();
   }
+
   try {
+    const domainName = apiConfig.DOMAIN_URL.replace(/^https?:\/\//, "").replace(/\/$/, "");
     const response = await axios.get(`https://${domainName}/api/routes`);
     const routes = response.data;
+    
+    const domainKey = domainName.replace(/\./g, "");
     const tags = {};
     const schemas = {
-      [`${domainName.replace(/\./g, "")}ApiResponse`]: {
+      // Schema yang lebih minimalis dengan emoji
+      [`${domainKey}ApiResponse`]: {
         type: "object",
         properties: {
-          status: {
-            type: "string",
-            description: "Status operasi (misalnya, success, error, pending).",
+          status: { 
+            type: "string", 
             enum: ["success", "error", "processing"],
-            default: "success"
+            description: "📊 Status operasi" 
           },
-          timestamp: {
-            type: "string",
+          timestamp: { 
+            type: "string", 
             format: "date-time",
-            description: "Stempel waktu UTC saat respons dibuat."
+            description: "🕒 Stempel waktu UTC" 
           },
-          payload: {
+          payload: { 
             type: "object",
-            description: "Muatan utama dari respons data."
+            description: "📦 Muatan data respons" 
           },
-          message: {
+          message: { 
             type: "string",
-            description: "Pesan yang mudah dibaca tentang operasi."
+            description: "💬 Pesan informatif" 
           },
-          [`${domainName.replace(/\./g, "")}TraceId`]: {
-            type: "string",
-            format: "uuid",
-            description: `Pengidentifikasi unik untuk melacak transaksi terdistribusi dalam ekosistem ${domainName}.`,
-            readOnly: true
-          },
-          processingTimeMs: {
+          processingTimeMs: { 
             type: "integer",
-            description: "Waktu pemrosesan di sisi server dalam milidetik.",
-            readOnly: true
+            description: "⚡ Waktu pemrosesan (ms)" 
           }
         },
         required: ["status", "timestamp", "payload"]
       },
-      [`${domainName.replace(/\./g, "")}ErrorResponse`]: {
+      [`${domainKey}ErrorResponse`]: {
         type: "object",
         properties: {
-          errorCode: {
+          errorCode: { 
             type: "integer",
-            format: "int32",
-            description: `Kode error spesifik aplikasi dari ${domainName}.`,
-            example: 1001
+            description: "🚨 Kode error" 
           },
-          errorMessage: {
+          errorMessage: { 
             type: "string",
-            description: `Pesan error terperinci dari sistem ${domainName}.`,
-            example: "Permintaan tidak dapat diproses. Konfigurasi data tidak valid."
+            description: "📝 Deskripsi error" 
           },
           errorDetails: {
             type: "array",
+            description: "🔍 Detail error",
             items: {
               type: "object",
               properties: {
-                field: {
-                  type: "string",
-                  description: "Bidang yang terkait dengan error."
-                },
-                issue: {
-                  type: "string",
-                  description: "Masalah spesifik yang terdeteksi."
-                },
-                suggestedAction: {
-                  type: "string",
-                  description: "Tindakan yang disarankan untuk mengatasi masalah."
-                }
+                field: { type: "string" },
+                issue: { type: "string" }
               }
-            },
-            description: "Masalah spesifik terkait permintaan (misalnya, error validasi)."
-          },
-          correlationId: {
-            type: "string",
-            format: "uuid",
-            description: `ID korelasi unik untuk membantu debugging error di sistem ${domainName}.`,
-            readOnly: true
+            }
           }
         },
         required: ["errorCode", "errorMessage"]
-      },
-      [`${domainName.replace(/\./g, "")}GenericSuccess`]: {
-        type: "object",
-        properties: {
-          confirmationMessage: {
-            type: "string",
-            description: `Pesan konfirmasi bahwa operasi berhasil diselesaikan oleh ${domainName}.`,
-            example: `Operasi berhasil diselesaikan oleh ${domainName}.`
-          },
-          resourceId: {
-            type: "string",
-            description: "ID sumber daya yang baru dibuat atau dimodifikasi, jika berlaku.",
-            nullable: true
-          },
-          statusLink: {
-            type: "string",
-            format: "url",
-            description: "Tautan untuk memeriksa status sumber daya atau operasi ini.",
-            nullable: true
-          }
-        }
       }
     };
-    routes.forEach(({
-      path,
-      name,
-      method,
-      params,
-      responseSchema,
-      requestSchema
-    }) => {
-      const tag = path.split("/api/")[1]?.split("/")[0]?.toUpperCase() || "GENERAL";
+
+    // Fungsi untuk mendapatkan emoji berdasarkan nama folder
+    const getFolderIcon = (folderName) => {
+      const iconMap = {
+        'ai': '🤖',           // AI - robot
+        'auth': '🔐',         // Auth - lock
+        'auth-v2': '🔒',      // Auth v2 - locked
+        'film': '🎬',         // Film - clapperboard
+        'general': '🌐',      // General - globe
+        'info': 'ℹ️',         // Info - information
+        'maker': '🛠️',        // Maker - tools
+        'nsfw': '🔞',         // NSFW - adult content
+        'other': '📦',        // Other - package
+        'random': '🎲',       // Random - dice
+        'search': '🔍',       // Search - magnifying glass
+        'stalker': '👁️',      // Stalker - eye
+        'top-up': '💰',       // Top-up - money
+        'anime': '🎌',        // Anime - japanese flag
+        'canvas': '🎨',       // Canvas - art
+        'download': '📥',     // Download - inbox tray
+        'game': '🎮',         // Game - video game
+        'gpt': '🧠',          // GPT - brain
+        'islami': '☪️',       // Islami - crescent moon
+        'mails': '✉️',        // Mails - envelope
+        'misc': '📋',         // Misc - clipboard
+        'news': '📰',         // News - newspaper
+        'quotes': '💬',       // Quotes - speech bubble
+        'sound': '🔊',        // Sound - speaker
+        'tools': '🛠️',        // Tools - toolbox
+        'user': '👤',         // User - person
+        'apps': '📱',         // Apps - mobile phone
+        'fun': '🎉',          // Fun - party popper
+        'visitor': '👣',      // Visitor - footprints
+        'default': '🔗'       // Default - link
+      };
+      
+      // Normalize folder name (lowercase, remove special characters)
+      const normalized = folderName.toLowerCase().trim();
+      return iconMap[normalized] || iconMap['default'];
+    };
+
+    // Proses routes
+    routes.forEach(({ path, name, method, params }) => {
+      // Extract tag from path (assuming format like /api/[folder]/...)
+      const pathParts = path.split('/').filter(part => part !== '');
+      const folderName = pathParts.length > 1 && pathParts[0] === 'api' ? pathParts[1] : 'general';
+      
+      const tag = folderName.toUpperCase();
       if (!tags[tag]) tags[tag] = [];
-      const openAPIParameters = (params || []).map(({
-        name: paramName,
-        required,
-        type,
+      
+      const parameters = (params || []).map(({ 
+        name: paramName, 
+        required, 
+        type, 
         description,
-        example,
-        enum: paramEnum,
-        in: paramIn = "query"
+        example
       }) => ({
         name: paramName,
-        in: paramIn,
+        in: "query",
         required: required,
-        description: description || `Parameter esensial untuk operasi '${name}'.`,
-        schema: {
-          type: type || "string",
-          default: `sample_${paramName}_value`,
-          ...paramEnum && {
-            enum: paramEnum
-          }
-        },
-        ...example && {
-          example: example
-        }
+        description: description || `Parameter untuk '${name}'`,
+        schema: { type: type || "string" },
+        example: example || `sample_${paramName}`
       }));
-      if (responseSchema && !schemas[responseSchema.name]) {
-        schemas[responseSchema.name] = responseSchema.definition;
-      }
-      if (requestSchema && !schemas[requestSchema.name]) {
-        schemas[requestSchema.name] = requestSchema.definition;
-      }
+
       tags[tag].push({
-        path: path,
-        name: name,
+        path,
+        name,
         method: method ? method.toLowerCase() : "get",
-        parameters: openAPIParameters,
-        responseSchema: responseSchema?.name,
-        requestSchema: requestSchema?.name
+        parameters,
+        folder: folderName
       });
     });
+
+    // OpenAPI spec yang futuristik dengan emoji
     const openAPISpec = {
       openapi: "3.1.0",
       info: {
-        title: `${domainName} REST API Documentation - Unsecured Access`,
-        description: `**Selamat datang di ${domainName} REST API!** Dokumen ini menyediakan gambaran umum yang dihasilkan secara otomatis dan komprehensif dari semua titik akhir yang tersedia untuk ${domainName}.
-        \n\nDidesain untuk prototipe cepat dan akses data terbuka, versi ini beroperasi secara eksplisit tanpa langkah-langkah keamanan.
-        Jelajahi kemampuan platform ${domainName} dengan akses tanpa batas!
-        \n\n_Catatan: API ini hanya untuk tujuan demonstrasi dan akses data terbuka. Untuk produksi, lapisan keamanan sangat penting._`,
-        version: "1.0.0-beta.release",
+        title: `🚀 ${domainName} API • Futuristic Edition`,
+        description: `## 🌌 Next-Gen API Experience\n\n**${domainName} API** dengan desain minimalis dan pengalaman futuristik.\n\n### ✨ Fitur Unggulan:\n- 🔧 **Minimalis & Efisien** - Antarmuka yang bersih dan mudah digunakan\n- 🚀 **Performansi Tinggi** - Respon cepat dan optimal\n- 🎯 **Fokus Konten** - Informasi penting yang mudah dicari\n- 🔮 **Desain Futuristik** - Pengalaman visual yang modern\n\n> 💡 *API ini didesain untuk pengembangan cepat dan integrasi yang mudah*`,
+        version: "1.0.0",
         contact: {
-          name: `Tim ${domainName}`,
+          name: `👨‍💻 Tim ${domainName}`,
           url: `https://${domainName}/support`,
-          email: `support@${domainName}.com`
-        },
-        license: {
-          name: `${domainName} Public Data License`,
-          url: `https://${domainName}/licenses`
-        },
-        termsOfService: `https://${domainName}/terms-of-service`
-      },
-      externalDocs: {
-        description: `Pelajari lebih lanjut tentang ${domainName}`,
-        url: `https://${domainName}/author`
+          email: `support@${domainName}`
+        }
       },
       servers: [{
         url: `https://${domainName}`,
-        description: `${domainName} Production API (${domainName}) - Akses Terbuka`,
-        variables: {}
+        description: `🌐 ${domainName} Production Server`
       }],
-      tags: Object.keys(tags).map(tag => ({
-        name: tag,
-        description: `Operasi terkait dengan **modul ${tag}** dari ${domainName} API.`,
-        "x-component-group": `${domainName} Modules`
-      })),
+      tags: Object.keys(tags).map(tag => {
+        const folderName = tags[tag][0]?.folder || 'general';
+        return {
+          name: `${getFolderIcon(folderName)} ${tag}`,
+          description: `Operasi terkait dengan modul ${tag.toLowerCase()}`
+        };
+      }),
       paths: {},
       components: {
-        schemas: schemas,
+        schemas,
         responses: {
-          [`${domainName.replace(/\./g, "")}Success`]: {
-            description: `Operasi berhasil dengan struktur respons API standar ${domainName}.`,
+          "Success": {
+            description: "✅ Operasi berhasil",
             content: {
               "application/json": {
-                schema: {
-                  $ref: `#/components/schemas/${domainName.replace(/\./g, "")}ApiResponse`,
-                  properties: {
-                    payload: {
-                      type: "object",
-                      description: "Muatan data generik untuk respons yang berhasil."
-                    }
-                  }
-                },
-                examples: {}
+                schema: { $ref: `#/components/schemas/${domainKey}ApiResponse` }
               }
             }
           },
-          [`${domainName.replace(/\./g, "")}BadRequest`]: {
-            description: `Permintaan tidak dapat dipahami atau salah format oleh sistem ${domainName}.`,
+          "Error": {
+            description: "❌ Terjadi kesalahan",
             content: {
               "application/json": {
-                schema: {
-                  $ref: `#/components/schemas/${domainName.replace(/\./g, "")}ErrorResponse`
-                },
-                examples: {}
+                schema: { $ref: `#/components/schemas/${domainKey}ErrorResponse` }
               }
             }
           },
-          [`${domainName.replace(/\./g, "")}NotFound`]: {
-            description: `Sumber daya yang diminta tidak ditemukan di dalam sistem ${domainName}.`,
+          "NotFound": {
+            description: "🔍 Data tidak ditemukan",
             content: {
               "application/json": {
-                schema: {
-                  $ref: `#/components/schemas/${domainName.replace(/\./g, "")}ErrorResponse`
-                },
-                examples: {}
+                schema: { $ref: `#/components/schemas/${domainKey}ErrorResponse` }
               }
             }
-          },
-          [`${domainName.replace(/\./g, "")}InternalServerError`]: {
-            description: `Terjadi error tak terduga di server ${domainName}.`,
-            content: {
-              "application/json": {
-                schema: {
-                  $ref: `#/components/schemas/${domainName.replace(/\./g, "")}ErrorResponse`
-                },
-                examples: {}
-              }
-            }
-          },
-          [`${domainName.replace(/\./g, "")}Accepted`]: {
-            description: `Permintaan diterima untuk pemrosesan asinkron oleh ${domainName}.`,
-            content: {
-              "application/json": {
-                schema: {
-                  $ref: `#/components/schemas/${domainName.replace(/\./g, "")}GenericSuccess`,
-                  properties: {
-                    jobId: {
-                      type: "string",
-                      format: "uuid",
-                      description: `ID untuk melacak tugas asinkron di ${domainName}.`
-                    },
-                    statusUrl: {
-                      type: "string",
-                      format: "url",
-                      description: `URL untuk memeriksa status tugas asinkron di ${domainName}.`
-                    }
-                  }
-                },
-                examples: {}
-              }
-            }
+          }
+        },
+        securitySchemes: {
+          ApiKeyAuth: {
+            type: "apiKey",
+            in: "header",
+            name: "X-API-Key",
+            description: "🔑 API Key Authentication"
           }
         }
       },
-      security: []
+      security: [{
+        ApiKeyAuth: []
+      }]
     };
-    Object.entries(tags).forEach(([tag, endpoints]) => {
-      endpoints.forEach(({
-        path,
-        name,
-        method,
-        parameters,
-        responseSchema,
-        requestSchema
-      }) => {
+
+    // Build paths dengan emoji untuk method
+    const getMethodEmoji = (method) => {
+      const emojiMap = {
+        'get': '📥',
+        'post': '📤',
+        'put': '🔄',
+        'delete': '🗑️',
+        'patch': '🔧'
+      };
+      return emojiMap[method] || '🔗';
+    };
+
+    Object.entries(tags).forEach(([originalTag, endpoints]) => {
+      const folderName = endpoints[0]?.folder || 'general';
+      const tag = `${getFolderIcon(folderName)} ${originalTag}`;
+      
+      endpoints.forEach(({ path, name, method, parameters }) => {
         if (!openAPISpec.paths[path]) openAPISpec.paths[path] = {};
-        const operationObject = {
+        
+        openAPISpec.paths[path][method] = {
           tags: [tag],
-          summary: `${name} (${method.toUpperCase()}) - ${domainName} Operation`,
-          description: `Mulai operasi **${method.toUpperCase()}** untuk sumber daya '${name}' melalui ${domainName} REST API. Titik akhir ini dirancang untuk interaksi data yang cepat dan tanpa keamanan.`,
-          parameters: parameters,
+          summary: `${getMethodEmoji(method)} ${name}`,
+          description: `**${method.toUpperCase()}** operation for ${name}\n\n> 💫 *Endpoint yang dirancang untuk performa optimal dan pengalaman developer yang unggul*`,
+          parameters,
           responses: {
-            200: {
-              $ref: `#/components/responses/${domainName.replace(/\./g, "")}Success`
+            "200": { 
+              description: "✅ Success",
+              $ref: "#/components/responses/Success" 
             },
-            400: {
-              $ref: `#/components/responses/${domainName.replace(/\./g, "")}BadRequest`
+            "400": { 
+              description: "❌ Bad Request",
+              $ref: "#/components/responses/Error" 
             },
-            404: {
-              $ref: `#/components/responses/${domainName.replace(/\./g, "")}NotFound`
+            "404": { 
+              description: "🔍 Not Found",
+              $ref: "#/components/responses/NotFound" 
             },
-            500: {
-              $ref: `#/components/responses/${domainName.replace(/\./g, "")}InternalServerError`
-            },
-            202: {
-              $ref: `#/components/responses/${domainName.replace(/\./g, "")}Accepted`
+            "500": { 
+              description: "🚨 Server Error",
+              $ref: "#/components/responses/Error" 
             }
           }
         };
-        if (["post", "put", "patch"].includes(method)) {
-          operationObject.requestBody = {
-            description: `Muatan data untuk operasi ${method.toUpperCase()} yang akan diproses oleh ${domainName}.`,
-            required: true,
-            content: {
-              "application/json": {
-                schema: requestSchema ? {
-                  $ref: `#/components/schemas/${requestSchema}`
-                } : {
-                  type: "object",
-                  properties: parameters.reduce((acc, {
-                    name: paramName,
-                    schema
-                  }) => {
-                    if (paramName && schema) {
-                      acc[paramName] = {
-                        type: schema.type || "string",
-                        default: `sample_data_for_${paramName}`,
-                        description: `Nilai contoh untuk ${paramName}.`,
-                        ...schema.enum && {
-                          enum: schema.enum
-                        }
-                      };
-                    }
-                    return acc;
-                  }, {})
-                },
-                examples: {}
-              }
-            }
-          };
-          operationObject.responses[method === "post" ? 201 : 200] = {
-            $ref: `#/components/responses/${domainName.replace(/\./g, "")}Success`,
-            description: method === "post" ? `Sumber daya berhasil dibuat di ${domainName}.` : `Sumber daya berhasil diperbarui di ${domainName}.`,
-            ...responseSchema && {
-              content: {
-                "application/json": {
-                  schema: {
-                    $ref: `#/components/schemas/${responseSchema}`
-                  }
-                }
-              }
-            }
-          };
-        }
-        openAPISpec.paths[path][method] = operationObject;
       });
     });
+
     return res.status(200).json(openAPISpec);
   } catch (error) {
-    console.error(`Gagal menghasilkan Spesifikasi OpenAPI ${domainName}:`, error);
+    console.error("❌ Failed to generate OpenAPI spec:", error);
     res.status(500).json({
       errorCode: 5001,
-      errorMessage: `Gagal menghasilkan Spesifikasi OpenAPI ${domainName}. Periksa log server untuk detail.`,
-      details: [{
-        field: "internal",
-        issue: error.message || "Error tidak diketahui selama pembuatan spesifikasi."
-      }],
-      correlationId: `err-${Date.now()}-${Math.random().toString(36).substring(2, 9)}`
+      errorMessage: "🚨 Gagal menghasilkan spesifikasi OpenAPI"
     });
   }
 }
