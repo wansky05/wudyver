@@ -26,11 +26,6 @@ const withPWA = require("@ducanh2912/next-pwa").default({
   }
 });
 
-const withTM = require('next-transpile-modules')([
-  // Tambahkan modul yang perlu di-transpile di sini
-]);
-
-const webpack = require('webpack');
 const apiConfig = {
   DOMAIN_URL: process.env.MY_DOMAIN_URL || "wudysoft.xyz"
 };
@@ -43,7 +38,7 @@ const securityHeaders = [{
   value: "max-age=63072000; includeSubDomains; preload"
 }];
 
-const nextConfig = withTM(withPWA({
+const nextConfig = withPWA({
   reactStrictMode: true,
   swcMinify: true,
   productionBrowserSourceMaps: false,
@@ -94,45 +89,31 @@ const nextConfig = withTM(withPWA({
   },
   
   webpack: (config, { dev, isServer }) => {
-    // Remove the manual process.browser definition - Next.js handles this automatically
-    
-    // Konfigurasi resolve untuk handle node: scheme
-    config.resolve = {
-      ...config.resolve,
-      alias: {
-        ...config.resolve.alias,
-        'node:module': 'module',
-        'node:buffer': 'buffer',
-        'node:util': 'util',
-        'node:process': 'process',
-      },
-      fallback: {
-        ...config.resolve.fallback,
-        module: false,
-        fs: false,
-        path: false,
-        os: false,
-        crypto: false,
-        stream: require.resolve('stream-browserify'),
-        util: require.resolve('util/'),
-        buffer: require.resolve('buffer/'),
-        process: require.resolve('process/browser'),
-      }
+    // Konfigurasi resolve dengan fallback yang diperlukan
+    config.resolve.fallback = {
+      ...config.resolve.fallback,
+      fs: false,
+      path: false,
+      os: false,
+      crypto: false,
+      stream: require.resolve('stream-browserify'),
+      util: require.resolve('util/'),
+      buffer: require.resolve('buffer/'),
+      process: require.resolve('process/browser'),
     };
 
     // Tambahkan plugin untuk provide polyfills
     config.plugins.push(
-      new webpack.ProvidePlugin({
+      new (require('webpack')).ProvidePlugin({
         process: 'process/browser',
         Buffer: ['buffer', 'Buffer'],
       })
     );
 
-    // Define global variables - REMOVE process.browser definition
+    // Define global variables
     config.plugins.push(
-      new webpack.DefinePlugin({
+      new (require('webpack')).DefinePlugin({
         'process.env.NODE_DEBUG': JSON.stringify(false),
-        // 'process.browser' is automatically set by Next.js, don't define it manually
       })
     );
 
@@ -155,6 +136,6 @@ const nextConfig = withTM(withPWA({
     
     return config;
   }
-}));
+});
 
 module.exports = nextConfig;
