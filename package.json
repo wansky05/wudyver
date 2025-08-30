@@ -94,6 +94,7 @@
     "image-size": "latest",
     "javascript-obfuscator": "latest",
     "webpack": "latest",
+    "webpack-bundle-analyzer": "latest",
     "webpack-obfuscator": "latest",
     "js-beautify": "latest",
     "js-confuser": "latest",
