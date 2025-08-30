@@ -10,7 +10,7 @@ import axios from "axios";
 import NextCors from "nextjs-cors";
 import {
   createRequire
-} from "node:module";
+} from "module";
 const require = createRequire(import.meta.url);
 const os = require("os");
 async function getClientIp(req) {
