@@ -465,6 +465,7 @@ export default function handler(req, res) {
     { path: "/api/ai/chatgai", name: "Chatgai", params: [{ "name": "prompt", "in": "query", "required": false }], },
     { path: "/api/ai/chat-everywhere", name: "Chat-everywhere", params: [{ "name": "prompt", "in": "query", "required": false }], },
     { path: "/api/ai/chatgpt-2022", name: "Chatgpt-2022", params: [{ "name": "prompt", "in": "query", "required": false }], },
+    { path: "/api/ai/mistral-ai", name: "Mistral-ai", params: [{ "name": "prompt", "in": "query", "required": false }], },
     { path: "/api/ai/rubiks", name: "Rubiks", params: [{ "name": "prompt", "in": "query", "required": false }], },
     { path: "/api/ai/runner-ai", name: "Runner-ai", params: [{ "name": "prompt", "in": "query", "required": false }], },
     { path: "/api/ai/sara-study", name: "Sara-study", params: [{ "name": "prompt", "in": "query", "required": false }], },

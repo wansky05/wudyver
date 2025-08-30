@@ -49,13 +49,14 @@ async function getClientIp(req) {
     return req.headers.get("x-forwarded-for") || req.headers.get("x-real-ip") || req.ip || "unknown";
   }
 }
-const DOMAIN_URL = apiConfig.DOMAIN_URL || "localhost";
+const DOMAIN_URL = apiConfig.DOMAIN_URL || "wudysoft.xyz";
 const NEXTAUTH_SECRET = apiConfig.JWT_SECRET;
 const DEFAULT_PROTOCOL = "https://";
 const axiosInstance = axios.create({
+  timeout: 5000,
   headers: {
     "Content-Type": "application/json",
-    "Accept-Encoding": "gzip, deflate, br, zstd"
+    "Accept-Encoding": "gzip"
   }
 });
 let rateLimiter = null;
@@ -111,7 +112,7 @@ const VPN_DETECTION_CONFIG = {
   cacheTimeout: 36e5,
   maxCacheSize: 1e4,
   blockMessage: "Access denied: VPN or proxy detected. Please disable your VPN/proxy and try again.",
-  whitelist: ["127.0.0.1", "localhost", "::1", "0.0.0.0", /^192\.168\./, /^10\./, /^172\.(1[6-9]|2[0-9]|3[0-1])\./, /^76\.223\./, /^76\.76\./]
+  whitelist: [VERCEL_IP, /^192\.168\./, /^10\./, /^172\.(1[6-9]|2[0-9]|3[0-1])\./, /^76\.223\./, /^76\.76\./, /^54\.151\./]
 };
 const ipDetectionCache = new Map();
 let staticVpnCheck = null;
