@@ -36,7 +36,6 @@
     "request-ip": "latest",
     "os": "latest",
     "stream-browserify": "latest",
-    "static-vpn-check": "latest",
     "@builder.io/partytown": "latest",
     "react": "18.2.0",
     "react-apexcharts": "^1.4.1",
