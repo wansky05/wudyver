@@ -7,12 +7,12 @@ export default async function handler(req, res) {
   try {
     const domainName = apiConfig.DOMAIN_URL.replace(/^https?:\/\//, "").replace(/\/$/, "");
     const axiosInstance = axios.create({
-  timeout: 5000,
-  headers: {
-    "Content-Type": "application/json",
-    "Accept-Encoding": "gzip"
-  }
-});
+      timeout: 5e3,
+      headers: {
+        "Content-Type": "application/json",
+        "Accept-Encoding": "gzip"
+      }
+    });
     const response = await axiosInstance.get(`https://${domainName}/api/routes`);
     const routes = response.data;
     const domainKey = domainName.replace(/\./g, "");
