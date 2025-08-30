@@ -283,43 +283,10 @@ let nextConfig = withPWA({
     if (!dev) {
       config.optimization = {
         ...config.optimization,
-        providedExports: true,
-        usedExports: true,
-        sideEffects: false,
-        concatenateModules: true,
-        splitChunks: {
-          ...config.optimization.splitChunks,
-          chunks: 'all',
-          maxSize: 200000, // 200KB - Added to limit chunk size
-          cacheGroups: {
-            ...config.optimization.splitChunks.cacheGroups,
-            vendor: {
-              test: /[\\/]node_modules[\\/]/,
-              name: 'vendors',
-              chunks: 'all',
-              priority: 10,
-              enforce: true,
-            },
-            common: {
-              name: 'common',
-              minChunks: 2,
-              chunks: 'all',
-              priority: 5,
-              reuseExistingChunk: true,
-              enforce: true,
-            },
-          },
-        },
       };
     }
     
     // Custom loaders
-    // Ignore warnings for certain modules
-    config.ignoreWarnings = [
-      /Module not found: Error: Can't resolve 'encoding'/,
-      /Critical dependency: the request of a dependency is an expression/,
-    ];
-    
     // Performance hints
     config.performance = {
       ...config.performance,
