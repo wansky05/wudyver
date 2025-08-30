@@ -97,15 +97,6 @@ const nextConfig = withPWA({
       }, {
         key: "Access-Control-Allow-Headers",
         value: "Content-Type, Authorization, X-Requested-With, Accept, Accept-Version, Content-Length, Content-MD5, Date, X-Api-Version, Origin, X-CSRF-Token"
-      }, {
-        key: "X-RateLimit-Limit",
-        value: "100"
-      }, {
-        key: "X-RateLimit-Remaining",
-        value: "99"
-      }, {
-        key: "X-RateLimit-Reset",
-        value: Math.floor(Date.now() / 1e3) + 3600
       }]
     }, {
       source: "/_next/static/(.*)",
