@@ -14,7 +14,6 @@ const GITHUB_ID = process.env.MY_GITHUB_ID || "";
 const GITHUB_SECRET = process.env.MY_GITHUB_SECRET || "";
 const SONIVA_KEY = process.env.MY_SONIVA_KEY || "";
 const SUNOAPI_KEY = process.env.MY_SUNOAPI_KEY || "";
-const VERCEL_IP = process.env.VERCEL_IP || "";
 const apiConfig = {
   PASSWORD: PASSWORD,
   MONGODB_URI: MONGODB_URI,
@@ -28,7 +27,6 @@ const apiConfig = {
   JWT_SECRET: JWT_SECRET,
   SONIVA_KEY: SONIVA_KEY,
   SUNOAPI_KEY: SUNOAPI_KEY,
-  VERCEL_IP: VERCEL_IP,
   GOOGLE_CLIENT_ID: GOOGLE_CLIENT_ID,
   GOOGLE_CLIENT_SECRET: GOOGLE_CLIENT_SECRET,
   GITHUB_ID: GITHUB_ID,
@@ -38,7 +36,7 @@ const validateAllConfig = () => {
   let hasError = false;
   for (const key in apiConfig) {
     if (typeof apiConfig[key] === "string" && apiConfig[key].trim() === "") {
-      console.info(`FATAL CONFIG ERROR: ${key} is not defined. Please set it in your environment variables.`);
+      console.info(`FATAL CONFIG ERROR: ${key} is not set. Please set it in your environment variables.`);
       hasError = true;
     }
   }

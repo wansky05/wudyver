@@ -34,6 +34,7 @@
     "rate-limiter-flexible": "latest",
     "nextjs-cors": "latest",
     "request-ip": "latest",
+    "os": "latest",
     "static-vpn-check": "latest",
     "@builder.io/partytown": "latest",
     "react": "18.2.0",

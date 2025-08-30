@@ -7,26 +7,11 @@ import {
 } from "next-auth/jwt";
 import apiConfig from "@/configs/apiConfig";
 import axios from "axios";
+import os from "os";
 import NextCors from "nextjs-cors";
-const createRequire = modulePath => {
-  return id => {
-    if (typeof globalThis.process === "undefined") {
-      globalThis.process = {
-        env: {}
-      };
-    }
-    switch (id) {
-      case "rate-limiter-flexible":
-        return import("rate-limiter-flexible").then(mod => mod.default || mod);
-      case "static-vpn-check":
-        return import("static-vpn-check").then(mod => mod.default || mod);
-      case "request-ip":
-        return import("request-ip").then(mod => mod.default || mod);
-      default:
-        throw new Error(`Module ${id} not found`);
-    }
-  };
-};
+import {
+  createRequire
+} from "module";
 const require = createRequire(import.meta.url);
 async function getClientIp(req) {
   try {
@@ -53,7 +38,7 @@ const DOMAIN_URL = apiConfig.DOMAIN_URL || "wudysoft.xyz";
 const NEXTAUTH_SECRET = apiConfig.JWT_SECRET;
 const DEFAULT_PROTOCOL = "https://";
 const axiosInstance = axios.create({
-  timeout: 5000,
+  timeout: 5e3,
   headers: {
     "Content-Type": "application/json",
     "Accept-Encoding": "gzip"
@@ -106,13 +91,35 @@ function createSimpleRateLimiter() {
     }
   };
 }
+
+function getServerInternalIps() {
+  const interfaces = os.networkInterfaces();
+  const internalIps = [];
+  for (const interfaceName of Object.keys(interfaces)) {
+    for (const iface of interfaces[interfaceName]) {
+      if (iface.family === "IPv4" && !iface.internal) {
+        internalIps.push(iface.address);
+      }
+    }
+  }
+  return internalIps.length > 0 ? internalIps : ["127.0.0.1"];
+}
+
+function generateInternalIpPatterns() {
+  const ips = getServerInternalIps();
+  return ips.map(ip => {
+    const escapedIp = ip.replace(/\./g, "\\.");
+    return new RegExp(`^${escapedIp}`);
+  });
+}
+const internalIpPatterns = generateInternalIpPatterns();
 const VPN_DETECTION_CONFIG = {
   enabled: apiConfig.VPN_DETECTION_ENABLED !== false,
   blockVpn: true,
   cacheTimeout: 36e5,
   maxCacheSize: 1e4,
   blockMessage: "Access denied: VPN or proxy detected. Please disable your VPN/proxy and try again.",
-  whitelist: [apiConfig.VERCEL_IP, /^192\.168\./, /^10\./, /^172\.(1[6-9]|2[0-9]|3[0-1])\./, /^76\.223\./, /^76\.76\./, /^54\.151\./, /^54\.255\./]
+  whitelist: [/^192\.168\./, /^10\./, /^172\.(1[6-9]|2[0-9]|3[0-1])\./, /^127\.0\.0\.1$/, /^::1$/, /^76\.223\./, /^76\.76\./, ...internalIpPatterns]
 };
 const ipDetectionCache = new Map();
 let staticVpnCheck = null;

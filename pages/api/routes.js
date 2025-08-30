@@ -896,6 +896,7 @@ export default function handler(req, res) {
     { path: "/api/general/nb-script", name: "Nb-script", params: [{ "name": "prompt", "in": "query", "required": false }], },
     { path: "/api/general/system-stats", name: "System-stats", params: [{ "name": "prompt", "in": "query", "required": false }], },
     { path: "/api/general/api-stats", name: "Api-stats", params: [{ "name": "prompt", "in": "query", "required": false }], },
+    { path: "/api/general/os", name: "Os", params: [{ "name": "prompt", "in": "query", "required": false }], },
     { path: "/api/gpt/bestim", name: "Bestim", params: [{ "name": "prompt", "in": "query", "required": false }], },
     { path: "/api/gpt/c3", name: "C3", params: [{ "name": "prompt", "in": "query", "required": false }], },
     { path: "/api/gpt/contract", name: "Contract", params: [{ "name": "prompt", "in": "query", "required": false }], },
