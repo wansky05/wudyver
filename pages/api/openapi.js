@@ -1,45 +1,47 @@
 import apiConfig from "@/configs/apiConfig";
 import axios from "axios";
-
 export default async function handler(req, res) {
-  // Tidak perlu CORS headers karena kita ingin tanpa CORS
   if (req.method === "OPTIONS") {
     return res.status(200).end();
   }
-
   try {
     const domainName = apiConfig.DOMAIN_URL.replace(/^https?:\/\//, "").replace(/\/$/, "");
-    const response = await axios.get(`https://${domainName}/api/routes`);
+    const axiosInstance = axios.create({
+  timeout: 5000,
+  headers: {
+    "Content-Type": "application/json",
+    "Accept-Encoding": "gzip"
+  }
+});
+    const response = await axiosInstance.get(`https://${domainName}/api/routes`);
     const routes = response.data;
-    
     const domainKey = domainName.replace(/\./g, "");
     const tags = {};
     const schemas = {
-      // Schema yang lebih minimalis dengan emoji
       [`${domainKey}ApiResponse`]: {
         type: "object",
         properties: {
-          status: { 
-            type: "string", 
-            enum: ["success", "error", "processing"],
-            description: "📊 Status operasi" 
-          },
-          timestamp: { 
-            type: "string", 
-            format: "date-time",
-            description: "🕒 Stempel waktu UTC" 
-          },
-          payload: { 
-            type: "object",
-            description: "📦 Muatan data respons" 
-          },
-          message: { 
+          status: {
             type: "string",
-            description: "💬 Pesan informatif" 
+            enum: ["success", "error", "processing"],
+            description: "📊 Status operasi"
           },
-          processingTimeMs: { 
+          timestamp: {
+            type: "string",
+            format: "date-time",
+            description: "🕒 Stempel waktu UTC"
+          },
+          payload: {
+            type: "object",
+            description: "📦 Muatan data respons"
+          },
+          message: {
+            type: "string",
+            description: "💬 Pesan informatif"
+          },
+          processingTimeMs: {
             type: "integer",
-            description: "⚡ Waktu pemrosesan (ms)" 
+            description: "⚡ Waktu pemrosesan (ms)"
           }
         },
         required: ["status", "timestamp", "payload"]
@@ -47,13 +49,13 @@ export default async function handler(req, res) {
       [`${domainKey}ErrorResponse`]: {
         type: "object",
         properties: {
-          errorCode: { 
+          errorCode: {
             type: "integer",
-            description: "🚨 Kode error" 
+            description: "🚨 Kode error"
           },
-          errorMessage: { 
+          errorMessage: {
             type: "string",
-            description: "📝 Deskripsi error" 
+            description: "📝 Deskripsi error"
           },
           errorDetails: {
             type: "array",
@@ -61,8 +63,12 @@ export default async function handler(req, res) {
             items: {
               type: "object",
               properties: {
-                field: { type: "string" },
-                issue: { type: "string" }
+                field: {
+                  type: "string"
+                },
+                issue: {
+                  type: "string"
+                }
               }
             }
           }
@@ -70,60 +76,56 @@ export default async function handler(req, res) {
         required: ["errorCode", "errorMessage"]
       }
     };
-
-    // Fungsi untuk mendapatkan emoji berdasarkan nama folder
-    const getFolderIcon = (folderName) => {
+    const getFolderIcon = folderName => {
       const iconMap = {
-        'ai': '🤖',           // AI - robot
-        'auth': '🔐',         // Auth - lock
-        'auth-v2': '🔒',      // Auth v2 - locked
-        'film': '🎬',         // Film - clapperboard
-        'general': '🌐',      // General - globe
-        'info': 'ℹ️',         // Info - information
-        'maker': '🛠️',        // Maker - tools
-        'nsfw': '🔞',         // NSFW - adult content
-        'other': '📦',        // Other - package
-        'random': '🎲',       // Random - dice
-        'search': '🔍',       // Search - magnifying glass
-        'stalker': '👁️',      // Stalker - eye
-        'top-up': '💰',       // Top-up - money
-        'anime': '🎌',        // Anime - japanese flag
-        'canvas': '🎨',       // Canvas - art
-        'download': '📥',     // Download - inbox tray
-        'game': '🎮',         // Game - video game
-        'gpt': '🧠',          // GPT - brain
-        'islami': '☪️',       // Islami - crescent moon
-        'mails': '✉️',        // Mails - envelope
-        'misc': '📋',         // Misc - clipboard
-        'news': '📰',         // News - newspaper
-        'quotes': '💬',       // Quotes - speech bubble
-        'sound': '🔊',        // Sound - speaker
-        'tools': '🛠️',        // Tools - toolbox
-        'user': '👤',         // User - person
-        'apps': '📱',         // Apps - mobile phone
-        'fun': '🎉',          // Fun - party popper
-        'visitor': '👣',      // Visitor - footprints
-        'default': '🔗'       // Default - link
+        ai: "🤖",
+        auth: "🔐",
+        "auth-v2": "🔒",
+        film: "🎬",
+        general: "🌐",
+        info: "ℹ️",
+        maker: "🛠️",
+        nsfw: "🔞",
+        other: "📦",
+        random: "🎲",
+        search: "🔍",
+        stalker: "👁️",
+        "top-up": "💰",
+        anime: "🎌",
+        canvas: "🎨",
+        download: "📥",
+        game: "🎮",
+        gpt: "🧠",
+        islami: "☪️",
+        mails: "✉️",
+        misc: "📋",
+        news: "📰",
+        quotes: "💬",
+        sound: "🔊",
+        tools: "🛠️",
+        user: "👤",
+        apps: "📱",
+        fun: "🎉",
+        visitor: "👣",
+        default: "🔗"
       };
-      
-      // Normalize folder name (lowercase, remove special characters)
       const normalized = folderName.toLowerCase().trim();
-      return iconMap[normalized] || iconMap['default'];
+      return iconMap[normalized] || iconMap["default"];
     };
-
-    // Proses routes
-    routes.forEach(({ path, name, method, params }) => {
-      // Extract tag from path (assuming format like /api/[folder]/...)
-      const pathParts = path.split('/').filter(part => part !== '');
-      const folderName = pathParts.length > 1 && pathParts[0] === 'api' ? pathParts[1] : 'general';
-      
+    routes.forEach(({
+      path,
+      name,
+      method,
+      params
+    }) => {
+      const pathParts = path.split("/").filter(part => part !== "");
+      const folderName = pathParts.length > 1 && pathParts[0] === "api" ? pathParts[1] : "general";
       const tag = folderName.toUpperCase();
       if (!tags[tag]) tags[tag] = [];
-      
-      const parameters = (params || []).map(({ 
-        name: paramName, 
-        required, 
-        type, 
+      const parameters = (params || []).map(({
+        name: paramName,
+        required,
+        type,
         description,
         example
       }) => ({
@@ -131,20 +133,19 @@ export default async function handler(req, res) {
         in: "query",
         required: required,
         description: description || `Parameter untuk '${name}'`,
-        schema: { type: type || "string" },
+        schema: {
+          type: type || "string"
+        },
         example: example || `sample_${paramName}`
       }));
-
       tags[tag].push({
-        path,
-        name,
+        path: path,
+        name: name,
         method: method ? method.toLowerCase() : "get",
-        parameters,
+        parameters: parameters,
         folder: folderName
       });
     });
-
-    // OpenAPI spec yang futuristik dengan emoji
     const openAPISpec = {
       openapi: "3.1.0",
       info: {
@@ -162,7 +163,7 @@ export default async function handler(req, res) {
         description: `🌐 ${domainName} Production Server`
       }],
       tags: Object.keys(tags).map(tag => {
-        const folderName = tags[tag][0]?.folder || 'general';
+        const folderName = tags[tag][0]?.folder || "general";
         return {
           name: `${getFolderIcon(folderName)} ${tag}`,
           description: `Operasi terkait dengan modul ${tag.toLowerCase()}`
@@ -170,29 +171,35 @@ export default async function handler(req, res) {
       }),
       paths: {},
       components: {
-        schemas,
+        schemas: schemas,
         responses: {
-          "Success": {
+          Success: {
             description: "✅ Operasi berhasil",
             content: {
               "application/json": {
-                schema: { $ref: `#/components/schemas/${domainKey}ApiResponse` }
+                schema: {
+                  $ref: `#/components/schemas/${domainKey}ApiResponse`
+                }
               }
             }
           },
-          "Error": {
+          Error: {
             description: "❌ Terjadi kesalahan",
             content: {
               "application/json": {
-                schema: { $ref: `#/components/schemas/${domainKey}ErrorResponse` }
+                schema: {
+                  $ref: `#/components/schemas/${domainKey}ErrorResponse`
+                }
               }
             }
           },
-          "NotFound": {
+          NotFound: {
             description: "🔍 Data tidak ditemukan",
             content: {
               "application/json": {
-                schema: { $ref: `#/components/schemas/${domainKey}ErrorResponse` }
+                schema: {
+                  $ref: `#/components/schemas/${domainKey}ErrorResponse`
+                }
               }
             }
           }
@@ -210,53 +217,52 @@ export default async function handler(req, res) {
         ApiKeyAuth: []
       }]
     };
-
-    // Build paths dengan emoji untuk method
-    const getMethodEmoji = (method) => {
+    const getMethodEmoji = method => {
       const emojiMap = {
-        'get': '📥',
-        'post': '📤',
-        'put': '🔄',
-        'delete': '🗑️',
-        'patch': '🔧'
+        get: "📥",
+        post: "📤",
+        put: "🔄",
+        delete: "🗑️",
+        patch: "🔧"
       };
-      return emojiMap[method] || '🔗';
+      return emojiMap[method] || "🔗";
     };
-
     Object.entries(tags).forEach(([originalTag, endpoints]) => {
-      const folderName = endpoints[0]?.folder || 'general';
+      const folderName = endpoints[0]?.folder || "general";
       const tag = `${getFolderIcon(folderName)} ${originalTag}`;
-      
-      endpoints.forEach(({ path, name, method, parameters }) => {
+      endpoints.forEach(({
+        path,
+        name,
+        method,
+        parameters
+      }) => {
         if (!openAPISpec.paths[path]) openAPISpec.paths[path] = {};
-        
         openAPISpec.paths[path][method] = {
           tags: [tag],
           summary: `${getMethodEmoji(method)} ${name}`,
           description: `**${method.toUpperCase()}** operation for ${name}\n\n> 💫 *Endpoint yang dirancang untuk performa optimal dan pengalaman developer yang unggul*`,
-          parameters,
+          parameters: parameters,
           responses: {
-            "200": { 
+            200: {
               description: "✅ Success",
-              $ref: "#/components/responses/Success" 
+              $ref: "#/components/responses/Success"
             },
-            "400": { 
+            400: {
               description: "❌ Bad Request",
-              $ref: "#/components/responses/Error" 
+              $ref: "#/components/responses/Error"
             },
-            "404": { 
+            404: {
               description: "🔍 Not Found",
-              $ref: "#/components/responses/NotFound" 
+              $ref: "#/components/responses/NotFound"
             },
-            "500": { 
+            500: {
               description: "🚨 Server Error",
-              $ref: "#/components/responses/Error" 
+              $ref: "#/components/responses/Error"
             }
           }
         };
       });
     });
-
     return res.status(200).json(openAPISpec);
   } catch (error) {
     console.error("❌ Failed to generate OpenAPI spec:", error);

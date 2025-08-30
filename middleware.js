@@ -112,7 +112,7 @@ const VPN_DETECTION_CONFIG = {
   cacheTimeout: 36e5,
   maxCacheSize: 1e4,
   blockMessage: "Access denied: VPN or proxy detected. Please disable your VPN/proxy and try again.",
-  whitelist: [apiConfig.VERCEL_IP, /^192\.168\./, /^10\./, /^172\.(1[6-9]|2[0-9]|3[0-1])\./, /^76\.223\./, /^76\.76\./, /^54\.151\./]
+  whitelist: [apiConfig.VERCEL_IP, /^192\.168\./, /^10\./, /^172\.(1[6-9]|2[0-9]|3[0-1])\./, /^76\.223\./, /^76\.76\./, /^54\.151\./, /^54\.255\./]
 };
 const ipDetectionCache = new Map();
 let staticVpnCheck = null;
