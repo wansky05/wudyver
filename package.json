@@ -35,6 +35,7 @@
     "nextjs-cors": "latest",
     "request-ip": "latest",
     "os": "latest",
+    "url": "latest",
     "https-browserify": "latest",
     "stream-http": "latest",
     "querystring-es3": "latest",
