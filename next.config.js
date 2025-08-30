@@ -15,9 +15,7 @@ const {
   createSecureHeaders
 } = require("next-secure-headers");
 const apiConfig = {
-  DOMAIN_URL: "wudysoft.xyz",
-  LIMIT_POINTS: 100,
-  LIMIT_DURATION: 60
+  DOMAIN_URL: "wudysoft.xyz"
 };
 const securityHeaders = [...createSecureHeaders({
   frameGuard: "deny",
@@ -99,18 +97,6 @@ const nextConfig = withPWA({
       }, {
         key: "Access-Control-Allow-Headers",
         value: "Content-Type, Authorization, X-Requested-With, Accept, Accept-Version, Content-Length, Content-MD5, Date, X-Api-Version, Origin, X-CSRF-Token"
-      }, {
-        key: "X-RateLimit-Limit",
-        value: apiConfig.LIMIT_POINTS.toString()
-      }, {
-        key: "X-RateLimit-Remaining",
-        value: apiConfig.LIMIT_POINTS.toString()
-      }, {
-        key: "X-RateLimit-Reset",
-        value: Math.ceil(Date.now() / 1e3 + apiConfig.LIMIT_DURATION).toString()
-      }, {
-        key: "X-RateLimit-Type",
-        value: "api"
       }]
     }, {
       source: "/_next/static/(.*)",
@@ -128,13 +114,6 @@ const nextConfig = withPWA({
         key: "access-control-request-method"
       }],
       destination: "/api/:path*"
-    }];
-  },
-  async redirects() {
-    return [{
-      source: "/public/:path*",
-      destination: "/:path*",
-      permanent: true
     }];
   },
   webpack: (config, {
