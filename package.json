@@ -32,7 +32,6 @@
     "leaflet": "^1.9.4",
     "next": "^13.2.4",
     "rate-limiter-flexible": "latest",
-    "nextjs-cors": "latest",
     "request-ip": "latest",
     "os": "latest",
     "url": "latest",

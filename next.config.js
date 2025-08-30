@@ -23,7 +23,7 @@ const securityHeaders = [...createSecureHeaders({
   referrerPolicy: "strict-origin-when-cross-origin"
 }), {
   key: "Content-Security-Policy",
-  value: "default-src 'self'; script-src 'self' 'unsafe-eval' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; font-src 'self'; object-src 'none'; base-uri 'self'; form-action 'self'; frame-ancestors 'none'; block-all-mixed-content; upgrade-insecure-requests;"
+  value: "frame-ancestors 'none'; block-all-mixed-content; upgrade-insecure-requests;"
 }, {
   key: "Permissions-Policy",
   value: "camera=(), microphone=(), geolocation=(), interest-cohort=()"

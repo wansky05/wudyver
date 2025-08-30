@@ -1,17 +1,9 @@
-import {
-  NextResponse,
-  NextRequest
-} from "next/server";
-import {
-  getToken
-} from "next-auth/jwt";
+import { NextResponse, NextRequest } from "next/server";
+import { getToken } from "next-auth/jwt";
 import apiConfig from "@/configs/apiConfig";
 import axios from "axios";
-import {
-  RateLimiterMemory
-} from "rate-limiter-flexible";
+import { RateLimiterMemory } from "rate-limiter-flexible";
 import requestIp from "request-ip";
-import NextCors from "nextjs-cors";
 
 export const config = {
   matcher: ["/api/:path*", "/((?!api|_next/static|_next/image|favicon.ico|manifest.json|sw.js|workbox-.*).*)"]
@@ -178,14 +170,16 @@ export async function middleware(req) {
   try {
     const isApiRoute = pathname.startsWith("/api");
     
-    if (isApiRoute) {
-      await NextCors(req, response, {
-        methods: ["GET", "HEAD", "PUT", "PATCH", "POST", "DELETE", "OPTIONS"],
-        origin: "*",
-        credentials: true,
-        optionsSuccessStatus: 200,
-        allowedHeaders: ["Content-Type", "Authorization", "X-Requested-With", "Accept", "Accept-Version", "Content-Length", "Content-MD5", "Date", "X-Api-Version", "Origin", "X-CSRF-Token"]
+    // Handle CORS manually instead of using NextCors
+    if (isApiRoute && req.method === "OPTIONS") {
+      console.log(`[Middleware-CORS] Handling OPTIONS preflight request for: ${pathname}`);
+      response = new NextResponse(null, {
+        status: 200
       });
+      response = addCorsHeaders(response);
+      response = addSecurityHeaders(response);
+      response = addRateLimitHeaders(response, null, null, "api");
+      return response;
     }
     
     const isLoginRoute = pathname === "/login";
@@ -205,17 +199,6 @@ export async function middleware(req) {
     console.log("[Middleware-Main] nextAuthToken:", nextAuthToken);
     const isAuthenticated = !!nextAuthToken;
     console.log(`[Middleware-Main] Pathname: ${pathname}, Autentikasi: ${isAuthenticated ? "Ya" : "Tidak"}`);
-    
-    if (req.method === "OPTIONS") {
-      console.log(`[Middleware-CORS] Handling OPTIONS preflight request for: ${pathname}`);
-      response = new NextResponse(null, {
-        status: 200
-      });
-      response = addCorsHeaders(response);
-      response = addSecurityHeaders(response);
-      response = addRateLimitHeaders(response, null, null, isApiRoute ? "api" : "page");
-      return response;
-    }
     
     let rateLimiterRes = null;
     let rateLimitType = isApiRoute ? "api" : "page";
