@@ -1,25 +1,17 @@
 // pages/api/validate.js - Backend validation API (separated from middleware)
 import { getToken } from "next-auth/jwt";
 import apiConfig from "@/configs/apiConfig";
-import NextCors from "nextjs-cors";
-import { createRequire } from "module";
-
-const require = createRequire(import.meta.url);
-const axios = require("axios");
-const os = require("os");
+import axios from "axios";
+import os from "os";
+import { RateLimiterMemory } from "rate-limiter-flexible";
+import vpnCheck from "static-vpn-check";
 
 const DOMAIN_URL = apiConfig.DOMAIN_URL || "wudysoft.xyz";
 const NEXTAUTH_SECRET = apiConfig.JWT_SECRET;
 const DEFAULT_PROTOCOL = "https://";
 
 // CORS configuration
-const corsOptions = {
-  methods: ["GET", "HEAD", "PUT", "PATCH", "POST", "DELETE", "OPTIONS"],
-  origin: "*",
-  optionsSuccessStatus: 200,
-  credentials: true,
-  allowedHeaders: ["Content-Type", "Authorization", "X-Requested-With", "Cookie", "User-Agent", "X-Forwarded-For", "X-Real-IP"]
-};
+
 
 // Initialize axios instance
 const axiosInstance = axios.create({
@@ -36,7 +28,7 @@ let rateLimiter = null;
 async function initRateLimiter() {
   if (!rateLimiter) {
     try {
-      const { RateLimiterMemory } = require("rate-limiter-flexible");
+      
       rateLimiter = new RateLimiterMemory({
         points: apiConfig.LIMIT_POINTS,
         duration: apiConfig.LIMIT_DURATION
@@ -133,7 +125,7 @@ let staticVpnCheck = null;
 async function initVpnChecker() {
   if (!staticVpnCheck) {
     try {
-      staticVpnCheck = require("static-vpn-check");
+      staticVpnCheck = vpnCheck;
       console.log("[VPN-Detector] Static VPN checker initialized");
     } catch (error) {
       console.warn("[VPN-Detector] Failed to initialize static-vpn-check:", error.message);
@@ -398,12 +390,6 @@ async function checkVpnWithApi(ipAddress) {
 
 export default async function handler(req, res) {
   // Apply CORS using nextjs-cors for all methods
-  await NextCors(req, res, corsOptions);
-
-  // Handle preflight OPTIONS requests
-  if (req.method === "OPTIONS") {
-    return res.status(200).end();
-  }
 
   // Only allow POST method for validation
   if (req.method !== "POST") {
