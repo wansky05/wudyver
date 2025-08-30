@@ -192,33 +192,16 @@ const nextConfig = withPWA({
           rotateStringArray: true,
           stringArray: true,
           stringArrayThreshold: 0.75,
-          stringArrayEncoding: ['base64'],
-          disableConsoleOutput: true,
-          debugProtection: true,
-          debugProtectionInterval: 2000,
-          renameGlobals: true,
-          identifierNamesGenerator: 'mangled-shuffled',
-          transformObjectKeys: true,
-          unicodeEscapeSequence: false,
-          compact: true,
-          controlFlowFlattening: true,
-          controlFlowFlatteningThreshold: 0.75,
-          deadCodeInjection: true,
-          deadCodeInjectionThreshold: 0.4,
+          disableConsoleOutput: false, // Set to false to avoid issues
+          debugProtection: false, // Disable debug protection to avoid issues
           selfDefending: true,
-          splitStrings: true,
-          splitStringsChunkLength: 10,
+          compact: true,
           // Exclude certain files from obfuscation
-          excludes: [
+          exclude: [
             'node_modules/**',
-            'chunks/webpack-*.js',
-            'chunks/framework-*.js'
+            '**/*.map'
           ]
-        }, [
-          // Exclude specific files that shouldn't be obfuscated
-          '**/node_modules/**',
-          '**/webpack-runtime-*.js'
-        ])
+        })
       );
     }
     
@@ -302,11 +285,6 @@ const nextConfig = withPWA({
     }
     
     // Custom loaders
-    config.module.rules.push({
-      test: /\.svg$/,
-      use: ['@svgr/webpack'],
-    });
-    
     // Ignore warnings for certain modules
     config.ignoreWarnings = [
       /Module not found: Error: Can't resolve 'encoding'/,
