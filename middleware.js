@@ -7,15 +7,15 @@ import {
 } from "next-auth/jwt";
 import apiConfig from "@/configs/apiConfig";
 import axios from "axios";
-import os from "os";
 import NextCors from "nextjs-cors";
 import {
   createRequire
-} from "module";
+} from "node:module";
 const require = createRequire(import.meta.url);
+const os = require("os");
 async function getClientIp(req) {
   try {
-    const requestIp = await require("request-ip");
+    const requestIp = require("request-ip");
     const mockReq = {
       headers: Object.fromEntries(req.headers.entries()),
       connection: {
@@ -50,7 +50,7 @@ async function initRateLimiter() {
     try {
       const {
         RateLimiterMemory
-      } = await require("rate-limiter-flexible");
+      } = require("rate-limiter-flexible");
       rateLimiter = new RateLimiterMemory({
         points: apiConfig.LIMIT_POINTS,
         duration: apiConfig.LIMIT_DURATION
@@ -126,7 +126,7 @@ let staticVpnCheck = null;
 async function initVpnChecker() {
   if (!staticVpnCheck) {
     try {
-      staticVpnCheck = await require("static-vpn-check");
+      staticVpnCheck = require("static-vpn-check");
       console.log("[VPN-Detector] Static VPN checker initialized for Edge Runtime");
     } catch (error) {
       console.warn("[VPN-Detector] Failed to initialize static-vpn-check:", error.message);
