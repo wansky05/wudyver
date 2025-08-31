@@ -1,9 +1,11 @@
 import apiConfig from "@/configs/apiConfig";
 import axios from "axios";
+
 export default async function handler(req, res) {
   if (req.method === "OPTIONS") {
     return res.status(200).end();
   }
+
   try {
     const domainName = apiConfig.DOMAIN_URL.replace(/^https?:\/\//, "").replace(/\/$/, "");
     const axiosInstance = axios.create({
@@ -13,9 +15,11 @@ export default async function handler(req, res) {
         "Accept-Encoding": "gzip"
       }
     });
+
     const response = await axiosInstance.get(`https://${domainName}/api/routes`);
     const routes = response.data;
     const domainKey = domainName.replace(/\./g, "");
+    
     const tags = {};
     const schemas = {
       [`${domainKey}ApiResponse`]: {
@@ -24,24 +28,24 @@ export default async function handler(req, res) {
           status: {
             type: "string",
             enum: ["success", "error", "processing"],
-            description: "📊 Status operasi"
+            description: "Status operasi"
           },
           timestamp: {
             type: "string",
             format: "date-time",
-            description: "🕒 Stempel waktu UTC"
+            description: "Stempel waktu UTC"
           },
           payload: {
             type: "object",
-            description: "📦 Muatan data respons"
+            description: "Muatan data respons"
           },
           message: {
             type: "string",
-            description: "💬 Pesan informatif"
+            description: "Pesan informatif"
           },
           processingTimeMs: {
             type: "integer",
-            description: "⚡ Waktu pemrosesan (ms)"
+            description: "Waktu pemrosesan (ms)"
           }
         },
         required: ["status", "timestamp", "payload"]
@@ -51,15 +55,15 @@ export default async function handler(req, res) {
         properties: {
           errorCode: {
             type: "integer",
-            description: "🚨 Kode error"
+            description: "Kode error"
           },
           errorMessage: {
             type: "string",
-            description: "📝 Deskripsi error"
+            description: "Deskripsi error"
           },
           errorDetails: {
             type: "array",
-            description: "🔍 Detail error",
+            description: "Detail error",
             items: {
               type: "object",
               properties: {
@@ -76,6 +80,7 @@ export default async function handler(req, res) {
         required: ["errorCode", "errorMessage"]
       }
     };
+
     const getFolderIcon = folderName => {
       const iconMap = {
         ai: "🤖",
@@ -112,22 +117,20 @@ export default async function handler(req, res) {
       const normalized = folderName.toLowerCase().trim();
       return iconMap[normalized] || iconMap["default"];
     };
-    routes.forEach(({
-      path,
-      name,
-      method,
-      params
-    }) => {
+
+    routes.forEach(({ path, name, method, params }) => {
       const pathParts = path.split("/").filter(part => part !== "");
       const folderName = pathParts.length > 1 && pathParts[0] === "api" ? pathParts[1] : "general";
       const tag = folderName.toUpperCase();
+      
       if (!tags[tag]) tags[tag] = [];
-      const parameters = (params || []).map(({
-        name: paramName,
-        required,
-        type,
-        description,
-        example
+      
+      const parameters = (params || []).map(({ 
+        name: paramName, 
+        required, 
+        type, 
+        description, 
+        example 
       }) => ({
         name: paramName,
         in: "query",
@@ -138,6 +141,7 @@ export default async function handler(req, res) {
         },
         example: example || `sample_${paramName}`
       }));
+      
       tags[tag].push({
         path: path,
         name: name,
@@ -146,21 +150,22 @@ export default async function handler(req, res) {
         folder: folderName
       });
     });
+
     const openAPISpec = {
-      openapi: "3.1.0",
+      openapi: "3.0.0",
       info: {
-        title: `🚀 ${domainName} API • Futuristic Edition`,
-        description: `## 🌌 Next-Gen API Experience\n\n**${domainName} API** dengan desain minimalis dan pengalaman futuristik.\n\n### ✨ Fitur Unggulan:\n- 🔧 **Minimalis & Efisien** - Antarmuka yang bersih dan mudah digunakan\n- 🚀 **Performansi Tinggi** - Respon cepat dan optimal\n- 🎯 **Fokus Konten** - Informasi penting yang mudah dicari\n- 🔮 **Desain Futuristik** - Pengalaman visual yang modern\n\n> 💡 *API ini didesain untuk pengembangan cepat dan integrasi yang mudah*`,
-        version: "1.0.0",
+        title: `${domainName} API • Futuristic Edition`,
+        description: `## Next-Gen API Experience\n\n**${domainName} API** dengan desain minimalis dan pengalaman futuristik.\n\n### Fitur Unggulan:\n- Minimalis & Efisien - Antarmuka yang bersih dan mudah digunakan\n- Performansi Tinggi - Respon cepat dan optimal\n- Fokus Konten - Informasi penting yang mudah dicari\n- Desain Futuristik - Pengalaman visual yang modern\n\n> API ini didesain untuk pengembangan cepat dan integrasi yang mudah`,
+        version: "3.0.0",
         contact: {
-          name: `👨‍💻 Tim ${domainName}`,
+          name: `Tim ${domainName}`,
           url: `https://${domainName}/support`,
           email: `support@${domainName}`
         }
       },
       servers: [{
         url: `https://${domainName}`,
-        description: `🌐 ${domainName} Production Server`
+        description: `${domainName} Production Server`
       }],
       tags: Object.keys(tags).map(tag => {
         const folderName = tags[tag][0]?.folder || "general";
@@ -174,7 +179,7 @@ export default async function handler(req, res) {
         schemas: schemas,
         responses: {
           Success: {
-            description: "✅ Operasi berhasil",
+            description: "Operasi berhasil",
             content: {
               "application/json": {
                 schema: {
@@ -184,7 +189,7 @@ export default async function handler(req, res) {
             }
           },
           Error: {
-            description: "❌ Terjadi kesalahan",
+            description: "Terjadi kesalahan",
             content: {
               "application/json": {
                 schema: {
@@ -194,7 +199,7 @@ export default async function handler(req, res) {
             }
           },
           NotFound: {
-            description: "🔍 Data tidak ditemukan",
+            description: "Data tidak ditemukan",
             content: {
               "application/json": {
                 schema: {
@@ -209,7 +214,7 @@ export default async function handler(req, res) {
             type: "apiKey",
             in: "header",
             name: "X-API-Key",
-            description: "🔑 API Key Authentication"
+            description: "API Key Authentication"
           }
         }
       },
@@ -217,6 +222,7 @@ export default async function handler(req, res) {
         ApiKeyAuth: []
       }]
     };
+
     const getMethodEmoji = method => {
       const emojiMap = {
         get: "📥",
@@ -227,48 +233,43 @@ export default async function handler(req, res) {
       };
       return emojiMap[method] || "🔗";
     };
+
     Object.entries(tags).forEach(([originalTag, endpoints]) => {
       const folderName = endpoints[0]?.folder || "general";
       const tag = `${getFolderIcon(folderName)} ${originalTag}`;
-      endpoints.forEach(({
-        path,
-        name,
-        method,
-        parameters
-      }) => {
+      
+      endpoints.forEach(({ path, name, method, parameters }) => {
         if (!openAPISpec.paths[path]) openAPISpec.paths[path] = {};
+        
         openAPISpec.paths[path][method] = {
           tags: [tag],
           summary: `${getMethodEmoji(method)} ${name}`,
-          description: `**${method.toUpperCase()}** operation for ${name}\n\n> 💫 *Endpoint yang dirancang untuk performa optimal dan pengalaman developer yang unggul*`,
+          description: `**${method.toUpperCase()}** operation for ${name}\n\n> Endpoint yang dirancang untuk performa optimal dan pengalaman developer yang unggul`,
           parameters: parameters,
           responses: {
-            200: {
-              description: "✅ Success",
+            "200": {
               $ref: "#/components/responses/Success"
             },
-            400: {
-              description: "❌ Bad Request",
+            "400": {
               $ref: "#/components/responses/Error"
             },
-            404: {
-              description: "🔍 Not Found",
+            "404": {
               $ref: "#/components/responses/NotFound"
             },
-            500: {
-              description: "🚨 Server Error",
+            "500": {
               $ref: "#/components/responses/Error"
             }
           }
         };
       });
     });
+
     return res.status(200).json(openAPISpec);
   } catch (error) {
-    console.error("❌ Failed to generate OpenAPI spec:", error);
+    console.error("Failed to generate OpenAPI spec:", error);
     res.status(500).json({
       errorCode: 5001,
-      errorMessage: "🚨 Gagal menghasilkan spesifikasi OpenAPI"
+      errorMessage: "Gagal menghasilkan spesifikasi OpenAPI"
     });
   }
 }
