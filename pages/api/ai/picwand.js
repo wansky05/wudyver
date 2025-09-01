@@ -11,13 +11,28 @@ class Picwand {
         "User-Agent": "Mozilla/5.0 (Linux; Android 10; K) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/135.0.0.0 Mobile Safari/537.36",
         Origin: "https://www.picwand.ai",
         Referer: "https://www.picwand.ai/",
+        accept: "application/json",
+        "sec-ch-ua": '"Lemur";v="135", "Not A;Brand";v="99", "Microsoft Edge Simulate";v="135"',
+        "sec-ch-ua-mobile": "?1",
+        "sec-ch-ua-platform": '"Android"',
         ...SpoofHead()
       }
     });
     this.accessToken = null;
     this.tempMail = null;
     this.accountInfo = {};
-    this.e_id = "545e3492a205b8cdb3f2eec5b5aa94be";
+    this.e_id = CryptoJS.lib.WordArray.random(16).toString();
+    console.log(`[INIT] e_id acak dihasilkan: ${this.e_id}`);
+  }
+  _generateSignature(jsonObject) {
+    try {
+      const sortedKeys = Object.keys(jsonObject).sort().reverse();
+      const paramString = sortedKeys.filter(key => jsonObject[key] !== undefined && jsonObject[key] !== null && jsonObject[key] !== "").map(key => Array.isArray(jsonObject[key]) ? `${key}=${JSON.stringify(jsonObject[key])}` : `${key}=${jsonObject[key]}`).join("&") + this.e_id;
+      return CryptoJS.SHA256(paramString).toString(CryptoJS.enc.Hex);
+    } catch (error) {
+      console.error("Gagal menghasilkan signature:", error);
+      throw error;
+    }
   }
   async enc(data) {
     const {
@@ -35,59 +50,60 @@ class Picwand {
     });
     return decryptedJson.text;
   }
-  _generateSignature(jsonObject) {
-    try {
-      const sortedKeys = Object.keys(jsonObject).sort().reverse();
-      const paramString = sortedKeys.filter(key => jsonObject[key] !== undefined && jsonObject[key] !== null).map(key => Array.isArray(jsonObject[key]) ? `${key}=${JSON.stringify(jsonObject[key])}` : `${key}=${jsonObject[key]}`).join("&") + this.e_id;
-      return CryptoJS.SHA256(paramString).toString(CryptoJS.enc.Hex);
-    } catch (error) {
-      console.error("Gagal menghasilkan signature:", error);
-      throw error;
-    }
-  }
   async _authenticate() {
     try {
-      console.log("Memulai proses otentikasi...");
+      console.log("--- MEMULAI PROSES OTENTIKASI ---");
       console.log("\n[1/5] Membuat email sementara...");
       const mailResponse = await this.axios.get(`https://${apiConfig.DOMAIN_URL}/api/mails/v9?action=create`);
       this.tempMail = mailResponse?.data?.email;
       if (!this.tempMail) throw new Error("Gagal membuat email sementara.");
-      console.log(` > Email dibuat: ${this.tempMail}`);
+      console.log(` > Email berhasil dibuat: ${this.tempMail}`);
       console.log("\n[2/5] Meminta kode OTP...");
       await this.axios.post("https://account.api.picwand.ai/v13/account/authcode/email/passless", new URLSearchParams({
         e_id: this.e_id,
         email: this.tempMail,
         language: "en",
         invite_code: ""
-      }).toString());
+      }).toString(), {
+        headers: {
+          "content-type": "application/x-www-form-urlencoded"
+        }
+      });
       console.log(" > Permintaan OTP berhasil dikirim.");
-      console.log("\n[3/5] Mengambil OTP...");
+      console.log("\n[3/5] Mengambil OTP (menunggu hingga 60 detik)...");
       let otp = null;
       for (let i = 0; i < 60; i++) {
         await sleep(3e3);
         const messagesResponse = await this.axios.get(`https://${apiConfig.DOMAIN_URL}/api/mails/v9?action=message&email=${this.tempMail}`);
-        const extractedOtp = messagesResponse?.data?.data?.[0]?.text_content?.match(/Your verification code is:(\d{6})/)?.[1];
-        if (extractedOtp) {
-          otp = extractedOtp;
-          console.log(` > OTP ditemukan: ${otp}`);
-          break;
+        const emailContent = messagesResponse?.data?.data?.[0]?.text_content;
+        if (emailContent) {
+          const extractedOtp = emailContent.match(/Your verification code is:(\d{6})/)?.[1];
+          if (extractedOtp) {
+            otp = extractedOtp;
+            console.log(` > OTP ditemukan: ${otp}`);
+            break;
+          }
         }
-        console.log(" > OTP belum ditemukan, mencoba lagi...");
+        process.stdout.write(" > OTP belum ditemukan, mencoba lagi...\r");
       }
-      if (!otp) throw new Error("Tidak dapat mengambil OTP.");
+      if (!otp) throw new Error("Tidak dapat mengambil OTP setelah menunggu.");
       console.log("\n[4/5] Login dengan OTP...");
       const loginResponse = await this.axios.post("https://account.api.picwand.ai/v13/account/email/passless", new URLSearchParams({
         e_id: this.e_id,
         email: this.tempMail,
         authcode: otp,
         invite_code: ""
-      }).toString());
+      }).toString(), {
+        headers: {
+          "content-type": "application/x-www-form-urlencoded"
+        }
+      });
       if (loginResponse?.data?.error !== 0) throw new Error(`Login gagal: ${JSON.stringify(loginResponse.data)}`);
       this.accountInfo = {
         token: loginResponse.data.token,
         t_id: loginResponse.data.t_id
       };
-      console.log(" > Login berhasil.");
+      console.log(" > Login berhasil, mendapatkan token sementara.");
       console.log("\n[5/5] Mendapatkan token akses akhir (JWT)...");
       const timestamps = Math.floor(Date.now() / 1e3);
       const tokenApiPayload = {
@@ -100,14 +116,19 @@ class Picwand {
       const finalTokenResponse = await this.axios.post("https://itfv.picwand.ai/v6/api/token", {
         ...tokenApiPayload,
         sign: signature
+      }, {
+        headers: {
+          "content-type": "application/json"
+        }
       });
       this.accessToken = finalTokenResponse?.data?.data?.token;
       if (finalTokenResponse?.data?.code !== 0 || !this.accessToken) {
         throw new Error(`Gagal mendapatkan token akhir: ${finalTokenResponse?.data?.msg || "Token tidak ditemukan"}`);
       }
       console.log(" > Otentikasi selesai. Token akses diterima.");
+      console.log("---------------------------------------\n");
     } catch (error) {
-      console.error("Proses otentikasi gagal:", error.message);
+      console.error("\nProses otentikasi gagal:", error.message);
       if (error.response) console.error("Data Respons Gagal:", error.response.data);
       throw error;
     }
@@ -118,7 +139,7 @@ class Picwand {
   }) {
     try {
       if (!this.accessToken) await this._authenticate();
-      console.log("\n[1/2] Membuat tugas video dari teks...");
+      console.log("\n[1/1] Membuat tugas video dari teks...");
       const timestamps = Math.floor(Date.now() / 1e3);
       const payload = {
         e_id: this.e_id,
@@ -131,9 +152,9 @@ class Picwand {
         duration: 5,
         fps: 24,
         resolution: "720p",
-        ratio: "3:4",
+        ratio: "16:9",
         model_type: 15,
-        seed: Math.floor(Math.random() * 2e9),
+        seed: Math.floor(Math.random() * 4294967295),
         public_visbility: 1,
         copy_protection: 0,
         model_id: 15,
@@ -153,15 +174,15 @@ class Picwand {
       payload.sign = this._generateSignature(payload);
       const createTaskResponse = await this.axios.post("https://itfv.picwand.ai/v6/api/ctitv", payload, {
         headers: {
-          "access-token": this.accessToken
+          "access-token": this.accessToken,
+          "content-type": "application/json"
         }
       });
-      console.log(" > Respon Data:", createTaskResponse.data);
       const taskId = createTaskResponse?.data?.data?.taskid;
       if (!taskId) {
-        throw new Error(`Gagal membuat tugas: ${createTaskResponse?.data?.msg || "Tidak ada taskid yang diterima."}`);
+        throw new Error(`Gagal membuat tugas txt2vid: ${createTaskResponse?.data?.msg || "Tidak ada taskid yang diterima."}`);
       }
-      console.log("\n[2/2] Tugas berhasil dibuat atau diantrekan!");
+      console.log(" > Tugas berhasil dibuat atau diantrekan!");
       console.log(` > Task ID: ${taskId}`);
       const encryptedData = {
         taskId: taskId,
@@ -182,36 +203,45 @@ class Picwand {
   }) {
     try {
       if (!this.accessToken) await this._authenticate();
-      console.log("\n[1/4] Mendapatkan URL pre-signed...");
+      console.log("[1/4] Mendapatkan URL pre-signed untuk unggahan...");
       const signResponse = await this.axios.post("https://itfv.picwand.ai/v5/api/editor/resource/sign/v4", {
         module_type: 9,
         module: {
-          mime_type: "image/png",
-          extension: "png"
+          mime_type: "image/jpg",
+          extension: "jpg"
+        }
+      }, {
+        headers: {
+          "content-type": "application/json"
         }
       });
-      if (signResponse?.data?.code !== 200) throw new Error(`Gagal mendapatkan URL pre-signed: ${signResponse?.data?.msg}`);
-      const uploadInfo = JSON.parse(Buffer.from(signResponse.data.data, "base64").toString("utf-8"))[0];
-      console.log(`\n[2/4] Mengunggah gambar dari ${imageUrl}...`);
+      if (signResponse?.data?.code !== 200) {
+        throw new Error(`Gagal mendapatkan URL pre-signed: ${signResponse?.data?.msg}`);
+      }
+      console.log("  [LOG] Data Base64 diterima dari API:", signResponse.data.data);
+      const decodedData = Buffer.from(signResponse.data.data, "base64").toString("utf-8");
+      console.log("  [LOG] Hasil dekripsi data:", decodedData);
+      const uploadInfo = JSON.parse(decodedData)[0];
+      console.log(`\n[2/4] Mengunduh dan mengunggah gambar dari ${imageUrl}...`);
       const imageResponse = await this.axios.get(imageUrl, {
         responseType: "arraybuffer"
       });
       const imageBuffer = Buffer.from(imageResponse.data, "binary");
       await this.axios.put(uploadInfo.module, imageBuffer, {
         headers: {
-          "Content-Type": "image/png"
+          "Content-Type": "image/jpeg"
         }
       });
       console.log(" > Gambar berhasil diunggah.");
-      console.log("\n[3/4] Membuat tugas video...");
+      console.log("\n[3/4] Membuat tugas video dari gambar...");
       const timestamps = Math.floor(Date.now() / 1e3);
       const ctitvPayload = {
-        name: imageUrl.split("/").pop(),
+        name: imageUrl.split("/").pop().split("?")[0],
         s3key: uploadInfo.key,
         file_size: imageBuffer.length,
-        width: 1024,
-        height: 1792,
-        file_type: "WEBP",
+        width: 500,
+        height: 627,
+        file_type: "JPEG",
         imgFile: {},
         e_id: this.e_id,
         model_tab: 2,
@@ -223,11 +253,11 @@ class Picwand {
         resolution: "720p",
         ratio: "adaptive",
         last_image: "",
-        model_type: 1,
-        seed: Math.floor(Math.random() * 2e9),
+        model_type: 2,
+        seed: Math.floor(Math.random() * 4294967295),
         public_visbility: 1,
         copy_protection: 0,
-        model_id: 1,
+        model_id: 2,
         pattern: 0,
         mode: "std",
         negative_prompt: "",
@@ -244,13 +274,13 @@ class Picwand {
       ctitvPayload.sign = this._generateSignature(ctitvPayload);
       const createTaskResponse = await this.axios.post("https://itfv.picwand.ai/v6/api/ctitv", ctitvPayload, {
         headers: {
-          "access-token": this.accessToken
+          "access-token": this.accessToken,
+          "content-type": "application/json"
         }
       });
-      console.log(" > Respon Data:", createTaskResponse.data);
       const taskId = createTaskResponse?.data?.data?.taskid;
       if (!taskId) {
-        throw new Error(`Gagal membuat tugas: ${createTaskResponse?.data?.msg || "Tidak ada taskid yang diterima."}`);
+        throw new Error(`Gagal membuat tugas img2vid: ${createTaskResponse?.data?.msg || "Tidak ada taskid yang diterima."}`);
       }
       console.log("\n[4/4] Tugas berhasil dibuat atau diantrekan!");
       console.log(` > Task ID: ${taskId}`);
@@ -267,37 +297,31 @@ class Picwand {
     }
   }
   async status({
-    task_id,
-    ...rest
+    task_id
   }) {
-    console.log(`[LOG] Status: Memeriksa status untuk ID tugas terenkripsi: ${task_id}.`);
     try {
       const decryptedData = await this.dec(task_id);
       const {
         taskId,
         accessToken
       } = decryptedData;
-      if (!accessToken) throw new Error("Belum terotentikasi. Jalankan img2vid atau txt2vid terlebih dahulu.");
-      if (!taskId) throw new Error("taskId diperlukan untuk memeriksa status.");
-      console.log(`\nMemeriksa status untuk taskId: ${taskId}...`);
+      if (!accessToken || !taskId) throw new Error("Membutuhkan taskId dan accessToken untuk memeriksa status.");
       const timestamps = Math.floor(Date.now() / 1e3);
       const statusPayload = {
         taskid: taskId,
         e_id: this.e_id,
-        timestamps: timestamps,
-        ...rest
+        timestamps: timestamps
       };
       statusPayload.sign = this._generateSignature(statusPayload);
       const statusResponse = await this.axios.post("https://itfv.picwand.ai/v6/api/gritv", statusPayload, {
         headers: {
-          "access-token": accessToken
+          "access-token": accessToken,
+          "content-type": "application/json"
         }
       });
-      console.log(" > Respon Data:", statusResponse.data);
       if (statusResponse?.data?.code !== 200) {
-        console.warn(`Peringatan: Status code adalah ${statusResponse?.data?.code}. Pesan: ${statusResponse?.data?.msg}`);
+        console.warn(`Peringatan saat cek status: ${statusResponse?.data?.msg}`);
       }
-      console.log(" > Status diterima:", statusResponse?.data?.data);
       return statusResponse?.data?.data;
     } catch (error) {
       console.error("Pemeriksaan status gagal:", error.message);
