@@ -442,9 +442,6 @@ class EaseMate {
   }) {
     try {
       console.log("🎬 Memulai proses video...");
-      if (!imageUrl) {
-        throw new Error("Parameter 'imageUrl' harus ada untuk membuat video.");
-      }
       const token = await this._authenticate();
       const objectInfo = [];
       if (imageUrl) {
