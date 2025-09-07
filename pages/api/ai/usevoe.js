@@ -194,7 +194,7 @@ class VoeClient {
       console.log("Proses: Permintaan text-to-music berhasil dibuat.");
       const encryptedData = {
         taskId: response.data?.data,
-        cookie: await this.jar.getCookieString("https://usevoe.com"),
+        gen_cookie: await this.jar.getCookieString("https://usevoe.com"),
         gen_type: "music"
       };
       return await this.enc(encryptedData);
@@ -231,7 +231,7 @@ class VoeClient {
       console.log("Proses: Permintaan text-to-image berhasil dibuat.");
       const encryptedData = {
         taskId: response.data?.data,
-        cookie: await this.jar.getCookieString("https://usevoe.com"),
+        gen_cookie: await this.jar.getCookieString("https://usevoe.com"),
         gen_type: "image"
       };
       return await this.enc(encryptedData);
@@ -269,18 +269,18 @@ class VoeClient {
   async status({
     input_type,
     task_id,
-    cookie = null,
+    input_cookie,
     ...rest
   }) {
     if (!task_id) throw new Error("task_id diperlukan untuk memeriksa status.");
     const decryptedData = await this.dec(task_id);
     const {
       taskId,
-      cookie,
+      gen_cookie,
       gen_type
     } = decryptedData;
+    const cookie = input_cookie || gen_cookie;
     if (!cookie || !taskId) throw new Error("Membutuhkan taskId dan cookie untuk memeriksa status.");
-    if (!taskId) throw new Error("taskId diperlukan untuk memeriksa status.");
     const type = input_type || gen_type;
     const url = type === "music" ? `https://usevoe.com/api/music/musics-by-taskId/${taskId}` : `https://usevoe.com/api/image/status?task_id=${taskId}`;
     try {
