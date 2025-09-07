@@ -282,16 +282,16 @@ export default async function handler(req, res) {
             error: "Prompt are required for txt2img."
           });
         }
-        const txt2imgRes = await client.txt2img(params);
-        return res.status(200).json(txt2imgRes);
+        response = await client.txt2img(params);
+        return res.status(200).json(response);
       case "txt2vid":
         if (!params.prompt) {
           return res.status(400).json({
             error: "Prompt are required for txt2vid."
           });
         }
-        const txt2vidRes = await client.txt2vid(params);
-        return res.status(200).json(txt2vidRes);
+        response = await client.txt2vid(params);
+        return res.status(200).json(response);
       default:
         return res.status(400).json({
           error: `Invalid action: ${action}. Supported actions are 'txt2vid', and 'txt2img'.`

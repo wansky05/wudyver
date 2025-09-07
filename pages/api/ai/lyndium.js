@@ -268,8 +268,6 @@ class LyndiumAPI {
       this.logResponse(response);
       if (response.data.data?.verifyToken) {
         this.token = response.data.data.verifyToken.jwt;
-        this.headers.authorization = `Bearer ${this.token}`;
-        this.headers["is_private"] = "true";
         console.log("Token verified and saved");
       }
       return response.data;
@@ -320,8 +318,13 @@ class LyndiumAPI {
         query: "mutation initiateVideoJob($prompt: String!, $model_name: String!) { initiateVideoJob(prompt: $prompt, model_name: $model_name) { jobId status __typename } }"
       };
       this.logRequest("POST", this.baseURL, this.headers, data);
+      const requestHeaders = {
+        authorization: `Bearer ${this.token}`,
+        is_private: "true",
+        ...this.headers
+      };
       const response = await axios.post(this.baseURL, data, {
-        headers: this.headers
+        headers: requestHeaders
       });
       this.logResponse(response);
       console.log("Text-to-video process started");
@@ -354,8 +357,13 @@ class LyndiumAPI {
         query: "mutation initiateImageToVideoJob($imageUrl: String!, $model: String!, $prompt: String) { initiateImageToVideoJob(imageUrl: $imageUrl, model: $model, prompt: $prompt) { jobId status __typename } }"
       };
       this.logRequest("POST", this.baseURL, this.headers, data);
+      const requestHeaders = {
+        authorization: `Bearer ${this.token}`,
+        is_private: "true",
+        ...this.headers
+      };
       const response = await axios.post(this.baseURL, data, {
-        headers: this.headers
+        headers: requestHeaders
       });
       this.logResponse(response);
       console.log("Image-to-video process started");
@@ -386,8 +394,13 @@ class LyndiumAPI {
         query: "mutation initiateImageJob($prompt: String!, $model: String!) { initiateImageJob(prompt: $prompt, model: $model) { jobId status __typename } }"
       };
       this.logRequest("POST", this.baseURL, this.headers, data);
+      const requestHeaders = {
+        authorization: `Bearer ${this.token}`,
+        is_private: "true",
+        ...this.headers
+      };
       const response = await axios.post(this.baseURL, data, {
-        headers: this.headers
+        headers: requestHeaders
       });
       this.logResponse(response);
       console.log("Text-to-image process started");
@@ -420,8 +433,13 @@ class LyndiumAPI {
         query: "mutation initiateImageToImageJob($prompt: String!, $imageUrl: String!, $style: String!) { initiateImageToImageJob(prompt: $prompt, imageUrl: $imageUrl, style: $style) { jobId status __typename } }"
       };
       this.logRequest("POST", this.baseURL, this.headers, data);
+      const requestHeaders = {
+        authorization: `Bearer ${this.token}`,
+        is_private: "true",
+        ...this.headers
+      };
       const response = await axios.post(this.baseURL, data, {
-        headers: this.headers
+        headers: requestHeaders
       });
       this.logResponse(response);
       console.log("Image-to-image process started");
@@ -453,7 +471,7 @@ class LyndiumAPI {
       this.token = token;
       const type = input_type || gen_type;
       if (type === "video") {
-        return await this.jobStatus(taskId);
+        return await this.videoJobStatus(taskId);
       } else if (type === "image") {
         return await this.imgJobStatus(taskId);
       }
@@ -462,25 +480,60 @@ class LyndiumAPI {
       this.logError(error);
     }
   }
-  async jobStatus(jobId) {
+  async videoJobStatus(jobId) {
     try {
       if (!this.token) await this.autoRegister();
-      console.log(`Checking job status ${jobId}...`);
+      console.log(`Checking video job status ${jobId}...`);
       const data = {
         operationName: "getVideoJobStatus",
         variables: {
           jobId: parseInt(jobId)
         },
-        query: "query getVideoJobStatus($jobId: Int!) { getVideoJobStatus(jobId: $jobId) { status error result { id videoId title createdAt __typename } __typename } }"
+        query: `query getVideoJobStatus($jobId: Int!) {
+        getVideoJobStatus(jobId: $jobId) {
+          status
+          result {
+            id
+            videoId
+            title
+            createdAt
+            __typename
+          }
+          __typename
+        }
+      }`
       };
-      this.logRequest("POST", this.baseURL, this.headers, data);
+      const requestHeaders = {
+        authorization: `Bearer ${this.token}`,
+        is_private: "true",
+        ...this.headers
+      };
+      this.logRequest("POST", this.baseURL, requestHeaders, data);
       const response = await axios.post(this.baseURL, data, {
-        headers: this.headers
+        headers: requestHeaders
       });
       this.logResponse(response);
+      if (response.data?.data?.getVideoJobStatus?.result) {
+        const results = response.data.data.getVideoJobStatus.result;
+        const parsedResults = results.map(item => ({
+          ...item,
+          videoUrl: item.videoId ? `https://dx2r83o8wtjjw.cloudfront.net/${encodeURIComponent(item.videoId)}` : null
+        }));
+        return {
+          ...response.data,
+          data: {
+            ...response.data.data,
+            getVideoJobStatus: {
+              ...response.data.data.getVideoJobStatus,
+              result: parsedResults
+            }
+          }
+        };
+      }
       return response.data;
     } catch (error) {
       this.logError(error);
+      throw error;
     }
   }
   async imgJobStatus(jobId) {
@@ -492,16 +545,51 @@ class LyndiumAPI {
         variables: {
           jobId: parseInt(jobId)
         },
-        query: "query getImageJobStatus($jobId: Int!) { getImageJobStatus(jobId: $jobId) { status error result { id imageUrl title createdAt __typename } __typename } }"
+        query: `query getImageJobStatus($jobId: Int!) {
+        getImageJobStatus(jobId: $jobId) {
+          status
+          result {
+            id
+            imageId
+            title
+            createdAt
+            __typename
+          }
+          __typename
+        }
+      }`
       };
-      this.logRequest("POST", this.baseURL, this.headers, data);
+      const requestHeaders = {
+        authorization: `Bearer ${this.token}`,
+        is_private: "true",
+        ...this.headers
+      };
+      this.logRequest("POST", this.baseURL, requestHeaders, data);
       const response = await axios.post(this.baseURL, data, {
-        headers: this.headers
+        headers: requestHeaders
       });
       this.logResponse(response);
+      if (response.data?.data?.getImageJobStatus?.result) {
+        const results = response.data.data.getImageJobStatus.result;
+        const parsedResults = results.map(item => ({
+          ...item,
+          imageUrl: item.imageId ? `https://dx2r83o8wtjjw.cloudfront.net/${encodeURIComponent(item.imageId)}` : null
+        }));
+        return {
+          ...response.data,
+          data: {
+            ...response.data.data,
+            getImageJobStatus: {
+              ...response.data.data.getImageJobStatus,
+              result: parsedResults
+            }
+          }
+        };
+      }
       return response.data;
     } catch (error) {
       this.logError(error);
+      throw error;
     }
   }
   async autoRegister(firstName = this.userName, lastName = this.lastName, password = this.password) {
@@ -533,9 +621,9 @@ export default async function handler(req, res) {
             error: "Prompt and imageUrl are required for img2vid."
           });
         }
-        const img2vid_task_id = await api.img2vid(params);
+        response = await api.img2vid(params);
         return res.status(200).json({
-          task_id: img2vid_task_id
+          task_id: response
         });
       case "txt2vid":
         if (!params.prompt) {
@@ -543,9 +631,9 @@ export default async function handler(req, res) {
             error: "Prompt is required for txt2vid."
           });
         }
-        const txt2vid_task_id = await api.txt2vid(params);
+        response = await api.txt2vid(params);
         return res.status(200).json({
-          task_id: txt2vid_task_id
+          task_id: response
         });
       case "img2img":
         if (!params.prompt || !params.imageUrl) {
@@ -553,9 +641,9 @@ export default async function handler(req, res) {
             error: "Prompt and imageUrl are required for img2img."
           });
         }
-        const img2img_task_id = await api.img2img(params);
+        response = await api.img2img(params);
         return res.status(200).json({
-          task_id: img2img_task_id
+          task_id: response
         });
       case "txt2img":
         if (!params.prompt) {
@@ -563,9 +651,9 @@ export default async function handler(req, res) {
             error: "Prompt is required for txt2img."
           });
         }
-        const txt2img_task_id = await api.txt2img(params);
+        response = await api.txt2img(params);
         return res.status(200).json({
-          task_id: txt2img_task_id
+          task_id: response
         });
       case "status":
         if (!params.task_id) {

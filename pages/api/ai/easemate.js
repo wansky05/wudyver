@@ -551,6 +551,7 @@ export default async function handler(req, res) {
     });
   }
   try {
+    let response;
     switch (action) {
       case "chat": {
         console.log("➡️ Menerima permintaan 'chat'.");
@@ -560,10 +561,10 @@ export default async function handler(req, res) {
             error: "Parameter 'prompt' harus ada untuk aksi 'chat'."
           });
         }
-        const answer = await ai.chat(params);
+        response = await ai.chat(params);
         console.log("✅ Mengirimkan respons 'chat' berhasil.");
         return res.status(200).json({
-          answer: answer
+          answer: response
         });
       }
       case "image": {
@@ -574,9 +575,9 @@ export default async function handler(req, res) {
             error: "Parameter 'prompt' harus ada untuk aksi 'image'."
           });
         }
-        const result = await ai.image(params);
+        response = await ai.image(params);
         console.log("✅ Mengirimkan respons 'image' berhasil.");
-        return res.status(200).json(result);
+        return res.status(200).json(response);
       }
       case "image_status": {
         console.log("➡️ Menerima permintaan 'image_status'.");
@@ -586,9 +587,9 @@ export default async function handler(req, res) {
             error: "Parameter 'task_id' diperlukan untuk aksi 'image_status'."
           });
         }
-        const result = await ai.image_status(params);
+        response = await ai.image_status(params);
         console.log("✅ Mengirimkan respons 'image_status' berhasil.");
-        return res.status(200).json(result);
+        return res.status(200).json(response);
       }
       case "video": {
         console.log("➡️ Menerima permintaan 'video'.");
@@ -598,9 +599,9 @@ export default async function handler(req, res) {
             error: "Parameter 'prompt' harus ada untuk aksi 'video'."
           });
         }
-        const result = await ai.video(params);
+        response = await ai.video(params);
         console.log("✅ Mengirimkan respons 'video' berhasil.");
-        return res.status(200).json(result);
+        return res.status(200).json(response);
       }
       case "video_status": {
         console.log("➡️ Menerima permintaan 'video_status'.");
@@ -610,9 +611,9 @@ export default async function handler(req, res) {
             error: "Parameter 'task_id' diperlukan untuk aksi 'video_status'."
           });
         }
-        const result = await ai.video_status(params);
+        response = await ai.video_status(params);
         console.log("✅ Mengirimkan respons 'video_status' berhasil.");
-        return res.status(200).json(result);
+        return res.status(200).json(response);
       }
       default:
         console.error("⛔️ Aksi tidak valid:", action);

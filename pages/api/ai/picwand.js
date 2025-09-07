@@ -350,9 +350,9 @@ export default async function handler(req, res) {
             error: "Prompt and imageUrl are required for img2vid."
           });
         }
-        const img2vid_task_id = await picwand.img2vid(params);
+        response = await picwand.img2vid(params);
         return res.status(200).json({
-          task_id: img2vid_task_id
+          task_id: response
         });
       case "txt2vid":
         if (!params.prompt) {
@@ -360,9 +360,9 @@ export default async function handler(req, res) {
             error: "Prompt is required for txt2vid."
           });
         }
-        const txt2vid_task_id = await picwand.txt2vid(params);
+        response = await picwand.txt2vid(params);
         return res.status(200).json({
-          task_id: txt2vid_task_id
+          task_id: response
         });
       case "status":
         if (!params.task_id) {

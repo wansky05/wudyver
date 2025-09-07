@@ -514,6 +514,7 @@ export default function handler(req, res) {
     { path: "/api/ai/visworld", name: "Visworld", params: [{ "name": "prompt", "in": "query", "required": false }], },
     { path: "/api/ai/vider", name: "Vider", params: [{ "name": "prompt", "in": "query", "required": false }], },
     { path: "/api/ai/lyndium", name: "Lyndium", params: [{ "name": "prompt", "in": "query", "required": false }], },
+    { path: "/api/ai/usevoe", name: "Usevoe", params: [{ "name": "prompt", "in": "query", "required": false }], },
     { path: "/api/anime/baca-komik/v1", name: "V1", params: [{ "name": "prompt", "in": "query", "required": false }], },
     { path: "/api/anime/baca-komik/v2", name: "V2", params: [{ "name": "prompt", "in": "query", "required": false }], },
     { path: "/api/anime/kiryuu/v1", name: "V1", params: [{ "name": "prompt", "in": "query", "required": false }], },
