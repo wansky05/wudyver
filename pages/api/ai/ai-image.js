@@ -2,7 +2,7 @@ import axios from "axios";
 import apiConfig from "@/configs/apiConfig";
 const ACTION_REQUIREMENTS = {
   prompt: ["canvas", "text2ghibli2", "txt2ghbli", "nsfw"],
-  url: ["hijabkan", "hytam", "jadibabi"],
+  url: ["hijabkan", "hytam", "jadibabi", "figure"],
   prompt_url: ["custom"],
   style_url: ["style"]
 };
@@ -39,6 +39,13 @@ const ACTION_EXAMPLES = {
     description: "Add hijab to an image",
     example: {
       action: "hijabkan",
+      url: "https://example.com/photo.jpg"
+    }
+  },
+  figure: {
+    description: "Apply figure filter to an image",
+    example: {
+      action: "figure",
       url: "https://example.com/photo.jpg"
     }
   },

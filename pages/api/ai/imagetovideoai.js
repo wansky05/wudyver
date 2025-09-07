@@ -244,6 +244,8 @@ snOjvdDb4wiZI8x3UwIDAQAB
   async img2vid({
     prompt,
     imageUrl,
+    version = "v3",
+    type = "pay",
     ...rest
   }) {
     try {
@@ -262,7 +264,7 @@ snOjvdDb4wiZI8x3UwIDAQAB
         ratio: rest.ratio || "720:1280",
         ...rest
       };
-      const response = await this.client.post("https://api.imagetovideoai.io/api/pay/v3/task", payload, {
+      const response = await this.client.post(`https://api.imagetovideoai.io/api/${type}/${version}/task`, payload, {
         params: this.getAuthParams(uid),
         headers: {
           ...this.baseHeaders,
@@ -277,7 +279,9 @@ snOjvdDb4wiZI8x3UwIDAQAB
       const encryptedData = {
         task_id: taskData.task_id,
         token: token,
-        uid: uid
+        uid: uid,
+        version: version,
+        type: type
       };
       return await this.enc(encryptedData);
     } catch (error) {
@@ -287,6 +291,8 @@ snOjvdDb4wiZI8x3UwIDAQAB
   }
   async txt2vid({
     prompt,
+    version = "v2",
+    type = "text",
     ...rest
   }) {
     try {
@@ -304,7 +310,7 @@ snOjvdDb4wiZI8x3UwIDAQAB
         platform: "text2video",
         ...rest
       };
-      const response = await this.client.post("https://api.imagetovideoai.io/api/text/v2/task", payload, {
+      const response = await this.client.post(`https://api.imagetovideoai.io/api/${type}/${version}/task`, payload, {
         params: this.getAuthParams(uid),
         headers: {
           ...this.baseHeaders,
@@ -319,7 +325,9 @@ snOjvdDb4wiZI8x3UwIDAQAB
       const encryptedData = {
         task_id: taskData.task_id,
         token: token,
-        uid: uid
+        uid: uid,
+        version: version,
+        type: type
       };
       return await this.enc(encryptedData);
     } catch (error) {
@@ -334,7 +342,9 @@ snOjvdDb4wiZI8x3UwIDAQAB
     const {
       task_id,
       token,
-      uid
+      uid,
+      version,
+      type
     } = decryptedData;
     if (!task_id || !token || !uid) {
       console.error("[GAGAL] task_id, token, dan uid diperlukan untuk memeriksa status.");
@@ -342,7 +352,7 @@ snOjvdDb4wiZI8x3UwIDAQAB
     }
     console.log(`[PROSES] Memeriksa status untuk Task ID: ${task_id}...`);
     try {
-      const response = await this.client.get("https://api.imagetovideoai.io/api/pay/v3/task", {
+      const response = await this.client.get(`https://api.imagetovideoai.io/api/${type}/${version}/task`, {
         params: {
           task_id: task_id,
           ...this.getAuthParams(uid)
