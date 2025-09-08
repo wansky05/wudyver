@@ -11,11 +11,27 @@ class LyndiumAPI {
     this.password = this._randomString(10);
     this.token = null;
     this.email = null;
-    this.headers = {
+    this.api = axios.create({
+      baseURL: this.baseURL
+    });
+    this.api.interceptors.request.use(config => {
+      this.logRequest(config.method, config.url, config.headers, config.data);
+      return config;
+    });
+    this.api.interceptors.response.use(response => {
+      this.logResponse(response);
+      return response;
+    }, error => {
+      this.logError(error);
+      return Promise.reject(error);
+    });
+  }
+  _buildHeaders(isPrivate = false) {
+    const headers = {
       accept: "*/*",
       "accept-language": "id-ID",
       "content-type": "application/json",
-      is_private: "false",
+      is_private: String(isPrivate),
       origin: "https://www.lyndium.com.au",
       priority: "u=1, i",
       referer: "https://www.lyndium.com.au/",
@@ -28,6 +44,10 @@ class LyndiumAPI {
       "user-agent": "Mozilla/5.0 (Linux; Android 10; K) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/127.0.0.0 Mobile Safari/537.36",
       ...SpoofHead()
     };
+    if (isPrivate && this.token) {
+      headers.authorization = `Bearer ${this.token}`;
+    }
+    return headers;
   }
   logRequest(method, url, headers, data) {
     console.log("\n=== REQUEST ===");
@@ -170,28 +190,20 @@ class LyndiumAPI {
     try {
       console.log("Creating temp email...");
       const url = `${this.mailAPI}?action=create`;
-      this.logRequest("GET", url, {});
-      const response = await axios.get(url);
+      const response = await this.api.get(url);
       this.email = response.data.email;
-      this.logResponse(response);
       console.log(`Email created: ${this.email}`);
       return this.email;
-    } catch (error) {
-      this.logError(error);
-    }
+    } catch (error) {}
   }
   async getMessages() {
     try {
       if (!this.email) throw new Error("Email not created");
       console.log("Checking email messages...");
       const url = `${this.mailAPI}?action=message&email=${this.email}`;
-      this.logRequest("GET", url, {});
-      const response = await axios.get(url);
-      this.logResponse(response);
+      const response = await this.api.get(url);
       return response.data;
-    } catch (error) {
-      this.logError(error);
-    }
+    } catch (error) {}
   }
   async extractToken(emailContent) {
     try {
@@ -240,16 +252,12 @@ class LyndiumAPI {
         },
         query: "mutation signup($user: SignupInput) { signup(user: $user) { jwt id role first_name last_name __typename } }"
       };
-      this.logRequest("POST", this.baseURL, this.headers, data);
-      const response = await axios.post(this.baseURL, data, {
-        headers: this.headers
+      const response = await this.api.post(this.baseURL, data, {
+        headers: this._buildHeaders()
       });
-      this.logResponse(response);
       console.log("Registration successful, waiting for verification...");
       return response.data;
-    } catch (error) {
-      this.logError(error);
-    }
+    } catch (error) {}
   }
   async verify(token) {
     try {
@@ -261,19 +269,15 @@ class LyndiumAPI {
         },
         query: "mutation verifyToken($token: String) { verifyToken(token: $token) { jwt role first_name last_name __typename } }"
       };
-      this.logRequest("POST", this.baseURL, this.headers, data);
-      const response = await axios.post(this.baseURL, data, {
-        headers: this.headers
+      const response = await this.api.post(this.baseURL, data, {
+        headers: this._buildHeaders()
       });
-      this.logResponse(response);
       if (response.data.data?.verifyToken) {
         this.token = response.data.data.verifyToken.jwt;
-        console.log("Token verified and saved");
+        console.log("Token verified and saved", this.token);
       }
       return response.data;
-    } catch (error) {
-      this.logError(error);
-    }
+    } catch (error) {}
   }
   async waitVerify(maxAttempts = 60, interval = 3e3) {
     try {
@@ -297,9 +301,7 @@ class LyndiumAPI {
         }
       }
       throw new Error("Verification email not found after multiple attempts");
-    } catch (error) {
-      this.logError(error);
-    }
+    } catch (error) {}
   }
   async txt2vid({
     prompt,
@@ -317,16 +319,9 @@ class LyndiumAPI {
         },
         query: "mutation initiateVideoJob($prompt: String!, $model_name: String!) { initiateVideoJob(prompt: $prompt, model_name: $model_name) { jobId status __typename } }"
       };
-      this.logRequest("POST", this.baseURL, this.headers, data);
-      const requestHeaders = {
-        authorization: `Bearer ${this.token}`,
-        is_private: "true",
-        ...this.headers
-      };
-      const response = await axios.post(this.baseURL, data, {
-        headers: requestHeaders
+      const response = await this.api.post(this.baseURL, data, {
+        headers: this._buildHeaders(true)
       });
-      this.logResponse(response);
       console.log("Text-to-video process started");
       const encryptedData = {
         taskId: response?.data?.data?.initiateVideoJob?.jobId,
@@ -334,9 +329,7 @@ class LyndiumAPI {
         gen_type: "video"
       };
       return await this.enc(encryptedData);
-    } catch (error) {
-      this.logError(error);
-    }
+    } catch (error) {}
   }
   async img2vid({
     prompt,
@@ -356,16 +349,9 @@ class LyndiumAPI {
         },
         query: "mutation initiateImageToVideoJob($imageUrl: String!, $model: String!, $prompt: String) { initiateImageToVideoJob(imageUrl: $imageUrl, model: $model, prompt: $prompt) { jobId status __typename } }"
       };
-      this.logRequest("POST", this.baseURL, this.headers, data);
-      const requestHeaders = {
-        authorization: `Bearer ${this.token}`,
-        is_private: "true",
-        ...this.headers
-      };
-      const response = await axios.post(this.baseURL, data, {
-        headers: requestHeaders
+      const response = await this.api.post(this.baseURL, data, {
+        headers: this._buildHeaders(true)
       });
-      this.logResponse(response);
       console.log("Image-to-video process started");
       const encryptedData = {
         taskId: response?.data?.data?.initiateImageToVideoJob?.jobId,
@@ -373,9 +359,7 @@ class LyndiumAPI {
         gen_type: "video"
       };
       return await this.enc(encryptedData);
-    } catch (error) {
-      this.logError(error);
-    }
+    } catch (error) {}
   }
   async txt2img({
     prompt,
@@ -393,16 +377,9 @@ class LyndiumAPI {
         },
         query: "mutation initiateImageJob($prompt: String!, $model: String!) { initiateImageJob(prompt: $prompt, model: $model) { jobId status __typename } }"
       };
-      this.logRequest("POST", this.baseURL, this.headers, data);
-      const requestHeaders = {
-        authorization: `Bearer ${this.token}`,
-        is_private: "true",
-        ...this.headers
-      };
-      const response = await axios.post(this.baseURL, data, {
-        headers: requestHeaders
+      const response = await this.api.post(this.baseURL, data, {
+        headers: this._buildHeaders(true)
       });
-      this.logResponse(response);
       console.log("Text-to-image process started");
       const encryptedData = {
         taskId: response?.data?.data?.initiateImageJob?.jobId,
@@ -410,9 +387,7 @@ class LyndiumAPI {
         gen_type: "image"
       };
       return await this.enc(encryptedData);
-    } catch (error) {
-      this.logError(error);
-    }
+    } catch (error) {}
   }
   async img2img({
     prompt,
@@ -432,16 +407,9 @@ class LyndiumAPI {
         },
         query: "mutation initiateImageToImageJob($prompt: String!, $imageUrl: String!, $style: String!) { initiateImageToImageJob(prompt: $prompt, imageUrl: $imageUrl, style: $style) { jobId status __typename } }"
       };
-      this.logRequest("POST", this.baseURL, this.headers, data);
-      const requestHeaders = {
-        authorization: `Bearer ${this.token}`,
-        is_private: "true",
-        ...this.headers
-      };
-      const response = await axios.post(this.baseURL, data, {
-        headers: requestHeaders
+      const response = await this.api.post(this.baseURL, data, {
+        headers: this._buildHeaders(true)
       });
-      this.logResponse(response);
       console.log("Image-to-image process started");
       const encryptedData = {
         taskId: response?.data?.data?.initiateImageToImageJob?.jobId,
@@ -449,9 +417,7 @@ class LyndiumAPI {
         gen_type: "image"
       };
       return await this.enc(encryptedData);
-    } catch (error) {
-      this.logError(error);
-    }
+    } catch (error) {}
   }
   async status({
     input_type,
@@ -476,9 +442,7 @@ class LyndiumAPI {
         return await this.imgJobStatus(taskId);
       }
       return null;
-    } catch (error) {
-      this.logError(error);
-    }
+    } catch (error) {}
   }
   async videoJobStatus(jobId) {
     try {
@@ -503,16 +467,9 @@ class LyndiumAPI {
         }
       }`
       };
-      const requestHeaders = {
-        authorization: `Bearer ${this.token}`,
-        is_private: "true",
-        ...this.headers
-      };
-      this.logRequest("POST", this.baseURL, requestHeaders, data);
-      const response = await axios.post(this.baseURL, data, {
-        headers: requestHeaders
+      const response = await this.api.post(this.baseURL, data, {
+        headers: this._buildHeaders(true)
       });
-      this.logResponse(response);
       if (response.data?.data?.getVideoJobStatus?.result) {
         const results = response.data.data.getVideoJobStatus.result;
         const parsedResults = results.map(item => ({
@@ -532,7 +489,6 @@ class LyndiumAPI {
       }
       return response.data;
     } catch (error) {
-      this.logError(error);
       throw error;
     }
   }
@@ -559,16 +515,9 @@ class LyndiumAPI {
         }
       }`
       };
-      const requestHeaders = {
-        authorization: `Bearer ${this.token}`,
-        is_private: "true",
-        ...this.headers
-      };
-      this.logRequest("POST", this.baseURL, requestHeaders, data);
-      const response = await axios.post(this.baseURL, data, {
-        headers: requestHeaders
+      const response = await this.api.post(this.baseURL, data, {
+        headers: this._buildHeaders(true)
       });
-      this.logResponse(response);
       if (response.data?.data?.getImageJobStatus?.result) {
         const results = response.data.data.getImageJobStatus.result;
         const parsedResults = results.map(item => ({
@@ -588,7 +537,6 @@ class LyndiumAPI {
       }
       return response.data;
     } catch (error) {
-      this.logError(error);
       throw error;
     }
   }
@@ -596,9 +544,7 @@ class LyndiumAPI {
     try {
       await this.signup(firstName, lastName, password);
       return await this.waitVerify();
-    } catch (error) {
-      this.logError(error);
-    }
+    } catch (error) {}
   }
 }
 export default async function handler(req, res) {
