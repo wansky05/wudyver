@@ -472,10 +472,18 @@ class LyndiumAPI {
       });
       if (response.data?.data?.getVideoJobStatus?.result) {
         const results = response.data.data.getVideoJobStatus.result;
-        const parsedResults = results.map(item => ({
+        let parsedResults;
+        const parseItem = item => ({
           ...item,
           videoUrl: item.videoId ? `https://dx2r83o8wtjjw.cloudfront.net/${encodeURIComponent(item.videoId)}` : null
-        }));
+        });
+        if (Array.isArray(results)) {
+          parsedResults = results.map(parseItem);
+        } else if (results && typeof results === "object") {
+          parsedResults = parseItem(results);
+        } else {
+          parsedResults = results;
+        }
         return {
           ...response.data,
           data: {
@@ -520,10 +528,18 @@ class LyndiumAPI {
       });
       if (response.data?.data?.getImageJobStatus?.result) {
         const results = response.data.data.getImageJobStatus.result;
-        const parsedResults = results.map(item => ({
+        let parsedResults;
+        const parseImageItem = item => ({
           ...item,
           imageUrl: item.imageId ? `https://dx2r83o8wtjjw.cloudfront.net/${encodeURIComponent(item.imageId)}` : null
-        }));
+        });
+        if (Array.isArray(results)) {
+          parsedResults = results.map(parseImageItem);
+        } else if (results && typeof results === "object") {
+          parsedResults = parseImageItem(results);
+        } else {
+          parsedResults = results;
+        }
         return {
           ...response.data,
           data: {
