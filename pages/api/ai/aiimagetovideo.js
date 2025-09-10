@@ -399,13 +399,21 @@ class AIImageToVideo {
       if (imageUrl) {
         console.log("📥 Downloading image...");
         const {
-          data: imgData
+          data: imgData,
+          headers: responseHeaders
         } = await this.api.get(imageUrl, {
-          responseType: "stream"
+          responseType: "arraybuffer"
         });
-        form.append("image", imgData, {
-          filename: "image.webp",
-          contentType: "image/webp"
+        const contentType = responseHeaders["content-type"] || responseHeaders["Content-Type"] || "image/jpeg";
+        let extension = "jpg";
+        if (contentType.includes("webp")) extension = "webp";
+        if (contentType.includes("png")) extension = "png";
+        if (contentType.includes("gif")) extension = "gif";
+        const filename = `image.${extension}`;
+        form.append("image", Buffer.from(imgData), {
+          filename: filename,
+          contentType: contentType,
+          knownLength: imgData.byteLength
         });
         console.log("✅ Image downloaded");
       }

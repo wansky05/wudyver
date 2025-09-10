@@ -1,11 +1,9 @@
 import apiConfig from "@/configs/apiConfig";
 import axios from "axios";
-
 export default async function handler(req, res) {
   if (req.method === "OPTIONS") {
     return res.status(200).end();
   }
-
   try {
     const domainName = apiConfig.DOMAIN_URL.replace(/^https?:\/\//, "").replace(/\/$/, "");
     const axiosInstance = axios.create({
@@ -15,11 +13,9 @@ export default async function handler(req, res) {
         "Accept-Encoding": "gzip"
       }
     });
-
     const response = await axiosInstance.get(`https://${domainName}/api/routes`);
     const routes = response.data;
     const domainKey = domainName.replace(/\./g, "");
-    
     const tags = {};
     const schemas = {
       [`${domainKey}ApiResponse`]: {
@@ -80,7 +76,6 @@ export default async function handler(req, res) {
         required: ["errorCode", "errorMessage"]
       }
     };
-
     const getFolderIcon = folderName => {
       const iconMap = {
         ai: "🤖",
@@ -117,20 +112,22 @@ export default async function handler(req, res) {
       const normalized = folderName.toLowerCase().trim();
       return iconMap[normalized] || iconMap["default"];
     };
-
-    routes.forEach(({ path, name, method, params }) => {
+    routes.forEach(({
+      path,
+      name,
+      method,
+      params
+    }) => {
       const pathParts = path.split("/").filter(part => part !== "");
       const folderName = pathParts.length > 1 && pathParts[0] === "api" ? pathParts[1] : "general";
       const tag = folderName.toUpperCase();
-      
       if (!tags[tag]) tags[tag] = [];
-      
-      const parameters = (params || []).map(({ 
-        name: paramName, 
-        required, 
-        type, 
-        description, 
-        example 
+      const parameters = (params || []).map(({
+        name: paramName,
+        required,
+        type,
+        description,
+        example
       }) => ({
         name: paramName,
         in: "query",
@@ -141,7 +138,6 @@ export default async function handler(req, res) {
         },
         example: example || `sample_${paramName}`
       }));
-      
       tags[tag].push({
         path: path,
         name: name,
@@ -150,7 +146,6 @@ export default async function handler(req, res) {
         folder: folderName
       });
     });
-
     const openAPISpec = {
       openapi: "3.0.0",
       info: {
@@ -222,7 +217,6 @@ export default async function handler(req, res) {
         ApiKeyAuth: []
       }]
     };
-
     const getMethodEmoji = method => {
       const emojiMap = {
         get: "📥",
@@ -233,37 +227,38 @@ export default async function handler(req, res) {
       };
       return emojiMap[method] || "🔗";
     };
-
     Object.entries(tags).forEach(([originalTag, endpoints]) => {
       const folderName = endpoints[0]?.folder || "general";
       const tag = `${getFolderIcon(folderName)} ${originalTag}`;
-      
-      endpoints.forEach(({ path, name, method, parameters }) => {
+      endpoints.forEach(({
+        path,
+        name,
+        method,
+        parameters
+      }) => {
         if (!openAPISpec.paths[path]) openAPISpec.paths[path] = {};
-        
         openAPISpec.paths[path][method] = {
           tags: [tag],
           summary: `${getMethodEmoji(method)} ${name}`,
           description: `**${method.toUpperCase()}** operation for ${name}\n\n> Endpoint yang dirancang untuk performa optimal dan pengalaman developer yang unggul`,
           parameters: parameters,
           responses: {
-            "200": {
+            200: {
               $ref: "#/components/responses/Success"
             },
-            "400": {
+            400: {
               $ref: "#/components/responses/Error"
             },
-            "404": {
+            404: {
               $ref: "#/components/responses/NotFound"
             },
-            "500": {
+            500: {
               $ref: "#/components/responses/Error"
             }
           }
         };
       });
     });
-
     return res.status(200).json(openAPISpec);
   } catch (error) {
     console.error("Failed to generate OpenAPI spec:", error);
