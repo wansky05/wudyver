@@ -1,12 +1,10 @@
 import axios from "axios";
 import * as cheerio from "cheerio";
 import FormData from "form-data";
-import {
-  CookieJar
-} from "tough-cookie";
-import {
-  wrapper
-} from "axios-cookiejar-support";
+import https from "https";
+import CryptoJS from "crypto-js";
+import crypto from "crypto";
+import SpoofHead from "@/lib/spoof-head";
 import apiConfig from "@/configs/apiConfig";
 const servicesInfo = {
   array: ["qobuz", "tidal", "soundcloud", "deezer", "amazon", "yandex"],
@@ -23,6 +21,9 @@ function formatBytes(bytes, decimals = 2) {
 }
 class Lucida {
   constructor() {
+    this.httpsAgent = new https.Agent({
+      keepAlive: true
+    });
     this.axiosInstance = axios.create({
       baseURL: "https://lucida.to",
       headers: {
@@ -31,18 +32,14 @@ class Lucida {
         "sec-ch-ua": '"Chromium";v="127", "Not)A;Brand";v="99", "Microsoft Edge Simulate";v="127", "Lemur";v="127"',
         "sec-ch-ua-mobile": "?1",
         "sec-ch-ua-platform": '"Android"',
-        "user-agent": "Mozilla/5.0 (Linux; Android 10; K) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/127.0.0.0 Mobile Safari/537.36"
-      }
+        "user-agent": "Mozilla/5.0 (Linux; Android 10; K) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/127.0.0.0 Mobile Safari/537.36",
+        ...SpoofHead()
+      },
+      httpsAgent: this.httpsAgent
     });
     this.services = servicesInfo;
-    this.jar = new CookieJar();
-    this.client = wrapper(axios.create({
-      jar: this.jar,
-      maxRedirects: 0,
-      validateStatus: status => status >= 200 && status < 400
-    }));
   }
-  #generateToken() {
+  _generateToken() {
     const characters = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789-_";
     let primary = "";
     for (let i = 0; i < 25; i++) {
@@ -80,14 +77,27 @@ class Lucida {
         const artist = $(element).find(".metadata h2").text()?.trim() || "Artis tidak diketahui";
         const albumInfo = $(element).find(".metadata h3").text()?.trim().match(/(.+) \((\d{4})\)/) || [];
         const url = $(element).find(".metadata a").attr("href") || "";
-        const ids = btoa(url) || "";
+        let originalUrl = "";
+        let absoluteUrl = "";
+        if (url) {
+          try {
+            const fullUrl = new URL(url, "https://lucida.to");
+            originalUrl = fullUrl.searchParams.get("url") || "";
+            absoluteUrl = fullUrl.href;
+          } catch (e) {
+            console.warn(`URL tidak valid ditemukan saat pencarian, dilewati: ${url}`);
+          }
+        }
+        const wordArr = CryptoJS.enc.Utf8.parse(url);
+        const ids = CryptoJS.enc.Hex.stringify(wordArr);
         results.push({
           title: title,
           artist: artist,
           ids: ids,
           album: albumInfo[1]?.trim() || "Album tidak diketahui",
           year: albumInfo[2] || "Tahun tidak diketahui",
-          url: url ? new URL(url, "https://lucida.to").href : ""
+          url: absoluteUrl,
+          origin: originalUrl
         });
       });
       console.log(`Ditemukan ${results.length} hasil.`);
@@ -97,10 +107,10 @@ class Lucida {
       return [];
     }
   }
-  async #polling(pollUrl) {
+  async _polling(pollUrl) {
     console.log("Memulai polling untuk status unduhan...");
     while (true) {
-      const response = await axios.get(pollUrl, {
+      const response = await this.axiosInstance.get(pollUrl, {
         headers: {
           origin: "https://lucida.to",
           referer: "https://lucida.to/"
@@ -118,13 +128,25 @@ class Lucida {
   }
   async download({
     ids = "",
-    host = "Instantiated"
+    host = "Quax"
   }) {
-    const trackUrl = ids.startsWith("https") ? ids : atob(ids);
-    if (!trackUrl) throw new Error("URL trek tidak boleh kosong.");
+    let trackUrl = "";
+    try {
+      if (ids.startsWith("http")) {
+        trackUrl = ids;
+      } else {
+        const parsedHex = CryptoJS.enc.Hex.parse(ids);
+        trackUrl = parsedHex.toString(CryptoJS.enc.Utf8);
+      }
+    } catch (e) {
+      throw new Error("Format ids tidak valid.");
+    }
+    if (!trackUrl) throw new Error("URL trek tidak boleh kosong setelah dekripsi.");
     try {
       console.log(`\nMemulai proses unduhan untuk: ${trackUrl}`);
-      const originalUrl = new URL(trackUrl).searchParams.get("url");
+      const urlObject = new URL(trackUrl, "https://lucida.to");
+      const originalUrl = urlObject.searchParams.get("url");
+      if (!originalUrl) throw new Error(`Tidak dapat mengekstrak URL asli dari: ${trackUrl}`);
       const postData = {
         url: originalUrl,
         metadata: true,
@@ -140,7 +162,7 @@ class Lucida {
           service: "pixeldrain"
         },
         downscale: "original",
-        token: this.#generateToken()
+        token: this._generateToken()
       };
       const initialResponse = await this.axiosInstance.post("/api/load?url=%2Fapi%2Ffetch%2Fstream%2Fv2", JSON.stringify(postData), {
         headers: {
@@ -153,19 +175,20 @@ class Lucida {
         handoff,
         server
       } = initialResponse.data;
-      if (!handoff || !server) {
-        console.error("Respons API tidak valid:", JSON.stringify(initialResponse.data, null, 2));
-        throw new Error("Gagal mendapatkan handoff ID atau server.");
-      }
+      if (!handoff || !server) throw new Error("Gagal mendapatkan handoff ID atau server.");
       console.log(`Handoff ID: ${handoff}, Server: ${server}`);
-      await this.#polling(`https://${server}.lucida.to/api/fetch/request/${handoff}`);
+      await this._polling(`https://${server}.lucida.to/api/fetch/request/${handoff}`);
       const downloadApiUrl = `https://lucida.to/api/load?url=%2Fapi%2Ffetch%2Frequest%2F${handoff}%2Fdownload&force=${server}&redirect=true`;
-      const response = await this.client.get(downloadApiUrl, {
+      const response = await this.axiosInstance.get(downloadApiUrl, {
         headers: {
           referer: "https://lucida.to/"
-        }
+        },
+        maxRedirects: 0,
+        validateStatus: status => status >= 200 && status < 400
       });
-      if (response.headers.location) return await this.fetchAndUploadMedia(response.headers.location, postData.token.primary, host);
+      if (response.status === 302 && response.headers.location) {
+        return await this.fetchAndUploadMedia(response.headers.location, postData.token.primary, host);
+      }
       throw new Error("Tidak dapat menemukan URL redirect di header respons.");
     } catch (error) {
       console.error("Terjadi kesalahan saat proses unduhan:", error.message);
@@ -175,25 +198,24 @@ class Lucida {
   async fetchAndUploadMedia(initialDownloadLink, query, host) {
     if (!initialDownloadLink) throw new Error("Link unduhan awal tidak boleh kosong.");
     try {
-      console.log(`\nMengunduh stream media dan mempersiapkan unggahan...`);
-      const mediaResponse = await axios.get(initialDownloadLink, {
-        responseType: "stream",
-        maxRedirects: 10
+      console.log(`\nMengunduh media ke buffer...`);
+      const mediaResponse = await this.axiosInstance(initialDownloadLink, {
+        responseType: "arraybuffer"
       });
-      const fileStream = mediaResponse.data;
-      const finalHeaders = mediaResponse.headers;
-      const contentType = finalHeaders["content-type"];
-      const contentLength = finalHeaders["content-length"];
-      if (!contentType || !contentType.startsWith("audio/")) throw new Error(`Tipe konten tidak valid (${contentType}). Proses unggah dibatalkan.`);
-      console.log(`Stream media diterima. Ukuran: ${formatBytes(contentLength)}. Tipe: ${contentType}.`);
+      const fileBuffer = Buffer.from(mediaResponse.data);
+      const contentType = mediaResponse.headers["content-type"];
+      const contentLength = fileBuffer.length;
+      if (!contentType || !contentType.startsWith("audio/")) {
+        throw new Error(`Tipe konten tidak valid (${contentType}). Proses unggah dibatalkan.`);
+      }
+      console.log(`Media berhasil diunduh ke buffer. Ukuran: ${formatBytes(contentLength)}. Tipe: ${contentType}.`);
       const form = new FormData();
       const sanitizedQuery = query.replace(/\s+/g, "_").replace(/[^\w-]/g, "");
       const fileExtension = contentType.split("/")[1] || "flac";
       const fileName = `${sanitizedQuery}.${fileExtension}`;
-      form.append("file", fileStream, {
+      form.append("file", fileBuffer, {
         filename: fileName,
-        contentType: contentType,
-        knownLength: contentLength
+        contentType: contentType
       });
       const uploadUrl = `https://${apiConfig.DOMAIN_URL}/api/tools/upload?host=${host}`;
       console.log(`Mengunggah file "${fileName}" ke: ${uploadUrl}`);

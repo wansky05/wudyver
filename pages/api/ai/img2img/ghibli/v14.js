@@ -11,9 +11,13 @@ class GhibliAPI {
     };
     this.creds = {
       appId: "DKTECH_GHIBLI_Dktechinc",
-      secretKey: "r0R5EKF4seRwqUIB8gLPdFvNmPm8rN63"
+      secretKey: "r0R5EKFarseRwqUIB8gLPdFvNmPm8rN63"
     };
-    this.studios = ["ghibli-howl-moving-castle-anime", "ghibli-spirited-away-anime", "ghibli-my-neighbor-totoro-anime", "ghibli-ponyo-anime", "ghibli-grave-of-fireflies-anime", "ghibli-princess-mononoke-anime", "ghibli-kaguya-anime"];
+    const studioNames = ["ghibli-howl-moving-castle-anime", "ghibli-spirited-away-anime", "ghibli-my-neighbor-totoro-anime", "ghibli-ponyo-anime", "ghibli-grave-of-fireflies-anime", "ghibli-princess-mononoke-anime", "ghibli-kaguya-anime"];
+    this.studios = studioNames.map((name, index) => ({
+      name: name,
+      index: index
+    }));
     this.headers = {
       "user-agent": "NB Android/1.0.0",
       "accept-encoding": "gzip"
@@ -58,15 +62,10 @@ class GhibliAPI {
       return false;
     }
   }
-  getStudioId(id) {
+  getStudioId(identifier) {
     try {
-      if (typeof id === "number" && this.studios[id]) {
-        return this.studios[id];
-      }
-      if (typeof id === "string" && this.studios.includes(id)) {
-        return id;
-      }
-      return null;
+      const studio = this.studios.find(s => s.name === identifier || s.index == identifier);
+      return studio ? studio.name : null;
     } catch (error) {
       this.log(`Error getting studio ID: ${error.message}`, "error");
       return null;
@@ -155,56 +154,58 @@ class GhibliAPI {
   }
   async generate({
     imageUrl,
-    studio,
-    imageFile
+    studio = 6
   }) {
     try {
-      if (!imageUrl && !imageFile) {
+      if (!imageUrl) {
         this.log("No image provided for generation", "error");
         return {
           success: false,
           code: 400,
           result: {
-            error: "Either imageUrl or imageFile is required"
+            error: "imageUrl is required"
           }
         };
       }
       const studioId = this.getStudioId(studio);
       if (!studioId) {
-        this.log(`Invalid studio ID: ${studio}`, "error");
+        this.log(`Invalid studio identifier: ${studio}`, "error");
         return {
           success: false,
           code: 400,
           result: {
-            error: `Studio must be an index (0-${this.studios.length - 1}) or valid studio ID\nAvailable studios: ${this.studios.map((id, i) => `[${i}] ${id}`).join(", ")}`
+            error: `Studio must be a valid index or name.\nAvailable studios: ${this.studios.map(s => `[${s.index}] ${s.name}`).join(", ")}`
           }
         };
       }
       const tokenResult = await this.getToken();
-      if (!tokenResult.success) {
-        return tokenResult;
-      }
+      if (!tokenResult.success) return tokenResult;
       const {
         token
       } = tokenResult.result;
       const form = new FormData();
       form.append("studio", studioId);
-      if (imageFile) {
-        form.append("file", imageFile, {
-          filename: "image.jpg",
-          contentType: "image/jpeg"
-        });
-      } else if (imageUrl) {
+      let imageBuffer;
+      let contentType = "image/jpeg";
+      if (Buffer.isBuffer(imageUrl)) {
+        this.log("Using image from buffer");
+        imageBuffer = imageUrl;
+      } else if (imageUrl.startsWith("data:image")) {
+        this.log("Using image from base64 data URL");
+        const parts = imageUrl.split(",");
+        const mimeType = parts[0].match(/:(.*?);/)[1];
+        const base64Data = parts[1];
+        contentType = mimeType || contentType;
+        imageBuffer = Buffer.from(base64Data, "base64");
+      } else {
         this.log(`Fetching image from URL: ${imageUrl}`);
         try {
           const imageResponse = await axios.get(imageUrl, {
             responseType: "arraybuffer",
             timeout: 3e4
           });
-          form.append("file", Buffer.from(imageResponse.data), {
-            filename: "image.jpg",
-            contentType: imageResponse.headers["content-type"] || "image/jpeg"
-          });
+          imageBuffer = Buffer.from(imageResponse.data);
+          contentType = imageResponse.headers["content-type"] || contentType;
         } catch (error) {
           this.log(`Failed to fetch image from URL: ${error.message}`, "error");
           return {
@@ -216,6 +217,10 @@ class GhibliAPI {
           };
         }
       }
+      form.append("file", imageBuffer, {
+        filename: "image.jpg",
+        contentType: contentType
+      });
       const url = `${this.api.base}${this.api.endpoints.ghibli("/edit-theme")}?uuid=1212`;
       this.log(`Sending image generation request for studio: ${studioId}`);
       const res = await axios.post(url, form, {
