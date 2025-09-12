@@ -15,12 +15,12 @@ class Flux {
     this.cookieJar = new CookieJar();
     this.client = wrapper(axios.create({
       jar: this.cookieJar,
-      withCredentials: true,
       headers: {
         "User-Agent": "Mozilla/5.0 (Linux; Android 10; K) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/127.0.0.0 Mobile Safari/537.36",
-        "accept-language": "id-ID",
         accept: "*/*",
+        "accept-language": "id-ID",
         origin: "https://flux-1.net",
+        priority: "u=1, i",
         referer: "https://flux-1.net/nano-banana",
         "sec-ch-ua": '"Chromium";v="127", "Not)A;Brand";v="99", "Microsoft Edge Simulate";v="127", "Lemur";v="127"',
         "sec-ch-ua-mobile": "?1",
@@ -225,8 +225,10 @@ export default async function handler(req, res) {
     const response = await flux.generate(params);
     return res.status(200).json(response);
   } catch (error) {
-    res.status(500).json({
-      error: error.message || "Internal Server Error"
+    console.error("API Error:", error);
+    const errorMessage = error.response?.data?.error || error.message || "Internal Server Error";
+    return res.status(500).json({
+      error: errorMessage
     });
   }
 }

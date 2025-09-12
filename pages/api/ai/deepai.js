@@ -33,7 +33,7 @@ class DeepAI {
       const headers = {
         accept: "*/*",
         "accept-language": "en-US,en;q=0.9",
-        "api-key": this.genKey(),
+        "api-key": this.genKey() || "9fc3ed1a-04f7-40ef-bbdb-2d51765ff78f",
         origin: this.baseURL,
         referer: `${this.baseURL}/`,
         "user-agent": this.userAgent,

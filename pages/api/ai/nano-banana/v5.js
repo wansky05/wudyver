@@ -106,34 +106,48 @@ class NanoBananaAI {
     upload = true,
     ...options
   }) {
-    if (!imageUrl || !prompt) throw new Error("imageUrl and prompt are required");
-    this._log(`Editing with prompt: "${prompt}"`);
+    if (!prompt) throw new Error("prompt is required");
     try {
-      const {
-        buffer: imgBuffer,
-        mime: contentType,
-        filename
-      } = await this._getImageDetails(imageUrl);
-      const formData = new FormData();
-      formData.append("prompt", prompt);
-      formData.append("images", imgBuffer, {
-        filename: filename,
-        contentType: contentType
-      });
-      Object.entries(options).forEach(([k, v]) => {
-        if (v !== undefined) formData.append(k, v);
-      });
-      const response = await this.api.post("/nano-banana/edit", formData, {
-        headers: {
-          ...formData.getHeaders()
-        },
-        responseType: "arraybuffer"
-      });
-      this._log("Edit successful");
+      let response;
+      if (imageUrl) {
+        this._log(`Editing with prompt: "${prompt}"`);
+        const {
+          buffer: imgBuffer,
+          mime: contentType,
+          filename
+        } = await this._getImageDetails(imageUrl);
+        const formData = new FormData();
+        formData.append("prompt", prompt);
+        formData.append("images", imgBuffer, {
+          filename: filename,
+          contentType: contentType
+        });
+        Object.entries(options).forEach(([k, v]) => {
+          if (v !== undefined) formData.append(k, v);
+        });
+        response = await this.api.post("/nano-banana/edit", formData, {
+          headers: {
+            ...formData.getHeaders()
+          },
+          responseType: "arraybuffer"
+        });
+        this._log("Edit successful");
+      } else {
+        this._log(`Generating with prompt: "${prompt}"`);
+        response = await this.api.post("/nano-banana/generate", {
+          prompt: prompt
+        }, {
+          headers: {
+            "content-type": "application/json"
+          },
+          responseType: "arraybuffer"
+        });
+        this._log("Generate successful");
+      }
       if (upload && response.data) {
         const resultBuffer = Buffer.isBuffer(response.data) ? response.data : Buffer.from(response.data);
         if (resultBuffer.length === 0) {
-          throw new Error("Received empty response from edit API.");
+          throw new Error("Received empty response from API.");
         }
         const resultMime = response.headers["content-type"] || "image/jpeg";
         const mimeToExt = {
@@ -149,16 +163,16 @@ class NanoBananaAI {
       }
     } catch (err) {
       const errorMessage = err.response?.data?.toString() || err.message;
-      console.error("Edit error:", errorMessage);
+      console.error("API error:", errorMessage);
       throw new Error(errorMessage);
     }
   }
 }
 export default async function handler(req, res) {
   const params = req.method === "GET" ? req.query : req.body;
-  if (!params.imageUrl) {
+  if (!params.prompt) {
     return res.status(400).json({
-      error: "imageUrl are required"
+      error: "Prompt are required"
     });
   }
   try {
