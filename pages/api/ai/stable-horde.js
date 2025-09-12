@@ -178,9 +178,7 @@ export default async function handler(req, res) {
       error: "Action is required."
     });
   }
-  const api = new StableHorde({
-    apiKey: process.env.STABLE_HORDE_API_KEY || "0000000000"
-  });
+  const api = new StableHorde();
   try {
     let response;
     switch (action) {

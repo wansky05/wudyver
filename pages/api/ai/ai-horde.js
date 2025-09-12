@@ -149,10 +149,10 @@ export default async function handler(req, res) {
   try {
     let response;
     switch (action) {
-      case "txt2img":
+      case "image":
         if (!params.prompt) {
           return res.status(400).json({
-            error: "Prompt is required for txt2img."
+            error: "Prompt is required for image."
           });
         }
         response = await api.image(params);
@@ -173,7 +173,7 @@ export default async function handler(req, res) {
         return res.status(200).json(response);
       default:
         return res.status(400).json({
-          error: `Invalid action: ${action}. Supported actions are 'txt2img', 'chat', 'models', and 'styles'.`
+          error: `Invalid action: ${action}. Supported actions are 'image', 'chat', 'models', and 'styles'.`
         });
     }
   } catch (error) {
