@@ -51,6 +51,7 @@ export default function handler(req, res) {
     { path: "/api/ai/img2img/gen/v3", name: "V3", params: [{ "name": "prompt", "in": "query", "required": false }], },
     { path: "/api/ai/img2img/gen/v2", name: "V2", params: [{ "name": "prompt", "in": "query", "required": false }], },
     { path: "/api/ai/img2img/gen/v4", name: "V4", params: [{ "name": "prompt", "in": "query", "required": false }], },
+    { path: "/api/ai/img2img/gen/v5", name: "V5", params: [{ "name": "prompt", "in": "query", "required": false }], },
     { path: "/api/ai/img2img/ghibli/v1", name: "V1", params: [{ "name": "prompt", "in": "query", "required": false }], },
     { path: "/api/ai/img2img/ghibli/v10", name: "V10", params: [{ "name": "prompt", "in": "query", "required": false }], },
     { path: "/api/ai/img2img/ghibli/v11", name: "V11", params: [{ "name": "prompt", "in": "query", "required": false }], },

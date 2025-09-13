@@ -5,9 +5,10 @@ class AkinatorHandler {
   constructor(region, childMode = false) {
     this.region = region || "id";
     this.childMode = childMode === "true";
+    this.proxy = "https://akinator.jack04309487.workers.dev/";
   }
   async startGame() {
-    const response = await axios.post(`https://${this.region}.akinator.com/game`, {
+    const response = await axios.post(`${this.proxy}https://${this.region}.akinator.com/game`, {
       sid: "1",
       cm: this.childMode
     });
@@ -23,7 +24,7 @@ class AkinatorHandler {
     };
   }
   async stepGame(session, answer) {
-    const response = await axios.post(`https://${session.region}.akinator.com/answer`, {
+    const response = await axios.post(`${this.proxy}https://${session.region}.akinator.com/answer`, {
       step: session.currentStep.toString(),
       progression: session.progress,
       sid: "1",
@@ -37,7 +38,7 @@ class AkinatorHandler {
     return data;
   }
   async backStep(session) {
-    const response = await axios.post(`https://${session.region}.akinator.com/cancel_answer`, {
+    const response = await axios.post(`${this.proxy}https://${session.region}.akinator.com/cancel_answer`, {
       step: session.currentStep.toString(),
       progression: session.progress,
       sid: "1",

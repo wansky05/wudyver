@@ -2,6 +2,7 @@ import dbConnect from "@/lib/mongoose";
 import akiSession from "@/models/AkinatorV2";
 import axios from "axios";
 import * as cheerio from "cheerio";
+const proxy = "https://akinator.jack04309487.workers.dev/";
 export default async function handler(req, res) {
   await dbConnect();
   const {
@@ -20,7 +21,7 @@ export default async function handler(req, res) {
             error: "Parameter lang diperlukan."
           });
         }
-        const response = await axios.post(`https://${region}.akinator.com/game`, {
+        const response = await axios.post(`${proxy}https://${region}.akinator.com/game`, {
           sid: "1",
           cm: childMode === "true"
         });
@@ -56,7 +57,7 @@ export default async function handler(req, res) {
         if (!session) return res.status(404).json({
           error: "Session tidak ditemukan."
         });
-        const response = await axios.post(`https://${session.region}.akinator.com/answer`, {
+        const response = await axios.post(`${proxy}https://${session.region}.akinator.com/answer`, {
           step: session.currentStep.toString(),
           progression: session.progress,
           sid: "1",
@@ -97,7 +98,7 @@ export default async function handler(req, res) {
         if (!session) return res.status(404).json({
           error: "Session tidak ditemukan."
         });
-        const response = await axios.post(`https://${session.region}.akinator.com/cancel_answer`, {
+        const response = await axios.post(`${proxy}https://${session.region}.akinator.com/cancel_answer`, {
           step: session.currentStep.toString(),
           progression: session.progress,
           sid: "1",

@@ -7,7 +7,9 @@ class AxiosClient {
       3: "https://api.allorigins.win/get?url=",
       4: "https://imageprompt.org/api/image/proxy?url=",
       5: "https://files.xianqiao.wang/",
-      6: "https://api.fsh.plus/html?url="
+      6: "https://api.fsh.plus/html?url=",
+      7: "https://akinator.jack04309487.workers.dev/",
+      8: "https://cors.caliph.my.id/"
     };
   }
   addHost(key, url) {
