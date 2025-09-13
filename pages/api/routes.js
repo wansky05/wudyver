@@ -906,6 +906,7 @@ export default function handler(req, res) {
     { path: "/api/fun/tarotap", name: "Tarotap", params: [{ "name": "prompt", "in": "query", "required": false }], },
     { path: "/api/game/akinator/v2", name: "V2", params: [{ "name": "prompt", "in": "query", "required": false }], },
     { path: "/api/game/akinator/v4", name: "V4", params: [{ "name": "prompt", "in": "query", "required": false }], },
+    { path: "/api/game/akinator/v1", name: "V1", params: [{ "name": "prompt", "in": "query", "required": false }], },
     { path: "/api/game/anime-quiz", name: "Anime-quiz", params: [{ "name": "prompt", "in": "query", "required": false }], },
     { path: "/api/game/asahotak", name: "Asahotak", params: [{ "name": "prompt", "in": "query", "required": false }], },
     { path: "/api/game/cak-lontong", name: "Cak-lontong", params: [{ "name": "prompt", "in": "query", "required": false }], },

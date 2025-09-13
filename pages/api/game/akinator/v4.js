@@ -1,21 +1,59 @@
 import dbConnect from "@/lib/mongoose";
 import akiSession from "@/models/AkinatorV4";
 import axios from "axios";
-class AkinatorHandler {
-  constructor(region, childMode = false) {
-    this.region = region || "id";
+import {
+  Agent
+} from "https";
+import * as cheerio from "cheerio";
+const httpsAgent = new Agent({
+  keepAlive: true
+});
+const proxy = "https://akinator.jack04309487.workers.dev/";
+class AkinatorGame {
+  constructor(region = "id", childMode = false) {
+    this.region = region;
     this.childMode = childMode === "true";
-    this.proxy = "https://akinator.jack04309487.workers.dev/";
+    this.client = axios.create({
+      baseURL: `${proxy}https://${this.region}.akinator.com`,
+      httpsAgent: httpsAgent
+    });
+  }
+  _getCreateHeaders() {
+    return {
+      accept: "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8,application/signed-exchange;v=b3;q=0.7",
+      "accept-language": "id-ID",
+      "content-type": "application/x-www-form-urlencoded",
+      origin: this.client.defaults.baseURL,
+      referer: `${this.client.defaults.baseURL}/`,
+      "user-agent": "Mozilla/5.0 (Linux; Android 10; K) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/127.0.0.0 Mobile Safari/537.36"
+    };
+  }
+  _getStepHeaders() {
+    return {
+      accept: "application/json, text/javascript, */*; q=0.01",
+      "accept-language": "id-ID",
+      "content-type": "application/x-www-form-urlencoded; charset=UTF-8",
+      origin: this.client.defaults.baseURL,
+      referer: `${this.client.defaults.baseURL}/game`,
+      "x-requested-with": "XMLHttpRequest",
+      "user-agent": "Mozilla/5.0 (Linux; Android 10; K) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/127.0.0.0 Mobile Safari/537.36"
+    };
   }
   async startGame() {
-    const response = await axios.post(`${this.proxy}https://${this.region}.akinator.com/game`, {
+    const response = await this.client.post("/game", {
       sid: "1",
       cm: this.childMode
+    }, {
+      headers: this._getCreateHeaders()
     });
-    const question = response.data.match(/<p class="question-text" id="question-label">(.+)<\/p>/)?.[1];
+    const $ = cheerio.load(response.data);
+    const question = $("#question-label").text();
     const session = response.data.match(/session: '(.+)'/)?.[1];
     const signature = response.data.match(/signature: '(.+)'/)?.[1];
-    const answers = [response.data.match(/id="a_yes".*?>(.+)<\/a>/)?.[1]?.trim(), response.data.match(/id="a_no".*?>(.+)<\/a>/)?.[1]?.trim(), response.data.match(/id="a_dont_know".*?>(.+)<\/a>/)?.[1]?.trim(), response.data.match(/id="a_probably".*?>(.+)<\/a>/)?.[1]?.trim(), response.data.match(/id="a_probaly_not".*?>(.+)<\/a>/)?.[1]?.trim()];
+    const answers = [$("#a_yes").text().trim(), $("#a_no").text().trim(), $("#a_dont_know").text().trim(), $("#a_probably").text().trim(), $("#a_probaly_not").text().trim()];
+    if (!question || !session || !signature) {
+      throw new Error("Gagal memulai sesi Akinator. Respons dari server tidak valid.");
+    }
     return {
       question: question,
       session: session,
@@ -23,28 +61,31 @@ class AkinatorHandler {
       answers: answers
     };
   }
-  async stepGame(session, answer) {
-    const response = await axios.post(`${this.proxy}https://${session.region}.akinator.com/answer`, {
-      step: session.currentStep.toString(),
-      progression: session.progress,
+  async stepGame(sessionData, answer) {
+    const response = await this.client.post("/answer", {
+      step: sessionData.currentStep.toString(),
+      progression: sessionData.progress,
       sid: "1",
-      cm: session.childMode,
+      cm: sessionData.childMode,
       answer: answer,
-      step_last_proposition: session.stepLastProposition,
-      session: session.session,
-      signature: session.signature
+      step_last_proposition: sessionData.stepLastProposition,
+      session: sessionData.session,
+      signature: sessionData.signature
+    }, {
+      headers: this._getStepHeaders()
     });
-    const data = response.data;
-    return data;
+    return response.data;
   }
-  async backStep(session) {
-    const response = await axios.post(`${this.proxy}https://${session.region}.akinator.com/cancel_answer`, {
-      step: session.currentStep.toString(),
-      progression: session.progress,
+  async backStep(sessionData) {
+    const response = await this.client.post("/cancel_answer", {
+      step: sessionData.currentStep.toString(),
+      progression: sessionData.progress,
       sid: "1",
-      cm: session.childMode,
-      session: session.session,
-      signature: session.signature
+      cm: sessionData.childMode,
+      session: sessionData.session,
+      signature: sessionData.signature
+    }, {
+      headers: this._getStepHeaders()
     });
     return response.data;
   }
@@ -57,27 +98,19 @@ export default async function handler(req, res) {
     lang: region = "id",
     mode: childMode = "true",
     answer = "0"
-  } = req.query;
-  const akiHandler = new AkinatorHandler(region, childMode);
+  } = req.method === "GET" ? req.query : req.body;
   try {
+    const akiGame = new AkinatorGame(region, childMode);
     switch (action) {
       case "start": {
-        const {
-          question,
-          session,
-          signature,
-          answers
-        } = await akiHandler.startGame();
+        const gameData = await akiGame.startGame();
         const newSession = await akiSession.create({
           region: region,
-          childMode: akiHandler.childMode,
+          childMode: akiGame.childMode,
           currentStep: 0,
           stepLastProposition: "",
           progress: "0.00000",
-          answers: answers,
-          question: question,
-          session: session,
-          signature: signature
+          ...gameData
         });
         return res.status(200).json({
           success: true,
@@ -93,9 +126,9 @@ export default async function handler(req, res) {
         }
         const session = await akiSession.findById(sessionId);
         if (!session) return res.status(404).json({
-          error: "Session tidak ditemukan."
+          error: "Sesi tidak ditemukan."
         });
-        const data = await akiHandler.stepGame(session, answer);
+        const data = await akiGame.stepGame(session, answer);
         if (data.id_proposition) {
           session.guessed = {
             id: data.id_proposition,
@@ -116,17 +149,15 @@ export default async function handler(req, res) {
         });
       }
       case "back": {
-        if (!sessionId) {
-          return res.status(400).json({
-            success: false,
-            error: "Parameter id diperlukan."
-          });
-        }
+        if (!sessionId) return res.status(400).json({
+          success: false,
+          error: "Parameter id diperlukan."
+        });
         const session = await akiSession.findById(sessionId);
         if (!session) return res.status(404).json({
-          error: "Session tidak ditemukan."
+          error: "Sesi tidak ditemukan."
         });
-        const data = await akiHandler.backStep(session);
+        const data = await akiGame.backStep(session);
         session.currentStep--;
         session.progress = data.progression;
         session.question = data.question;
@@ -137,15 +168,13 @@ export default async function handler(req, res) {
         });
       }
       case "detail": {
-        if (!sessionId) {
-          return res.status(400).json({
-            success: false,
-            error: "Parameter id diperlukan."
-          });
-        }
+        if (!sessionId) return res.status(400).json({
+          success: false,
+          error: "Parameter id diperlukan."
+        });
         const session = await akiSession.findById(sessionId);
         if (!session) return res.status(404).json({
-          error: "Session tidak ditemukan."
+          error: "Sesi tidak ditemukan."
         });
         return res.status(200).json({
           success: true,
@@ -153,19 +182,17 @@ export default async function handler(req, res) {
         });
       }
       case "delete": {
-        if (!sessionId) {
-          return res.status(400).json({
-            success: false,
-            error: "Parameter id diperlukan."
-          });
-        }
+        if (!sessionId) return res.status(400).json({
+          success: false,
+          error: "Parameter id diperlukan."
+        });
         const session = await akiSession.findByIdAndDelete(sessionId);
         if (!session) return res.status(404).json({
-          error: "Session tidak ditemukan."
+          error: "Sesi tidak ditemukan."
         });
         return res.status(200).json({
           success: true,
-          message: "Session berhasil dihapus."
+          message: "Sesi berhasil dihapus."
         });
       }
       default:
@@ -175,6 +202,7 @@ export default async function handler(req, res) {
         });
     }
   } catch (error) {
+    console.error("Akinator API Error:", error);
     return res.status(500).json({
       success: false,
       error: error.message
