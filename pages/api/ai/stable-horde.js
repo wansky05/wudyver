@@ -183,17 +183,17 @@ export default async function handler(req, res) {
     let response;
     switch (action) {
       case "image":
-        if (!params.prompt || !params.model) {
+        if (!params.prompt) {
           return res.status(400).json({
-            error: "prompt and model are required for image."
+            error: "prompt are required for image."
           });
         }
         response = await api.image(params);
         return res.status(200).json(response);
       case "chat":
-        if (!params.prompt || !params.model) {
+        if (!params.prompt) {
           return res.status(400).json({
-            error: "prompt and model are required for chat."
+            error: "prompt are required for chat."
           });
         }
         response = await api.chat(params);

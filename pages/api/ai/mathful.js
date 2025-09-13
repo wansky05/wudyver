@@ -1,4 +1,5 @@
 import axios from "axios";
+import SpoofHead from "@/lib/spoof-head";
 class MathfulAutomatedClient {
   constructor() {
     this.BASE_URL = "https://mathful.com";
@@ -20,7 +21,8 @@ class MathfulAutomatedClient {
         "sec-fetch-site": "same-origin",
         "user-agent": "Mozilla/5.0 (Linux; Android 10; K) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/135.0.0.0 Mobile Safari/537.36",
         origin: this.BASE_URL,
-        referer: `${this.BASE_URL}/`
+        referer: `${this.BASE_URL}/`,
+        ...SpoofHead()
       },
       validateStatus: status => true
     });
@@ -270,15 +272,14 @@ class MathfulAutomatedClient {
     console.log(`🚀 Starting chat session for "${prompt}"...`);
     let result = {
       success: false,
-      prompt: prompt,
-      sessionId: null,
-      csrfToken: null,
-      sessionData: null,
+      aiAnswer: [],
       directAnswer: {
         id: null,
         text: ""
       },
-      aiAnswer: [],
+      sessionId: null,
+      csrfToken: null,
+      sessionData: null,
       error: null
     };
     try {

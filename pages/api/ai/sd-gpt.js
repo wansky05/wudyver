@@ -55,9 +55,9 @@ class GPTModel {
     }
     console.log(`Memulai generate dengan model: ${model}`);
     if (model === "gpt4") {
-      return this.gpt4(prompt);
+      return await this.gpt4(prompt);
     } else if (model === "gpt3") {
-      return this.gpt3(prompt);
+      return await this.gpt3(prompt);
     } else {
       throw new Error(`Model '${model}' tidak dikenali. Gunakan 'gpt4' atau 'gpt3'.`);
     }
