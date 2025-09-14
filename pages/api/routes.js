@@ -1602,6 +1602,7 @@ export default function handler(req, res) {
     { path: "/api/tools/upscale", name: "Upscale", params: [{ "name": "prompt", "in": "query", "required": false }], },
     { path: "/api/tools/url2zip", name: "Url2zip", params: [{ "name": "prompt", "in": "query", "required": false }], },
     { path: "/api/tools/whisper", name: "Whisper", params: [{ "name": "prompt", "in": "query", "required": false }], },
+    { path: "/api/tools/whatsapp", name: "Whatsapp", params: [{ "name": "prompt", "in": "query", "required": false }], },
     { path: "/api/tools/remove-wm/v1", name: "V1", params: [{ "name": "prompt", "in": "query", "required": false }], },
     { path: "/api/top-up/v1", name: "V1", params: [{ "name": "prompt", "in": "query", "required": false }], },
     { path: "/api/top-up/v2", name: "V2", params: [{ "name": "prompt", "in": "query", "required": false }], },
