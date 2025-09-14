@@ -3,7 +3,7 @@ const randomString = Math.random().toString(36).substring(2, 8);
 class Shortener {
   async short({
     url,
-    name = "short-" + randomString,
+    name = randomString,
     ...rest
   }) {
     console.log("Proses dimulai: Memendekkan URL...");

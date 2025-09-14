@@ -15,8 +15,12 @@ const ShortLinkPage = () => {
     url: "",
     name: ""
   });
+  const [origin, setOrigin] = useState("");
 
   useEffect(() => {
+    if (typeof window !== "undefined") {
+      setOrigin(window.location.origin);
+    }
     fetchShortLinks();
   }, []);
 
@@ -32,6 +36,7 @@ const ShortLinkPage = () => {
         toast.error("Gagal mengambil data shortlink");
       }
     } catch (error) {
+      console.error("Fetch Error:", error);
       toast.error("Terjadi kesalahan saat mengambil data");
     } finally {
       setLoading(false);
@@ -74,6 +79,7 @@ const ShortLinkPage = () => {
         toast.error(result.message || "Gagal membuat shortlink");
       }
     } catch (error) {
+      console.error("Submit Error:", error);
       toast.error("Terjadi kesalahan saat membuat shortlink");
     } finally {
       setLoading(false);
@@ -118,7 +124,6 @@ const ShortLinkPage = () => {
           }
         />
         
-        {/* Form untuk membuat shortlink baru */}
         <Card
           bodyClass="relative p-0 h-full overflow-hidden"
           className="w-full mb-6 border border-teal-500/50 dark:border-teal-600/70 rounded-xl shadow-lg bg-white text-slate-800 dark:bg-slate-800/50 dark:text-slate-100 backdrop-blur-sm bg-opacity-80 dark:bg-opacity-80"
@@ -200,7 +205,6 @@ const ShortLinkPage = () => {
           </div>
         </Card>
 
-        {/* Daftar shortlink */}
         <Card
           bodyClass="relative p-0 h-full overflow-hidden"
           className="w-full border border-teal-500/50 dark:border-teal-600/70 rounded-xl shadow-lg bg-white text-slate-800 dark:bg-slate-800/50 dark:text-slate-100 backdrop-blur-sm bg-opacity-80 dark:bg-opacity-80"
@@ -251,12 +255,12 @@ const ShortLinkPage = () => {
                         <div className="flex-1 min-w-0">
                           <div className="flex items-center mb-1">
                             <span className="font-medium text-teal-600 dark:text-teal-400 truncate">
-                              {window.location.origin}/s/{link.id}
+                              {origin}/s/{link.id}
                             </span>
                             <Button
                               icon="ph:copy-duotone"
                               className="ml-2 p-1.5 text-slate-500 hover:text-teal-500 dark:text-slate-400 dark:hover:text-teal-300"
-                              onClick={() => copyToClipboard(`${window.location.origin}/s/${link.id}`)}
+                              onClick={() => copyToClipboard(`${origin}/s/${link.id}`)}
                             />
                           </div>
                           <div className="text-xs text-slate-500 dark:text-slate-400 truncate mb-2">
@@ -270,12 +274,11 @@ const ShortLinkPage = () => {
                           <Button
                             icon="ph:eye-duotone"
                             className="bg-teal-100 hover:bg-teal-200 dark:bg-teal-800/30 dark:hover:bg-teal-700/40 text-teal-600 dark:text-teal-300"
-                            onClick={() => window.open(`/s/${link.id}`, '_blank')}
+                            onClick={() => window.open(`${origin}/s/${link.id}`, '_blank')}
                           />
                           <Button
                             icon="ph:trash-duotone"
                             className="bg-red-100 hover:bg-red-200 dark:bg-red-800/30 dark:hover:bg-red-700/40 text-red-600 dark:text-red-300"
-                            // Tambahkan fungsi hapus di sini
                           />
                         </div>
                       </div>
