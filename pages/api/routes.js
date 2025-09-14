@@ -497,6 +497,7 @@ export default function handler(req, res) {
     { path: "/api/ai/stable-horde", name: "Stable-horde", params: [{ "name": "prompt", "in": "query", "required": false }], },
     { path: "/api/ai/shopptoolz", name: "Shopptoolz", params: [{ "name": "prompt", "in": "query", "required": false }], },
     { path: "/api/ai/ai-horde", name: "Ai-horde", params: [{ "name": "prompt", "in": "query", "required": false }], },
+    { path: "/api/ai/spreadsheet", name: "Spreadsheet", params: [{ "name": "prompt", "in": "query", "required": false }], },
     { path: "/api/ai/rubiks", name: "Rubiks", params: [{ "name": "prompt", "in": "query", "required": false }], },
     { path: "/api/ai/runner-ai", name: "Runner-ai", params: [{ "name": "prompt", "in": "query", "required": false }], },
     { path: "/api/ai/sara-study", name: "Sara-study", params: [{ "name": "prompt", "in": "query", "required": false }], },
@@ -1458,6 +1459,8 @@ export default function handler(req, res) {
     { path: "/api/tools/sendmail/v3", name: "V3", params: [{ "name": "prompt", "in": "query", "required": false }], },
     { path: "/api/tools/short-link/v1", name: "V1", params: [{ "name": "prompt", "in": "query", "required": false }], },
     { path: "/api/tools/short-link/v2", name: "V2", params: [{ "name": "prompt", "in": "query", "required": false }], },
+    { path: "/api/tools/short-link/v3", name: "V3", params: [{ "name": "prompt", "in": "query", "required": false }], },
+    { path: "/api/tools/short-link/v4", name: "V4", params: [{ "name": "prompt", "in": "query", "required": false }], },
     { path: "/api/tools/ssweb/v1", name: "V1", params: [{ "name": "prompt", "in": "query", "required": false }], },
     { path: "/api/tools/ssweb/v2", name: "V2", params: [{ "name": "prompt", "in": "query", "required": false }], },
     { path: "/api/tools/ssweb/v3", name: "V3", params: [{ "name": "prompt", "in": "query", "required": false }], },
@@ -1609,6 +1612,8 @@ export default function handler(req, res) {
     { path: "/api/visitor/reset", name: "Reset", params: [{ "name": "prompt", "in": "query", "required": false }], },
     { path: "/api/visitor/stats", name: "Stats", params: [{ "name": "prompt", "in": "query", "required": false }], },
     { path: "/api/visitor/visit", name: "Visit", params: [{ "name": "prompt", "in": "query", "required": false }], },
+    { path: "/api/shortlinks/", name: "Shortlinks", params: [{ "name": "prompt", "in": "query", "required": false }], },
+    { path: "/api/shortlinks/[id]", name: "[id]", params: [{ "name": "prompt", "in": "query", "required": false }], },
   ];
   res.status(200).json(routes);
 }
