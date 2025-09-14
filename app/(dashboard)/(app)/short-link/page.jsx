@@ -1,7 +1,7 @@
 "use client";
 
 import SimpleBar from "simplebar-react";
-import { useState, useEffect }. from "react";
+import { useState, useEffect } from "react";
 import Card from "@/components/ui/Card";
 import Button from "@/components/ui/Button";
 import Textinput from "@/components/ui/Textinput";
