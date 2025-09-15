@@ -74,22 +74,25 @@ class ApiChat {
   }
   async chat({
     prompt,
-    model = "GPT-4o mini"
+    model = 6
   }) {
     await this.ensureReady();
-    console.log(`Proses: Memulai fungsi chat dengan model [${model}]...`);
+    const modelIndex = parseInt(model, 10);
+    if (isNaN(modelIndex) || modelIndex < 0 || modelIndex >= VALID_MODELS.length) {
+      const validOptions = VALID_MODELS.map((name, index) => `${index}: ${name}`).join(", ");
+      return {
+        success: false,
+        data: null,
+        error: `Indeks model tidak valid. Pilih dari: ${validOptions}`
+      };
+    }
+    const selectedModelName = VALID_MODELS[modelIndex];
+    console.log(`Proses: Memulai fungsi chat dengan model [${selectedModelName}] (indeks: ${modelIndex})...`);
     if (!prompt || typeof prompt !== "string") {
       return {
         success: false,
         data: null,
         error: 'Input "prompt" harus berupa string dan tidak boleh kosong.'
-      };
-    }
-    if (!VALID_MODELS.includes(model)) {
-      return {
-        success: false,
-        data: null,
-        error: `Model tidak valid. Pilih dari: ${VALID_MODELS.join(", ")}`
       };
     }
     try {
@@ -103,7 +106,7 @@ class ApiChat {
         },
         provider: "default",
         chat_mode: "auto",
-        selectedModels: [model]
+        selectedModels: [selectedModelName]
       };
       const config = {
         headers: {
@@ -142,7 +145,7 @@ class ApiChat {
         success: true,
         data: {
           response: fullContent.trim(),
-          modelUsed: model,
+          modelUsed: selectedModelName,
           conversationId: this.conversationId,
           metadata: metadata
         },

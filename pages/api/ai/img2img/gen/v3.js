@@ -1,177 +1,143 @@
-import https from "https";
 import axios from "axios";
 import FormData from "form-data";
 import crypto from "crypto";
+import https from "https";
+import SpoofHead from "@/lib/spoof-head";
+const BASE_URL = "https://ai-apps.codergautam.dev";
 const FIGURE_PROMPT = "Using the nano-banana model, a commercial 1/7 scale figurine of the character in the picture was created, depicting a realistic style and a realistic environment. The figurine is placed on a computer desk with a round transparent acrylic base. There is no text on the base. The computer screen shows the Zbrush modeling process of the figurine. Next to the computer screen is a BANDAI-style toy box with the original painting printed on it.";
-const sleep = ms => new Promise(resolve => setTimeout(resolve, ms));
-const httpsAgent = new https.Agent({
-  keepAlive: true
-});
-class ImageAIProcessor {
-  constructor(opts = {}) {
-    this.baseURL = "https://ai-apps.codergautam.dev";
-    this.uploadURL = "https://wudysoft.xyz/api/tools/upload";
+class ImageGenerator {
+  constructor(options = {}) {
+    const httpsAgent = options.useHttpsAgent ? new https.Agent({
+      rejectUnauthorized: false
+    }) : undefined;
     this.api = axios.create({
-      httpsAgent: httpsAgent
+      baseURL: BASE_URL,
+      httpsAgent: httpsAgent,
+      headers: {
+        Accept: "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8",
+        "Accept-Encoding": "gzip, deflate, br",
+        "Accept-Language": "en-US,en;q=0.9,id;q=0.8",
+        Connection: "keep-alive",
+        Origin: BASE_URL,
+        Referer: `${BASE_URL}/`,
+        "Sec-Ch-Ua": '"Google Chrome";v="125", "Chromium";v="125", "Not.A/Brand";v="24"',
+        "Sec-Ch-Ua-Mobile": "?0",
+        "Sec-Ch-Ua-Platform": '"Windows"',
+        "Sec-Fetch-Dest": "empty",
+        "Sec-Fetch-Mode": "cors",
+        "Sec-Fetch-Site": "same-origin",
+        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/125.0.0.0 Safari/537.36",
+        "X-Requested-With": "XMLHttpRequest",
+        ...SpoofHead()
+      }
     });
-    this.enableLogging = opts.log ?? true;
+    console.log(`ImageGenerator diinisialisasi ${https.Agent ? "dengan" : "tanpa"} httpsAgent.`);
   }
-  logActivity(msg) {
-    if (this.enableLogging) console.log(`[ImageAIProcessor LOG] ${msg}`);
+  _name(length = 10) {
+    return crypto.randomBytes(Math.ceil(length / 2)).toString("hex").slice(0, length);
   }
-  generateRandomName(len = 10) {
-    const chars = "abcdefghijklmnopqrstuvwxyz";
-    return Array.from({
-      length: len
-    }, () => chars[Math.floor(Math.random() * chars.length)]).join("");
-  }
-  async createTemporaryUser() {
-    this.logActivity("Membuat pengguna sesi sementara...");
-    const uid = crypto.randomBytes(12).toString("hex");
-    const email = `temp-user-${Date.now()}@example.com`;
-    const payload = {
-      uid: uid,
-      email: email,
-      displayName: this.generateRandomName(),
-      photoURL: "https://i.pravatar.cc/150",
-      appId: "photogpt"
-    };
+  async _reg() {
+    console.log("Mencoba mendaftarkan pengguna...");
     try {
-      const res = await this.api.post(`${this.baseURL}/photogpt/create-user`, payload, {
+      const payload = {
+        uid: crypto.randomBytes(12).toString("hex"),
+        email: `${this._name(5)}.${Date.now()}@gmail.com`,
+        displayName: this._name(),
+        photoURL: "https://i.pravatar.cc/150",
+        appId: "photogpt"
+      };
+      const response = await this.api.post("/photogpt/create-user", payload, {
         headers: {
-          "Content-Type": "application/json",
-          Accept: "application/json",
-          "User-Agent": "okhttp/4.9.2"
+          "Content-Type": "application/json"
         }
       });
-      if (res.data.success) {
-        this.logActivity(`Pengguna sementara berhasil dibuat dengan UID: ${uid}`);
-        return uid;
+      console.log("-> LOG: Respon Data Pendaftaran:", JSON.stringify(response.data, null, 2));
+      if (response.data?.success) {
+        console.log("Registrasi berhasil. UID:", payload.uid);
+        return payload.uid;
       }
-      throw new Error(`Respons pembuatan pengguna tidak berhasil: ${JSON.stringify(res.data)}`);
-    } catch (err) {
-      throw new Error(`Pembuatan pengguna gagal: ${err.response?.data?.message || err.message}`);
+      throw new Error(`Server merespon registrasi gagal.`);
+    } catch (error) {
+      console.error("ERROR di _reg:", error.message);
+      throw error;
     }
   }
-  async convertImageToBuffer(imgData) {
-    this.logActivity("Memproses input gambar ke format Buffer...");
-    if (Buffer.isBuffer(imgData)) {
-      this.logActivity("Input sudah dalam format Buffer.");
-      return imgData;
-    }
-    if (typeof imgData === "string" && imgData.startsWith("data:image/")) {
-      this.logActivity("Input adalah Base64. Mengonversi ke Buffer...");
-      const base64Data = imgData.split(";base64,").pop();
-      return Buffer.from(base64Data, "base64");
-    }
-    if (typeof imgData === "string" && imgData.startsWith("http")) {
-      this.logActivity(`Input adalah URL. Mengunduh gambar dari: ${imgData}`);
+  async _poll(pollingUrl) {
+    console.log(`Memulai polling pada: ${pollingUrl}`);
+    const pollTimeout = 12e4,
+      pollInterval = 3e3,
+      startTime = Date.now();
+    while (Date.now() - startTime < pollTimeout) {
       try {
-        const res = await this.api.get(imgData, {
+        const res = await this.api.get(pollingUrl);
+        console.log("-> LOG: Respon Data Polling:", JSON.stringify(res.data, null, 2));
+        const status = res.data?.status?.toLowerCase() || "pending";
+        if (["ready", "complete", "success"].includes(status)) {
+          console.log("Polling selesai dengan sukses.");
+          return res.data?.result ?? res.data;
+        }
+        await new Promise(resolve => setTimeout(resolve, pollInterval));
+      } catch (error) {
+        console.error("ERROR di _poll:", error.message);
+        throw error;
+      }
+    }
+    throw new Error("Polling timeout setelah 2 menit.");
+  }
+  async _img(input) {
+    if (input.startsWith("http")) {
+      console.log("Mencoba mengunduh gambar dari URL...");
+      try {
+        const response = await this.api.get(input, {
           responseType: "arraybuffer"
         });
-        return Buffer.from(res.data);
-      } catch (err) {
-        throw new Error(`Gagal mengunduh gambar dari URL: ${err.message}`);
+        console.log(`Gambar berhasil diunduh (Ukuran: ${response.data.length} bytes).`);
+        return Buffer.from(response.data);
+      } catch (error) {
+        console.error("ERROR di _img saat mengunduh URL:", error.message);
+        throw error;
       }
     }
-    throw new Error("Format gambar tidak valid. Gunakan Buffer, URL, atau string Base64.");
+    return Buffer.from(input, "base64");
   }
-  async uploadImageAndGetURL(imageBuffer) {
-    this.logActivity(`Mengunggah gambar hasil ke ${this.uploadURL}...`);
-    const form = new FormData();
-    form.append("file", imageBuffer, {
-      filename: "result.jpg",
-      contentType: "image/jpeg"
-    });
+  async generate({
+    prompt = FIGURE_PROMPT,
+    imageUrl,
+    ...restOptions
+  }) {
+    console.log("\nMemulai proses 'generate'...");
     try {
-      const res = await this.api.post(this.uploadURL, form, {
+      if (!prompt) throw new Error("Parameter 'prompt' wajib diisi.");
+      const userId = await this._reg();
+      const mode = imageUrl ? "Image-to-Image" : "Text-to-Image";
+      console.log(`Mode yang digunakan: ${mode}`);
+      const form = new FormData();
+      form.append("prompt", prompt);
+      form.append("userId", userId);
+      if (imageUrl) {
+        const imageBuffer = Buffer.isBuffer(imageUrl) ? imageUrl : await this._img(imageUrl);
+        form.append("image", imageBuffer, {
+          filename: "input.jpg",
+          contentType: "image/jpeg"
+        });
+      }
+      console.log("Mengirim permintaan untuk memulai pembuatan gambar...");
+      const uploadRes = await this.api.post("/photogpt/generate-image", form, {
         headers: {
           ...form.getHeaders()
-        }
+        },
+        ...restOptions
       });
-      if (res.data) {
-        this.logActivity("Unggah berhasil!");
-        return res.data;
+      console.log("-> LOG: Respon Awal Generate:", JSON.stringify(uploadRes.data, null, 2));
+      const pollingUrl = uploadRes.data?.pollingUrl ?? (uploadRes.data?.jobId ? `${BASE_URL}/photogpt/job/${uploadRes.data.jobId}` : null);
+      if (!pollingUrl) {
+        throw new Error(`Gagal mendapatkan polling URL dari respons awal.`);
       }
-      throw new Error(`Respons unggah tidak valid: ${JSON.stringify(res.data)}`);
-    } catch (err) {
-      throw new Error(`Gagal mengunggah gambar hasil: ${err.response?.data?.message || err.message}`);
+      return await this._poll(pollingUrl);
+    } catch (error) {
+      console.error(`KESALAHAN FATAL pada proses 'generate': ${error.message}`);
+      throw error;
     }
-  }
-  async generateImageFromPrompt({
-    imageUrl,
-    prompt = FIGURE_PROMPT
-  }) {
-    if (!imageUrl || !prompt) {
-      throw new Error("Parameter 'imageUrl' dan 'prompt' wajib diisi.");
-    }
-    const uid = await this.createTemporaryUser();
-    const imageBuffer = await this.convertImageToBuffer(imageUrl);
-    this.logActivity("Membuat FormData untuk pengiriman gambar...");
-    const form = new FormData();
-    form.append("image", imageBuffer, {
-      filename: "input.jpg",
-      contentType: "image/jpeg"
-    });
-    form.append("prompt", prompt);
-    form.append("userId", uid);
-    this.logActivity("Mengirim permintaan pembuatan gambar...");
-    let pollingUrl;
-    try {
-      const uploadRes = await this.api.post(`${this.baseURL}/photogpt/generate-image`, form, {
-        headers: {
-          ...form.getHeaders(),
-          Accept: "application/json",
-          "User-Agent": "okhttp/4.9.2",
-          "Accept-Encoding": "gzip"
-        }
-      });
-      if (!uploadRes.data.success || !uploadRes.data.pollingUrl) throw new Error(JSON.stringify(uploadRes.data));
-      pollingUrl = uploadRes.data.pollingUrl;
-      this.logActivity(`Berhasil dikirim. URL Polling: ${pollingUrl}`);
-    } catch (err) {
-      throw new Error(`Gagal mengirim gambar: ${err.response?.data?.message || err.message}`);
-    }
-    this.logActivity("Memulai polling untuk hasil gambar...");
-    let status = "pending",
-      resultUrl = null;
-    while (status !== "Ready") {
-      try {
-        const pollRes = await this.api.get(pollingUrl, {
-          headers: {
-            Accept: "application/json",
-            "User-Agent": "okhttp/4.9.2"
-          }
-        });
-        if (!pollRes.data) {
-          this.logActivity("Respons polling kosong, mencoba lagi...");
-          await sleep(3e3);
-          continue;
-        }
-        status = pollRes.data.status;
-        this.logActivity(`Status saat ini: ${status}`);
-        if (status === "Ready") {
-          resultUrl = pollRes.data.result.url;
-          break;
-        }
-        await sleep(3e3);
-      } catch (err) {
-        throw new Error(`Gagal melakukan polling: ${err.message}`);
-      }
-    }
-    if (!resultUrl) throw new Error("Gagal mendapatkan URL hasil gambar setelah polling.");
-    this.logActivity(`Hasil gambar ditemukan. Mengunduh dari: ${resultUrl}`);
-    let resultBuffer;
-    try {
-      const resultImg = await this.api.get(resultUrl, {
-        responseType: "arraybuffer"
-      });
-      resultBuffer = Buffer.from(resultImg.data);
-    } catch (err) {
-      throw new Error(`Gagal mengunduh gambar hasil akhir: ${err.message}`);
-    }
-    return await this.uploadImageAndGetURL(resultBuffer);
   }
 }
 export default async function handler(req, res) {
@@ -182,8 +148,8 @@ export default async function handler(req, res) {
     });
   }
   try {
-    const processor = new ImageAIProcessor();
-    const response = await processor.generateImageFromPrompt(params);
+    const ai = new ImageGenerator();
+    const response = await ai.generate(params);
     return res.status(200).json(response);
   } catch (error) {
     res.status(500).json({
