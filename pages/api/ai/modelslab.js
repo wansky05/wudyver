@@ -23,24 +23,24 @@ class ModelsLab {
   }
   async _initialize_keys() {
     try {
-      this._log("info", "Fetching API keys...");
+      this._log("info", "Mengambil kunci API...");
       const response = await axios.get(this.api_url);
-      if (response.status !== 200) throw new Error(`HTTP error: ${response.status}`);
+      if (response.status !== 200) throw new Error(`Kesalahan HTTP: ${response.status}`);
       const data = response.data.data;
       this.keys = {
         txt2img: data[79]?.apiKey || null,
         txt2vid: data[80]?.apiKey || null
       };
       if (!this.keys.txt2img && !this.keys.txt2vid) {
-        throw new Error("No valid API keys found.");
+        throw new Error("Tidak ada kunci API yang valid ditemukan.");
       }
       this.is_initialized = true;
-      this._log("info", "API keys initialized successfully.");
+      this._log("info", "Inisialisasi kunci API berhasil.");
     } catch (error) {
-      this._log("error", "Key initialization failed.", {
+      this._log("error", "Inisialisasi kunci gagal.", {
         message: error.message
       });
-      throw new Error(`Key initialization failed: ${error.message}`);
+      throw new Error(`Inisialisasi kunci gagal: ${error.message}`);
     }
   }
   async _ensure_auth() {
@@ -49,17 +49,17 @@ class ModelsLab {
   }
   async _request(endpoint, payload) {
     try {
-      this._log("info", `Sending request to ${endpoint}`, {
+      this._log("info", `Mengirim permintaan ke ${endpoint}`, {
         payload: payload
       });
       const response = await this.client.post(endpoint, payload);
-      this._log("info", `Response from ${endpoint}`, {
+      this._log("info", `Respon dari ${endpoint}`, {
         status: response.status
       });
       return response.data;
     } catch (error) {
-      this._log("error", `Error calling ${endpoint}`, error?.response?.data || error.message);
-      throw new Error(`API call to ${endpoint} failed: ${error?.response?.data?.message || error.message}`);
+      this._log("error", `Terjadi kesalahan saat memanggil ${endpoint}`, error?.response?.data || error.message);
+      throw new Error(`Panggilan API ke ${endpoint} gagal: ${error?.response?.data?.message || error.message}`);
     }
   }
   _process_image(image_input) {
@@ -106,9 +106,9 @@ class ModelsLab {
     const payload = {
       key: this.keys.txt2img || this.keys.txt2vid,
       ...base_payload,
-      ...rest
+      ...rest,
+      prompt: prompt
     };
-    if (prompt) payload.prompt = prompt;
     return await this._request(endpoint, payload);
   }
   async img2img({
@@ -146,11 +146,11 @@ class ModelsLab {
     const payload = {
       key: this.keys.txt2img || this.keys.txt2vid,
       ...base_payload,
-      ...rest
+      ...rest,
+      prompt: prompt,
+      init_image: this._process_image(imageUrl),
+      init_image_2: rest.init_image_2 ? this._process_image(rest.init_image_2) : undefined
     };
-    if (prompt) payload.prompt = prompt;
-    payload.init_image = this._process_image(imageUrl);
-    if (rest.init_image_2) payload.init_image_2 = this._process_image(rest.init_image_2);
     return await this._request(endpoint, payload);
   }
   async txt2vid({
@@ -193,9 +193,9 @@ class ModelsLab {
     const payload = {
       key: this.keys.txt2vid || this.keys.txt2img,
       ...base_payload,
-      ...rest
+      ...rest,
+      prompt: prompt
     };
-    if (prompt) payload.prompt = prompt;
     return await this._request(endpoint, payload);
   }
   async img2vid({
@@ -234,10 +234,10 @@ class ModelsLab {
     const payload = {
       key: this.keys.txt2vid || this.keys.txt2img,
       ...base_payload,
-      ...rest
+      ...rest,
+      prompt: prompt,
+      init_image: this._process_image(imageUrl)
     };
-    if (prompt) payload.prompt = prompt;
-    payload.init_image = this._process_image(imageUrl);
     return await this._request(endpoint, payload);
   }
   async status({
@@ -254,7 +254,7 @@ class ModelsLab {
     } else if (type === "voice") {
       endpoint = `/voice/fetch/${task_id}`;
     } else {
-      throw new Error("Invalid type specified for status check. Use 'image', 'video', or 'voice'.");
+      throw new Error("Tipe tidak valid untuk pengecekan status. Gunakan 'image', 'video', atau 'voice'.");
     }
     const payload = {
       key: this.keys.txt2vid || this.keys.txt2img,
@@ -292,11 +292,11 @@ class ModelsLab {
     const endpoint = "/image_editing/mask_creator";
     const payload = {
       key: this.keys.txt2img || this.keys.txt2vid,
-      init_image: this._process_image(imageUrl),
-      specific_object: specific_object,
       webhook: null,
       track_id: null,
-      ...rest
+      ...rest,
+      init_image: this._process_image(imageUrl),
+      specific_object: specific_object
     };
     return await this._request(endpoint, payload);
   }
@@ -370,9 +370,9 @@ class ModelsLab {
     };
     const payload = {
       key: this.keys.txt2vid || this.keys.txt2img,
-      prompt: prompt,
       ...base_payload,
-      ...rest
+      ...rest,
+      prompt: prompt
     };
     return await this._request(endpoint, payload);
   }
@@ -460,7 +460,7 @@ class ModelsLab {
         content: prompt
       }];
     } else {
-      throw new Error("Either 'prompt' or 'messages' array is required for chat.");
+      throw new Error("Diperlukan 'prompt' atau array 'messages' untuk chat.");
     }
     const base_payload = {
       max_tokens: 1e3
@@ -481,7 +481,7 @@ export default async function handler(req, res) {
   } = req.method === "GET" ? req.query : req.body;
   if (!action) {
     return res.status(400).json({
-      error: "Action is required."
+      error: "Aksi diperlukan."
     });
   }
   const api = new ModelsLab();
@@ -490,61 +490,61 @@ export default async function handler(req, res) {
     switch (action) {
       case "img2vid":
         if (!params.prompt || !params.imageUrl) return res.status(400).json({
-          error: "Prompt and imageUrl are required for img2vid."
+          error: "Prompt dan imageUrl diperlukan untuk img2vid."
         });
         response = await api.img2vid(params);
         return res.status(200).json(response);
       case "txt2vid":
         if (!params.prompt) return res.status(400).json({
-          error: "Prompt is required for txt2vid."
+          error: "Prompt diperlukan untuk txt2vid."
         });
         response = await api.txt2vid(params);
         return res.status(200).json(response);
       case "img2img":
         if (!params.prompt || !params.imageUrl) return res.status(400).json({
-          error: "Prompt and imageUrl are required for img2img."
+          error: "Prompt dan imageUrl diperlukan untuk img2img."
         });
         response = await api.img2img(params);
         return res.status(200).json(response);
       case "txt2img":
         if (!params.prompt) return res.status(400).json({
-          error: "Prompt is required for txt2img."
+          error: "Prompt diperlukan untuk txt2img."
         });
         response = await api.txt2img(params);
         return res.status(200).json(response);
       case "status":
         if (!params.type || !params.task_id) return res.status(400).json({
-          error: "Type (image/video) and task_id are required for status."
+          error: "Tipe (image/video) dan task_id diperlukan untuk status."
         });
         response = await api.status(params);
         return res.status(200).json(response);
       case "super_resolution":
         if (!params.imageUrl) return res.status(400).json({
-          error: "imageUrl is required for super_resolution."
+          error: "imageUrl diperlukan untuk super_resolution."
         });
         response = await api.super_resolution(params);
         return res.status(200).json(response);
       case "mask_creator":
         if (!params.imageUrl || !params.specific_object) return res.status(400).json({
-          error: "imageUrl and specific_object are required for mask_creator."
+          error: "imageUrl dan specific_object diperlukan untuk mask_creator."
         });
         response = await api.mask_creator(params);
         return res.status(200).json(response);
       case "face_gen":
         if (!params.faceImageUrl) return res.status(400).json({
-          error: "faceImageUrl is required for face_gen."
+          error: "faceImageUrl diperlukan untuk face_gen."
         });
         response = await api.face_gen(params);
         return res.status(200).json(response);
       case "head_shot":
         if (!params.faceImageUrl) return res.status(400).json({
-          error: "faceImageUrl is required for head_shot."
+          error: "faceImageUrl diperlukan untuk head_shot."
         });
         response = await api.head_shot(params);
         return res.status(200).json(response);
       case "tts":
         if (!params.prompt) return res.status(400).json({
-          error: "prompt is required for tts."
+          error: "prompt diperlukan untuk tts."
         });
         response = await api.tts(params);
         return res.status(200).json(response);
@@ -553,19 +553,19 @@ export default async function handler(req, res) {
         return res.status(200).json(response);
       case "voice_cover":
         if (!params.audioUrl) return res.status(400).json({
-          error: "audioUrl is required for voice_cover."
+          error: "audioUrl diperlukan untuk voice_cover."
         });
         response = await api.voice_cover(params);
         return res.status(200).json(response);
       case "song_generator":
         if (params.lyrics_generation === true && !params.prompt) {
           return res.status(400).json({
-            error: "prompt is required when lyrics_generation is true."
+            error: "prompt diperlukan saat lyrics_generation bernilai true."
           });
         }
         if (params.lyrics_generation === false && (!params.audioUrl || !params.lyrics)) {
           return res.status(400).json({
-            error: "audioUrl and lyrics are required when lyrics_generation is false."
+            error: "audioUrl dan lyrics diperlukan saat lyrics_generation bernilai false."
           });
         }
         response = await api.song_generator(params);
@@ -573,7 +573,7 @@ export default async function handler(req, res) {
       case "chat":
         if (!params.prompt) {
           return res.status(400).json({
-            error: "Either 'prompt' is required for chat."
+            error: "Diperlukan 'prompt' untuk chat."
           });
         }
         response = await api.chat(params);
@@ -581,13 +581,13 @@ export default async function handler(req, res) {
       default:
         const supportedActions = ["img2vid", "txt2vid", "img2img", "txt2img", "status", "super_resolution", "mask_creator", "face_gen", "head_shot", "tts", "music_gen", "voice_cover", "song_generator", "chat"].join(", ");
         return res.status(400).json({
-          error: `Invalid action: ${action}. Supported actions are: ${supportedActions}.`
+          error: `Aksi tidak valid: ${action}. Aksi yang didukung adalah: ${supportedActions}.`
         });
     }
   } catch (error) {
-    console.error("API Error:", error);
+    console.error("Kesalahan API:", error);
     return res.status(500).json({
-      error: error.message || "Internal Server Error"
+      error: error.message || "Terjadi Kesalahan Internal Server"
     });
   }
 }
