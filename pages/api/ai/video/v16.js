@@ -26,7 +26,7 @@ class GradioVideo {
       }
     });
   }
-  async txt2vid({
+  async create({
     prompt,
     negative_prompt = "worst quality, inconsistent motion, blurry, jittery, distorted",
     fps = 20,
@@ -53,7 +53,7 @@ class GradioVideo {
         eventId: eventId
       };
     } catch (error) {
-      console.error("Gagal mengirim tugas txt2vid:", error.response ? error.response.data : error.message);
+      console.error("Gagal mengirim tugas create:", error.response ? error.response.data : error.message);
       throw error;
     }
   }
@@ -115,13 +115,13 @@ export default async function handler(req, res) {
   try {
     let response;
     switch (action) {
-      case "txt2vid":
+      case "create":
         if (!params.prompt) {
           return res.status(400).json({
-            error: "Prompt is required for txt2vid."
+            error: "Prompt is required for create."
           });
         }
-        response = await generator.txt2vid(params);
+        response = await generator.create(params);
         return res.status(200).json(response);
       case "status":
         if (!params.task_id) {
@@ -133,7 +133,7 @@ export default async function handler(req, res) {
         return res.status(200).json(response);
       default:
         return res.status(400).json({
-          error: `Invalid action: ${action}. Supported actions are 'txt2vid', and 'status'.`
+          error: `Invalid action: ${action}. Supported actions are 'create', and 'status'.`
         });
     }
   } catch (error) {

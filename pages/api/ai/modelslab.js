@@ -109,7 +109,7 @@ class ModelsLab {
       ...rest
     };
     if (prompt) payload.prompt = prompt;
-    return this._request(endpoint, payload);
+    return await this._request(endpoint, payload);
   }
   async img2img({
     prompt,
@@ -151,7 +151,7 @@ class ModelsLab {
     if (prompt) payload.prompt = prompt;
     payload.init_image = this._process_image(imageUrl);
     if (rest.init_image_2) payload.init_image_2 = this._process_image(rest.init_image_2);
-    return this._request(endpoint, payload);
+    return await this._request(endpoint, payload);
   }
   async txt2vid({
     prompt,
@@ -196,7 +196,7 @@ class ModelsLab {
       ...rest
     };
     if (prompt) payload.prompt = prompt;
-    return this._request(endpoint, payload);
+    return await this._request(endpoint, payload);
   }
   async img2vid({
     prompt,
@@ -238,7 +238,240 @@ class ModelsLab {
     };
     if (prompt) payload.prompt = prompt;
     payload.init_image = this._process_image(imageUrl);
-    return this._request(endpoint, payload);
+    return await this._request(endpoint, payload);
+  }
+  async status({
+    type,
+    task_id,
+    ...rest
+  }) {
+    await this._ensure_auth();
+    let endpoint;
+    if (type === "image") {
+      endpoint = `/realtime/fetch/${task_id}`;
+    } else if (type === "video") {
+      endpoint = `/video/fetch/${task_id}`;
+    } else if (type === "voice") {
+      endpoint = `/voice/fetch/${task_id}`;
+    } else {
+      throw new Error("Invalid type specified for status check. Use 'image', 'video', or 'voice'.");
+    }
+    const payload = {
+      key: this.keys.txt2vid || this.keys.txt2img,
+      ...rest
+    };
+    return await this._request(endpoint, payload);
+  }
+  async super_resolution({
+    imageUrl,
+    ...rest
+  }) {
+    await this._ensure_auth();
+    const endpoint = "/image_editing/super_resolution";
+    const base_payload = {
+      model_id: "realesr-general-x4v3",
+      scale: 3,
+      face_enhance: false,
+      webhook: null,
+      track_id: null
+    };
+    const payload = {
+      key: this.keys.txt2img || this.keys.txt2vid,
+      ...base_payload,
+      ...rest,
+      init_image: this._process_image(imageUrl)
+    };
+    return await this._request(endpoint, payload);
+  }
+  async mask_creator({
+    imageUrl,
+    specific_object,
+    ...rest
+  }) {
+    await this._ensure_auth();
+    const endpoint = "/image_editing/mask_creator";
+    const payload = {
+      key: this.keys.txt2img || this.keys.txt2vid,
+      init_image: this._process_image(imageUrl),
+      specific_object: specific_object,
+      webhook: null,
+      track_id: null,
+      ...rest
+    };
+    return await this._request(endpoint, payload);
+  }
+  async face_gen({
+    faceImageUrl,
+    ...rest
+  }) {
+    await this._ensure_auth();
+    const endpoint = "/image_editing/face_gen";
+    const base_payload = {
+      prompt: "pretty woman",
+      negative_prompt: "anime, cartoon, drawing, big nose, long nose, fat, ugly, big lips, big mouth, face proportion mismatch, unrealistic, monochrome, lowres, bad anatomy, worst quality, low quality, blurry",
+      width: "512",
+      height: "512",
+      samples: "1",
+      num_inference_steps: "21",
+      safety_checker: false,
+      base64: false,
+      seed: null,
+      guidance_scale: 7.5,
+      webhook: null,
+      track_id: null
+    };
+    const payload = {
+      key: this.keys.txt2img || this.keys.txt2vid,
+      ...base_payload,
+      ...rest,
+      face_image: this._process_image(faceImageUrl)
+    };
+    return await this._request(endpoint, payload);
+  }
+  async head_shot({
+    faceImageUrl,
+    ...rest
+  }) {
+    await this._ensure_auth();
+    const endpoint = "/image_editing/head_shot";
+    const base_payload = {
+      prompt: "pretty woman",
+      negative_prompt: "anime, cartoon, drawing, big nose, long nose, fat, ugly, big lips, big mouth, face proportion mismatch, unrealistic, monochrome, lowres, bad anatomy, worst quality, low quality, blurry",
+      width: "512",
+      height: "512",
+      samples: "1",
+      num_inference_steps: "21",
+      safety_checker: false,
+      base64: false,
+      seed: null,
+      guidance_scale: 7.5,
+      webhook: null,
+      track_id: null
+    };
+    const payload = {
+      key: this.keys.txt2img || this.keys.txt2vid,
+      ...base_payload,
+      ...rest,
+      face_image: this._process_image(faceImageUrl)
+    };
+    return await this._request(endpoint, payload);
+  }
+  async tts({
+    prompt,
+    ...rest
+  }) {
+    await this._ensure_auth();
+    const endpoint = "/voice/tts";
+    const base_payload = {
+      language: "american english",
+      voice_id: "madison",
+      speed: 1,
+      emotion: false
+    };
+    const payload = {
+      key: this.keys.txt2vid || this.keys.txt2img,
+      prompt: prompt,
+      ...base_payload,
+      ...rest
+    };
+    return await this._request(endpoint, payload);
+  }
+  async music_gen({
+    audioUrl,
+    ...rest
+  }) {
+    await this._ensure_auth();
+    const endpoint = "/voice/music_gen";
+    const base_payload = {
+      prompt: "marimba, percussion, bass, tropical house, melodic riff, G# minor, 96 bpm",
+      sampling_rate: 32e3,
+      base64: false,
+      temp: false,
+      webhook: null,
+      track_id: null
+    };
+    const payload = {
+      key: this.keys.txt2vid || this.keys.txt2img,
+      ...base_payload,
+      ...rest,
+      init_audio: audioUrl
+    };
+    return await this._request(endpoint, payload);
+  }
+  async voice_cover({
+    audioUrl,
+    ...rest
+  }) {
+    await this._ensure_auth();
+    const endpoint = "/voice/voice_cover";
+    const base_payload = {
+      model_id: "zoro",
+      pitch: "none",
+      rate: .5,
+      radius: 3,
+      mix: .25,
+      algorithm: "rmvpe",
+      hop_length: 128,
+      originality: .5,
+      lead_voice_volume_delta: "+1",
+      backup_voice_volume_delta: "-2",
+      instrument_volume_delta: "+2",
+      reverb_size: .15,
+      wetness: .2,
+      dryness: .8,
+      damping: .7,
+      base64: false,
+      temp: false,
+      webhook: null,
+      track_id: null
+    };
+    const payload = {
+      key: this.keys.txt2vid || this.keys.txt2img,
+      ...base_payload,
+      ...rest,
+      init_audio: audioUrl
+    };
+    return await this._request(endpoint, payload);
+  }
+  async song_generator(params) {
+    await this._ensure_auth();
+    const endpoint = "/voice/song_generator";
+    const payload = {
+      key: this.keys.txt2vid || this.keys.txt2img,
+      webhook: null,
+      track_id: null,
+      ...params
+    };
+    return await this._request(endpoint, payload);
+  }
+  async chat({
+    prompt,
+    messages,
+    ...rest
+  }) {
+    await this._ensure_auth();
+    const endpoint = "/llm/uncensored_chat";
+    let final_messages;
+    if (messages && messages.length > 0) {
+      final_messages = messages;
+    } else if (prompt) {
+      final_messages = [{
+        role: "user",
+        content: prompt
+      }];
+    } else {
+      throw new Error("Either 'prompt' or 'messages' array is required for chat.");
+    }
+    const base_payload = {
+      max_tokens: 1e3
+    };
+    const payload = {
+      key: this.keys.txt2vid || this.keys.txt2img,
+      ...base_payload,
+      ...rest,
+      messages: final_messages
+    };
+    return await this._request(endpoint, payload);
   }
 }
 export default async function handler(req, res) {
@@ -256,40 +489,99 @@ export default async function handler(req, res) {
     let response;
     switch (action) {
       case "img2vid":
-        if (!params.prompt || !params.imageUrl) {
-          return res.status(400).json({
-            error: "Prompt and imageUrl are required for img2vid."
-          });
-        }
+        if (!params.prompt || !params.imageUrl) return res.status(400).json({
+          error: "Prompt and imageUrl are required for img2vid."
+        });
         response = await api.img2vid(params);
         return res.status(200).json(response);
       case "txt2vid":
-        if (!params.prompt) {
-          return res.status(400).json({
-            error: "Prompt is required for txt2vid."
-          });
-        }
+        if (!params.prompt) return res.status(400).json({
+          error: "Prompt is required for txt2vid."
+        });
         response = await api.txt2vid(params);
         return res.status(200).json(response);
       case "img2img":
-        if (!params.prompt || !params.imageUrl) {
-          return res.status(400).json({
-            error: "Prompt and imageUrl are required for img2img."
-          });
-        }
+        if (!params.prompt || !params.imageUrl) return res.status(400).json({
+          error: "Prompt and imageUrl are required for img2img."
+        });
         response = await api.img2img(params);
         return res.status(200).json(response);
       case "txt2img":
-        if (!params.prompt) {
-          return res.status(400).json({
-            error: "Prompt is required for txt2img."
-          });
-        }
+        if (!params.prompt) return res.status(400).json({
+          error: "Prompt is required for txt2img."
+        });
         response = await api.txt2img(params);
         return res.status(200).json(response);
+      case "status":
+        if (!params.type || !params.task_id) return res.status(400).json({
+          error: "Type (image/video) and task_id are required for status."
+        });
+        response = await api.status(params);
+        return res.status(200).json(response);
+      case "super_resolution":
+        if (!params.imageUrl) return res.status(400).json({
+          error: "imageUrl is required for super_resolution."
+        });
+        response = await api.super_resolution(params);
+        return res.status(200).json(response);
+      case "mask_creator":
+        if (!params.imageUrl || !params.specific_object) return res.status(400).json({
+          error: "imageUrl and specific_object are required for mask_creator."
+        });
+        response = await api.mask_creator(params);
+        return res.status(200).json(response);
+      case "face_gen":
+        if (!params.faceImageUrl) return res.status(400).json({
+          error: "faceImageUrl is required for face_gen."
+        });
+        response = await api.face_gen(params);
+        return res.status(200).json(response);
+      case "head_shot":
+        if (!params.faceImageUrl) return res.status(400).json({
+          error: "faceImageUrl is required for head_shot."
+        });
+        response = await api.head_shot(params);
+        return res.status(200).json(response);
+      case "tts":
+        if (!params.prompt) return res.status(400).json({
+          error: "prompt is required for tts."
+        });
+        response = await api.tts(params);
+        return res.status(200).json(response);
+      case "music_gen":
+        response = await api.music_gen(params);
+        return res.status(200).json(response);
+      case "voice_cover":
+        if (!params.audioUrl) return res.status(400).json({
+          error: "audioUrl is required for voice_cover."
+        });
+        response = await api.voice_cover(params);
+        return res.status(200).json(response);
+      case "song_generator":
+        if (params.lyrics_generation === true && !params.prompt) {
+          return res.status(400).json({
+            error: "prompt is required when lyrics_generation is true."
+          });
+        }
+        if (params.lyrics_generation === false && (!params.audioUrl || !params.lyrics)) {
+          return res.status(400).json({
+            error: "audioUrl and lyrics are required when lyrics_generation is false."
+          });
+        }
+        response = await api.song_generator(params);
+        return res.status(200).json(response);
+      case "chat":
+        if (!params.prompt) {
+          return res.status(400).json({
+            error: "Either 'prompt' is required for chat."
+          });
+        }
+        response = await api.chat(params);
+        return res.status(200).json(response);
       default:
+        const supportedActions = ["img2vid", "txt2vid", "img2img", "txt2img", "status", "super_resolution", "mask_creator", "face_gen", "head_shot", "tts", "music_gen", "voice_cover", "song_generator", "chat"].join(", ");
         return res.status(400).json({
-          error: `Invalid action: ${action}. Supported actions are 'img2vid', 'txt2vid', 'img2img', and 'txt2img'.`
+          error: `Invalid action: ${action}. Supported actions are: ${supportedActions}.`
         });
     }
   } catch (error) {
