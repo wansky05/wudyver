@@ -11,7 +11,7 @@ class NanoBananaAI {
       console.log(`[NanoBananaAI LOG] ${message}`);
     }
   }
-  async editImage({
+  async generate({
     imageUrl,
     prompt = FIGURE_PROMPT,
     numImages = 1,
@@ -96,8 +96,8 @@ export default async function handler(req, res) {
     });
   }
   try {
-    const ai = new NanoBananaAI();
-    const response = await ai.editImage(params);
+    const api = new NanoBananaAI();
+    const response = await api.generate(params);
     return res.status(200).json(response);
   } catch (error) {
     res.status(500).json({

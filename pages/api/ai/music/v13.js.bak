@@ -4,17 +4,17 @@ import apiConfig from "@/configs/apiConfig";
 import Encoder from "@/lib/encoder";
 class SunoMusicGenerator {
   constructor() {}
-  async enc(data) {
+  enc(data) {
     const {
       uuid: jsonUuid
-    } = await Encoder.enc({
+    } = Encoder.enc({
       data: data,
       method: "combined"
     });
     return jsonUuid;
   }
-  async dec(uuid) {
-    const decryptedJson = await Encoder.dec({
+  dec(uuid) {
+    const decryptedJson = Encoder.dec({
       uuid: uuid,
       method: "combined"
     });

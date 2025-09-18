@@ -148,8 +148,8 @@ export default async function handler(req, res) {
     });
   }
   try {
-    const ai = new ImageGenerator();
-    const response = await ai.generate(params);
+    const api = new ImageGenerator();
+    const response = await api.generate(params);
     return res.status(200).json(response);
   } catch (error) {
     res.status(500).json({

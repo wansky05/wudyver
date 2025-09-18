@@ -2,7 +2,7 @@ import axios from "axios";
 import crypto from "crypto";
 import apiConfig from "@/configs/apiConfig";
 import Encoder from "@/lib/encoder";
-class SunoMusicGenerator {
+class VeoGenerator {
   constructor() {}
   async enc(data) {
     const {
@@ -20,34 +20,40 @@ class SunoMusicGenerator {
     });
     return decryptedJson.text;
   }
-  async create({
-    prompt = `[Verse]\nAisles stretching out like endless dreams\nCereal boxes and canned food schemes\nPickle jars and pasta towers\nLost for hours in neon flowered scenes\n[Chorus]\nTrolley rolling to a distant beat\nDancing down the frozen treat street\nMilk's going wild in the dairy lane\nGet lost with me in this bizarre terrain`,
-    style = "",
-    title = "",
-    instrumental = false,
+  async generate({
+    prompt,
     ...rest
   }) {
     try {
       if (!prompt) throw new Error("Prompt is required");
-      if (typeof instrumental !== "boolean") throw new Error("Instrumental must be a boolean");
       const {
         data: cf
       } = await axios.get(`https://${apiConfig.DOMAIN_URL}/api/tools/cf-token`, {
         params: {
-          sitekey: "0x4AAAAAAAgeJUEUvYlF2CzO",
-          url: "https://songgenerator.io/features/s-45"
+          sitekey: "0x4AAAAAAA6UyTUbN2VIQ0np",
+          url: "https://veo3api.ai/"
         }
       });
       const uid = crypto.createHash("md5").update(Date.now().toString()).digest("hex");
       const options = {
-        channel: "MUSIC",
-        id: 1631,
+        imgUrls: [],
+        quality: "720p",
+        duration: 8,
+        autoSoundFlag: true,
+        soundPrompt: "",
+        autoSpeechFlag: true,
+        speechPrompt: "",
+        speakerId: "Auto",
+        aspectRatio: "16:9",
+        secondaryPageId: 2019,
+        channel: "VEO3",
+        source: "veo3api.ai",
         type: "features",
-        source: "songgenerator.io",
-        style: style,
-        title: title,
-        customMode: false,
-        instrumental: instrumental,
+        watermarkFlag: true,
+        privateFlag: true,
+        isTemp: true,
+        vipFlag: true,
+        model: "veo-3-fast",
         ...rest
       };
       const {
@@ -61,7 +67,7 @@ class SunoMusicGenerator {
           verify: cf.token
         }
       });
-      const task_id = this.enc({
+      const task_id = await this.enc({
         uid: uid,
         cfToken: cf.token,
         recordId: task.data.recordId
@@ -70,7 +76,7 @@ class SunoMusicGenerator {
         task_id: task_id
       };
     } catch (error) {
-      throw new Error(error.message);
+      throw new Error(`Failed to initiate Veo video generation: ${error.message}`);
     }
   }
   async status({
@@ -80,7 +86,7 @@ class SunoMusicGenerator {
       if (!task_id) {
         throw new Error("task_id is required to check status.");
       }
-      const decryptedData = this.dec(task_id);
+      const decryptedData = await this.dec(task_id);
       const {
         uid,
         cfToken,
@@ -105,7 +111,7 @@ class SunoMusicGenerator {
       } else if (data.data.state === "processing" || data.data.state === "pending") {
         return {
           status: "processing",
-          message: "Music generation task is still being processed."
+          message: "Task is still being processed."
         };
       } else {
         return {
@@ -115,8 +121,8 @@ class SunoMusicGenerator {
         };
       }
     } catch (error) {
-      console.error("Error in status check:", error);
-      throw new Error(`Failed to check task status: ${error.message}`);
+      console.error("Error in VeoGenerator status check:", error);
+      throw new Error(`Failed to check Veo task status: ${error.message}`);
     }
   }
 }
@@ -130,7 +136,7 @@ export default async function handler(req, res) {
       error: "Action (create or status) is required."
     });
   }
-  const sunoGen = new SunoMusicGenerator();
+  const veo = new VeoGenerator();
   try {
     switch (action) {
       case "create":
@@ -139,7 +145,7 @@ export default async function handler(req, res) {
             error: "Prompt is required for 'create' action."
           });
         }
-        const createResponse = await sunoGen.create(params);
+        const createResponse = await veo.generate(params);
         return res.status(200).json(createResponse);
       case "status":
         if (!params.task_id) {
@@ -147,7 +153,7 @@ export default async function handler(req, res) {
             error: "task_id is required for 'status' action."
           });
         }
-        const statusResponse = await sunoGen.status(params);
+        const statusResponse = await veo.status(params);
         return res.status(200).json(statusResponse);
       default:
         return res.status(400).json({

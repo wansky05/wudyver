@@ -30,7 +30,7 @@ class MediaScraper {
       try {
         const {
           data
-        } = await axios.get(`https://${apiConfig.DOMAIN_URL}/api/tools/web/proxy/v1?host=7&url=https://9xbuddy.online/process?url=${encodeURIComponent(url)}`, {
+        } = await axios.get(`https://${apiConfig.DOMAIN_URL}/api/tools/web/html/v1?url=https://9xbuddy.online/process?url=${encodeURIComponent(url)}`, {
           headers: {
             "User-Agent": "Mozilla/5.0"
           }

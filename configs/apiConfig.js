@@ -1,7 +1,6 @@
 const PASSWORD = process.env.MY_PASSWORD || "";
 const MONGODB_URI = process.env.MY_MONGODB_URI || "";
 const DOMAIN_URL = process.env.MY_DOMAIN_URL || "wudysoft.xyz";
-const DOMAIN_CF = process.env.MY_DOMAIN_CF || "api.paxsenix.biz.id";
 const DOMAIN_KOYEB = process.env.MY_DOMAIN_KOYEB || "wudysoft.koyeb.app";
 const DOMAIN_VERCEL = process.env.MY_DOMAIN_VERCEL || "koyeb-api-wudy-team.vercel.app";
 const EMAIL = process.env.MY_EMAIL || "wudysoft@mail.com";
@@ -18,7 +17,6 @@ const apiConfig = {
   PASSWORD: PASSWORD,
   MONGODB_URI: MONGODB_URI,
   DOMAIN_URL: DOMAIN_URL,
-  DOMAIN_CF: DOMAIN_CF,
   DOMAIN_KOYEB: DOMAIN_KOYEB,
   DOMAIN_VERCEL: DOMAIN_VERCEL,
   EMAIL: EMAIL,

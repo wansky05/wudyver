@@ -258,9 +258,9 @@ export default async function handler(req, res) {
       error: "imageUrl is required"
     });
   }
-  const generator = new AnimeAIGenerator();
+  const api = new AnimeAIGenerator();
   try {
-    const data = await generator.generate(params);
+    const data = await api.generate(params);
     return res.status(200).json(data);
   } catch (error) {
     res.status(500).json({
