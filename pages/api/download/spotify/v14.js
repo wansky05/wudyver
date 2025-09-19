@@ -105,7 +105,7 @@ class SpotdlDownloader {
   }) {
     console.log("Proses: Memulai proses unduhan...");
     try {
-      await this.getTrack(url);
+      const meta = await this.getTrack(url);
       const convertResponse = await this.convert(url);
       const finalUrl = convertResponse?.url || null;
       if (!finalUrl) {
@@ -115,7 +115,8 @@ class SpotdlDownloader {
       console.log(`Proses: URL unduhan akhir: ${finalUrl}`);
       console.log("Proses: Simulasi download, tidak mengunduh file secara aktual.");
       return {
-        result: finalUrl
+        result: finalUrl,
+        ...meta
       };
     } catch (error) {
       console.error("Proses unduhan gagal:", error.message);
