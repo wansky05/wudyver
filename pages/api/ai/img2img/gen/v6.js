@@ -165,9 +165,9 @@ export default async function handler(req, res) {
     let response;
     switch (action) {
       case "create":
-        if (!params.prompt || !params.imageUrl) {
+        if (!!params.imageUrl) {
           return res.status(400).json({
-            error: "Parameter 'prompt' dan 'imageUrl' diperlukan untuk action 'create'."
+            error: "Parameter 'imageUrl' diperlukan untuk action 'create'."
           });
         }
         response = await icedit.create(params);
