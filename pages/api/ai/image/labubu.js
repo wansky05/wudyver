@@ -86,7 +86,7 @@ export default async function handler(req, res) {
       error: "Action is required."
     });
   }
-  const api = new LyndiumAPI();
+  const api = new LabubuAI();
   try {
     let response;
     switch (action) {

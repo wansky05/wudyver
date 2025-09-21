@@ -62,12 +62,45 @@ class ModelsLab {
       throw new Error(`Panggilan API ke ${endpoint} gagal: ${error?.response?.data?.message || error.message}`);
     }
   }
-  _process_image(image_input) {
+  async _process_image(image_input) {
     if (!image_input) return null;
-    if (Buffer.isBuffer(image_input)) return `data:image/jpeg;base64,${image_input.toString("base64")}`;
-    if (typeof image_input === "string" && image_input.startsWith("data:image/")) return image_input;
-    if (typeof image_input === "string" && !image_input.startsWith("http")) return `data:image/jpeg;base64,${image_input}`;
-    return image_input;
+    if (typeof image_input === "string" && image_input.startsWith("http")) {
+      return image_input;
+    }
+    await this._ensure_auth();
+    let base64_string;
+    if (Buffer.isBuffer(image_input)) {
+      base64_string = `data:image/jpeg;base64,${image_input.toString("base64")}`;
+    } else if (typeof image_input === "string" && image_input.startsWith("data:image/")) {
+      base64_string = image_input;
+    } else if (typeof image_input === "string") {
+      base64_string = `data:image/jpeg;base64,${image_input}`;
+    } else {
+      this._log("warn", "Format gambar tidak didukung untuk pra-unggah, mencoba menggunakan input mentah.", {
+        input: image_input
+      });
+      return image_input;
+    }
+    try {
+      this._log("info", "Melakukan pra-unggah gambar base64 untuk mendapatkan URL...");
+      const response = await this._request("/base64_to_url", {
+        key: this.keys.txt2img || this.keys.txt2vid,
+        base64_string: base64_string
+      });
+      if (response && response.output) {
+        this._log("info", "Pra-unggah berhasil.", {
+          url: response.output
+        });
+        return response.output;
+      } else {
+        throw new Error("Respon pra-unggah tidak valid.");
+      }
+    } catch (error) {
+      this._log("error", "Pra-unggah gambar base64 gagal.", {
+        message: error.message
+      });
+      throw error;
+    }
   }
   async txt2img({
     prompt,
@@ -148,8 +181,8 @@ class ModelsLab {
       ...base_payload,
       ...rest,
       prompt: prompt,
-      init_image: this._process_image(imageUrl),
-      init_image_2: rest.init_image_2 ? this._process_image(rest.init_image_2) : undefined
+      init_image: await this._process_image(imageUrl),
+      init_image_2: rest.init_image_2 ? await this._process_image(rest.init_image_2) : undefined
     };
     return await this._request(endpoint, payload);
   }
@@ -236,7 +269,7 @@ class ModelsLab {
       ...base_payload,
       ...rest,
       prompt: prompt,
-      init_image: this._process_image(imageUrl)
+      init_image: await this._process_image(imageUrl)
     };
     return await this._request(endpoint, payload);
   }
@@ -279,7 +312,7 @@ class ModelsLab {
       key: this.keys.txt2img || this.keys.txt2vid,
       ...base_payload,
       ...rest,
-      init_image: this._process_image(imageUrl)
+      init_image: await this._process_image(imageUrl)
     };
     return await this._request(endpoint, payload);
   }
@@ -295,7 +328,7 @@ class ModelsLab {
       webhook: null,
       track_id: null,
       ...rest,
-      init_image: this._process_image(imageUrl),
+      init_image: await this._process_image(imageUrl),
       specific_object: specific_object
     };
     return await this._request(endpoint, payload);
@@ -324,7 +357,7 @@ class ModelsLab {
       key: this.keys.txt2img || this.keys.txt2vid,
       ...base_payload,
       ...rest,
-      face_image: this._process_image(faceImageUrl)
+      face_image: await this._process_image(faceImageUrl)
     };
     return await this._request(endpoint, payload);
   }
@@ -352,7 +385,7 @@ class ModelsLab {
       key: this.keys.txt2img || this.keys.txt2vid,
       ...base_payload,
       ...rest,
-      face_image: this._process_image(faceImageUrl)
+      face_image: await this._process_image(faceImageUrl)
     };
     return await this._request(endpoint, payload);
   }

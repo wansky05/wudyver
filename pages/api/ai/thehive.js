@@ -437,7 +437,7 @@ export default async function handler(req, res) {
         break;
       case "del_key":
         if (!params.key) return res.status(400).json({
-          error: "Parameter 'key' wajib diisi untuk action 'profile'."
+          error: "Parameter 'key' wajib diisi untuk action 'del_key'."
         });
         response = await api.delKey(params);
         break;

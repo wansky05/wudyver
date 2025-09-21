@@ -19,7 +19,7 @@ class VertexAI {
     };
   }
   async chat({
-    question,
+    prompt: question,
     model = "gemini-1.5-flash",
     system_instruction = null,
     imageUrl = null,

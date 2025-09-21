@@ -364,7 +364,7 @@ class EasyMusicAPI {
       return {
         key: sessionKey,
         task_id: taskId,
-        taskInfo
+        taskInfo: taskInfo
       };
     } catch (error) {
       console.error("Gagal generate:", error.message);
