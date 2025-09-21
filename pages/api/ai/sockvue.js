@@ -1,12 +1,5 @@
 import axios from "axios";
 import crypto from "crypto";
-import {
-  CookieJar,
-  Cookie
-} from "tough-cookie";
-import {
-  wrapper
-} from "axios-cookiejar-support";
 import apiConfig from "@/configs/apiConfig";
 const wudysoftApiClient = axios.create({
   baseURL: `https://${apiConfig.DOMAIN_URL}/api`
@@ -59,13 +52,13 @@ class WudysoftAPI {
   }
   async delPaste(key) {
     try {
-      await this.client.get("/tools/paste/v1", {
+      const response = await this.client.get("/tools/paste/v1", {
         params: {
           action: "delete",
           key: key
         }
       });
-      return true;
+      return response.data || null;
     } catch (error) {
       console.error(`[ERROR] Gagal dalam 'WudysoftAPI.delPaste' untuk kunci ${key}: ${error.message}`);
       return false;
@@ -103,22 +96,61 @@ class WudysoftAPI {
 const sleep = ms => new Promise(resolve => setTimeout(resolve, ms));
 class Shockvue {
   constructor() {
-    this.jar = new CookieJar();
-    this.api = wrapper(axios.create({
+    this.api = axios.create({
       baseURL: "https://xwlraklganiikvvqujuk.supabase.co",
       headers: {
         apikey: "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Inh3bHJha2xnYW5paWt2dnF1anVrIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTEwMjg5OTEsImV4cCI6MjA2NjYwNDk5MX0.oU-LDjrYklc6zuG2UlYGk3V1Tzv2tGuacMhJIC_Sobw",
         origin: "https://www.shockvueapp.com",
         referer: "https://www.shockvueapp.com/",
         "user-agent": "Mozilla/5.0 (Linux; Android 10; K) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/127.0.0.0 Mobile Safari/537.36"
-      },
-      jar: this.jar,
-      maxRedirects: 10,
-      validateStatus: status => status >= 200 && status < 400
-    }));
+      }
+    });
     this.token = null;
     this.pkce = {};
     this.wudysoft = new WudysoftAPI();
+    this.config = {
+      "image-edit": {
+        endpoint: "image-edit",
+        imageKey: "input_image",
+        defaultPayload: {
+          batch_size: 1,
+          output_format: "jpg",
+          enhance_prompt: true,
+          safety_tolerance: 2,
+          aspect_ratio: "match_input_image"
+        }
+      },
+      "nano-banana": {
+        endpoint: "nano-banana-edit",
+        imageKey: "image_input",
+        imageIsArray: true,
+        defaultPayload: {
+          output_format: "jpg"
+        }
+      },
+      seedream: {
+        endpoint: "seedream-4-generation",
+        imageKey: "image_input",
+        imageIsArray: true,
+        defaultPayload: {
+          size: "2K",
+          aspect_ratio: "match_input_image",
+          max_images: 1,
+          sequential_image_generation: "disabled"
+        }
+      },
+      "qwen-edit": {
+        endpoint: "qwen-image-edit",
+        imageKey: "image",
+        defaultPayload: {
+          aspect_ratio: "match_input_image",
+          batch_size: 1,
+          output_quality: 100,
+          output_format: "jpeg",
+          go_fast: true
+        }
+      }
+    };
   }
   random() {
     return Math.random().toString(36).substring(2);
@@ -159,13 +191,12 @@ class Shockvue {
       if (!email) throw new Error("Gagal mendapatkan email.");
       console.log(`Email didapat: ${email}`);
       const password = this.random() + "@A1";
-      const fullName = this.random();
       this.genChallenge();
-      await this.api.post("/auth/v1/signup?redirect_to=https%3A%2F%2Fwww.shockvueapp.com%2F", {
+      await this.api.post("/auth/v1/signup", {
         email: email,
         password: password,
         data: {
-          full_name: fullName
+          full_name: this.random()
         },
         code_challenge: this.pkce.challenge,
         code_challenge_method: "s256"
@@ -181,10 +212,13 @@ class Shockvue {
         await sleep(3e3);
       }
       if (!verifyLink) throw new Error("Gagal menemukan tautan verifikasi.");
-      const verifyResponse = await this.api.get(verifyLink).catch(e => e.response);
-      const finalUrl = verifyResponse.request.res.responseUrl;
-      if (!finalUrl) throw new Error("Tidak dapat menemukan URL final setelah redirect.");
-      const url = new URL(finalUrl);
+      const verifyResponse = await axios.get(verifyLink, {
+        maxRedirects: 0,
+        validateStatus: status => status >= 300 && status < 400
+      }).catch(err => err.response);
+      const location = verifyResponse.headers.location;
+      if (!location) throw new Error("Tidak dapat menemukan URL redirect dari link verifikasi.");
+      const url = new URL(location);
       const authCode = url.searchParams.get("code");
       if (!authCode) throw new Error("Gagal mendapatkan kode otentikasi dari URL redirect.");
       const tokenResponse = await this.api.post("/auth/v1/token?grant_type=pkce", {
@@ -194,7 +228,7 @@ class Shockvue {
       this.token = tokenResponse.data?.access_token;
       if (!this.token) throw new Error("Gagal mendapatkan access token.");
       this.api.defaults.headers.common["authorization"] = `Bearer ${this.token}`;
-      console.log("Login berhasil, cookie dan token telah disetel.");
+      console.log("Login berhasil, token telah disetel.");
     } catch (error) {
       console.error("Login gagal:", error.response?.data || error.message);
       throw error;
@@ -204,14 +238,10 @@ class Shockvue {
     try {
       console.log("Memulai proses registrasi sesi baru...");
       await this._performLogin();
-      const allCookies = await this.jar.getCookies("https://xwlraklganiikvvqujuk.supabase.co", {
-        allPaths: true
-      });
       const sessionToSave = JSON.stringify({
-        token: this.token,
-        cookies: allCookies.map(cookie => cookie.toJSON())
+        token: this.token
       });
-      const sessionTitle = `shockvue-${this.random()}`;
+      const sessionTitle = `shockvue-token-${this.random()}`;
       const newKey = await this.wudysoft.createPaste(sessionTitle, sessionToSave);
       if (!newKey) throw new Error("Gagal menyimpan sesi baru ke Wudysoft.");
       console.log(`Sesi baru berhasil didaftarkan. Kunci Anda: ${newKey}`);
@@ -227,9 +257,7 @@ class Shockvue {
     try {
       console.log("Mengambil daftar semua kunci sesi...");
       const allPastes = await this.wudysoft.listPastes();
-      const filteredKeys = allPastes.filter(paste => paste.title && paste.title.startsWith("shockvue-")).map(paste => paste.key);
-      console.log(`Ditemukan ${filteredKeys.length} kunci yang cocok.`);
-      return filteredKeys;
+      return allPastes.filter(paste => paste.title && paste.title.startsWith("shockvue-")).map(paste => paste.key);
     } catch (error) {
       console.error("Gagal mengambil daftar kunci:", error.message);
       throw error;
@@ -245,13 +273,8 @@ class Shockvue {
     try {
       console.log(`Mencoba menghapus kunci: ${key}`);
       const success = await this.wudysoft.delPaste(key);
-      if (success) {
-        console.log(`Kunci ${key} berhasil dihapus.`);
-        return true;
-      } else {
-        console.error(`Gagal menghapus kunci ${key}.`);
-        return false;
-      }
+      console.log(success ? `Kunci ${key} berhasil dihapus.` : `Gagal menghapus kunci ${key}.`);
+      return success;
     } catch (error) {
       console.error(`Terjadi error saat menghapus kunci ${key}:`, error.message);
       throw error;
@@ -266,20 +289,8 @@ class Shockvue {
     try {
       const sessionData = JSON.parse(savedSession);
       this.token = sessionData.token;
-      if (sessionData.cookies && Array.isArray(sessionData.cookies)) {
-        this.jar = new CookieJar();
-        for (const cookieData of sessionData.cookies) {
-          const cookie = Cookie.fromJSON(JSON.stringify(cookieData));
-          if (cookie) {
-            await this.jar.setCookie(cookie, `https://${cookie.domain}`);
-          }
-        }
-        this.api.defaults.jar = this.jar;
-      } else {
-        throw new Error("Format cookie dalam sesi tidak valid.");
-      }
-      this.api.defaults.headers.common["authorization"] = `Bearer ${this.token}`;
       if (!this.token) throw new Error("Token tidak valid di sesi yang tersimpan.");
+      this.api.defaults.headers.common["authorization"] = `Bearer ${this.token}`;
       console.log("Sesi berhasil dimuat.");
     } catch (e) {
       throw new Error(`Gagal memuat sesi dari kunci "${key}": ${e.message}`);
@@ -293,35 +304,34 @@ class Shockvue {
     ...rest
   }) {
     try {
-      let sessionKey = key;
-      if (!sessionKey) {
+      if (!key) {
         console.log("Kunci tidak disediakan, mendaftarkan sesi baru...");
-        sessionKey = (await this.register())?.key;
-        console.log(`-> PENTING: Simpan kunci ini untuk penggunaan selanjutnya: ${sessionKey}`);
+        const newSession = await this.register();
+        key = newSession?.key;
+        if (!key) throw new Error("Gagal mendaftarkan sesi baru secara otomatis.");
+        console.log(`-> PENTING: Simpan kunci ini untuk penggunaan selanjutnya: ${key}`);
       } else {
-        await this._loadSession(sessionKey);
+        await this._loadSession(key);
       }
       console.log(`Memulai aksi: ${mode}`);
-      const endpointMap = {
-        seedream: "seedream-4-generation",
-        "nano-banana": "nano-banana-edit",
-        "image-edit": "image-edit",
-        "qwen-edit": "qwen-image-edit"
-      };
-      const endpoint = endpointMap[mode] || "image-edit";
-      if (!endpoint) {
-        const availableModes = Object.keys(endpointMap).join(", ");
-        throw new Error(`Aksi tidak valid. Mode yang tersedia adalah: ${availableModes}`);
+      const modeConfig = this.config[mode];
+      if (!modeConfig) {
+        throw new Error(`Mode tidak valid. Mode yang tersedia: ${Object.keys(this.config).join(", ")}`);
       }
-      console.log(`Endpoint yang digunakan: ${endpoint}`);
+      const {
+        endpoint,
+        defaultPayload,
+        imageKey,
+        imageIsArray
+      } = modeConfig;
       let payload = {
+        ...defaultPayload,
         prompt: prompt,
         ...rest
       };
-      const imageKey = mode === "qwen-edit" ? "image" : mode === "image-edit" ? "input_image" : "image_input";
       if (imageUrl) {
         const base64Image = await this.toB64(imageUrl);
-        payload[imageKey] = mode === "seedream" || mode === "nano-banana-edit" ? [base64Image] : base64Image;
+        payload[imageKey] = imageIsArray ? [base64Image] : base64Image;
       }
       const initialResponse = await this.api.post(`/functions/v1/${endpoint}`, payload);
       const predictionId = initialResponse.data?.predictions?.[0]?.id;
@@ -332,13 +342,16 @@ class Shockvue {
         const statusResponse = await this.api.post(`/functions/v1/${endpoint}`, {
           prediction_id: predictionId
         });
-        const status = statusResponse.data?.status;
+        const {
+          status,
+          error
+        } = statusResponse.data;
         if (status === "succeeded") {
           console.log("Prediksi berhasil!");
-          const output = statusResponse.data;
-          return output;
-        } else if (status === "failed" || status === "canceled") {
-          throw new Error(`Prediksi gagal: ${statusResponse.data?.error || "Status " + status}`);
+          return statusResponse.data;
+        }
+        if (status === "failed" || status === "canceled") {
+          throw new Error(`Prediksi gagal: ${error || "Status " + status}`);
         }
         await sleep(3e3);
       }
@@ -346,7 +359,7 @@ class Shockvue {
     } catch (error) {
       const errorMessage = error.response?.data?.message || error.message;
       console.error(`Proses generate gagal: ${errorMessage}`);
-      throw new Error(errorMessage.startsWith("API Error:") ? errorMessage : `Error: ${errorMessage}`);
+      throw new Error(errorMessage);
     }
   }
 }
@@ -368,34 +381,32 @@ export default async function handler(req, res) {
         response = await api.register();
         break;
       case "generate":
-        if (!params.prompt) return res.status(400).json({
-          error: "Parameter 'prompt' wajib diisi untuk action 'generate'."
-        });
+        if (!params.prompt) {
+          return res.status(400).json({
+            error: "Parameter 'prompt' wajib diisi untuk action 'generate'."
+          });
+        }
         response = await api.generate(params);
         break;
       case "list_key":
         response = await api.list_key();
         break;
       case "del_key":
-        if (!params.key) return res.status(400).json({
-          error: "Parameter 'key' wajib diisi untuk action 'del_key'."
-        });
+        if (!params.key) {
+          return res.status(400).json({
+            error: "Parameter 'key' wajib diisi untuk action 'del_key'."
+          });
+        }
         response = await api.del_key(params);
         break;
       default:
         return res.status(400).json({
-          error: `Action tidak valid: ${action}. Action yang didukung adalah 'register', 'generate', 'list_key, and 'del_key'.`
+          error: `Action tidak valid: ${action}. Action yang didukung: 'register', 'generate', 'list_key', 'del_key'.`
         });
     }
-    if (response === null) {
-      return res.status(500).json({
-        error: `Proses untuk action '${action}' gagal. Periksa log server untuk detail.`
-      });
-    }
-    console.log(`Handler - Merespons untuk action '${action}':`, JSON.stringify(response, null, 2));
     return res.status(200).json(response);
   } catch (error) {
-    console.error(`[FATAL ERROR] Kegagalan tidak terduga di handler untuk action '${action}':`, error);
+    console.error(`[FATAL ERROR] Kegagalan pada action '${action}':`, error);
     return res.status(500).json({
       error: error.message || "Terjadi kesalahan internal pada server."
     });

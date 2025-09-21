@@ -76,6 +76,7 @@ class EmailnatorClient {
       if (!email) {
         throw new Error("Alamat email dibutuhkan untuk memeriksa inbox.");
       }
+      await this.client.get("/");
       const xsrfToken = await this.getToken();
       if (!xsrfToken) {
         throw new Error("XSRF token tidak ada. Jalankan fungsi create() terlebih dahulu.");
